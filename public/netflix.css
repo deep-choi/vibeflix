@@ -3,8 +3,8 @@
 html{scroll-padding-top:80px}
 
 /* ───── Header ───── */
-.header{position:fixed;height:68px;padding:0 var(--nf-pad);gap:34px;border-bottom:0;background:linear-gradient(180deg,#000000d6 0%,#00000080 55%,#00000000 100%);transition:background-color .35s ease,box-shadow .35s ease}
-.header.scrolled{background:#101110f0;backdrop-filter:blur(12px);box-shadow:0 1px 0 #ffffff12}
+.header{position:fixed;height:68px;padding:0 var(--nf-pad);gap:34px;border-bottom:0;background:#101110;transition:box-shadow .35s ease}
+.header.scrolled{box-shadow:0 1px 0 #ffffff14,0 8px 24px #0006}
 .brand{font-size:28px;letter-spacing:-1.6px}
 .header nav{gap:20px}
 .nav-link{padding:0;font-size:14px;color:#e5e5e5;transition:color .2s}
@@ -16,26 +16,26 @@ html{scroll-padding-top:80px}
 .header-actions{gap:18px}
 
 /* ───── Hero billboard ───── */
-.hero{height:min(88vh,860px);min-height:560px;display:flex;align-items:flex-end;background:#101110}
+.hero{box-sizing:border-box;margin:80px var(--nf-pad) 0;height:clamp(460px,calc(100vh - 100px),820px);border-radius:18px;display:flex;align-items:flex-end;background:#101110;isolation:isolate;box-shadow:0 0 0 1px #ffffff12,0 24px 60px #0008}
 .hero-grain,.hero-image-caption,.hero-bottom-note{display:none}
-.hero-shade{background:linear-gradient(77deg,#000000db 0%,#000000a3 28%,#00000020 60%,transparent 100%),linear-gradient(0deg,#101110 0%,#101110ec 14%,#101110a0 28%,transparent 50%),linear-gradient(180deg,#0000008c 0%,transparent 20%)}
-.hero-content{margin:0 0 0 var(--nf-pad);padding:0 0 clamp(130px,20vh,210px);max-width:min(600px,90vw)}
+.hero-shade{background:linear-gradient(77deg,#000000d9 0%,#000000a0 30%,#00000018 62%,transparent 100%),linear-gradient(0deg,#000000b8 0%,#00000060 22%,transparent 46%),linear-gradient(180deg,#00000066 0%,transparent 16%)}
+.hero-content{margin:0 0 0 clamp(24px,3.2vw,56px);padding:0 0 clamp(32px,6vh,56px);max-width:min(600px,86%)}
 .hero h1{font-size:clamp(46px,7vw,92px);letter-spacing:clamp(2px,.45vw,7px);font-weight:700;margin:10px 0 0;text-shadow:0 4px 30px #0009}
 .hero h1 span{font-size:clamp(11px,1.1vw,14px);letter-spacing:5px;margin:12px 0 0 2px}
 .hero-kicker{margin-top:18px;font-size:13px;letter-spacing:1.5px}
 .hero-description{font-size:clamp(14px,1.3vw,18px);line-height:1.65;color:#fff;margin:16px 0 14px;text-shadow:0 1px 10px #000a}
 .hero-meta{font-size:12px}
 .hero-buttons{margin-top:20px;gap:12px}
-.hero-buttons .primary-button,.hero-buttons .secondary-button{min-height:50px;padding:0 28px;font-size:clamp(14px,1.2vw,18px);border-radius:5px}
+.hero-buttons .primary-button,.hero-buttons .secondary-button{min-height:46px;padding:0 26px;font-size:clamp(14px,1.15vw,17px);border-radius:999px}
 .hero .secondary-button{background:#6d6d6eb3;color:#fff;border:0;backdrop-filter:none}
 .hero .secondary-button:hover{background:#6d6d6e66}
 .hero .primary-button:hover{background:#d3ff7c}
 .hero-save{width:46px;height:46px;border:2px solid #ffffff80;background:#2a2a2a99}
 .hero-save:hover{border-color:#fff}
-.hero-side{right:0;bottom:clamp(130px,20vh,210px);padding:8px 4vw 8px 14px;background:#3333339c;border-left:3px solid var(--lime);gap:16px}
+.hero-side{right:clamp(16px,2vw,32px);bottom:clamp(32px,6vh,56px);padding:8px 14px;background:#33333399;border-radius:999px;border-left:0;gap:14px}
 
 /* ───── Rows pulled up over the billboard ───── */
-.discovery{max-width:none;padding:0 var(--nf-pad) 40px;margin-top:calc(-1 * clamp(80px,12vh,130px));position:relative;z-index:2}
+.discovery{max-width:none;padding:0 var(--nf-pad) 40px;margin-top:28px;position:relative;z-index:2}
 .discovery-top{display:none}
 .nf-home .discovery>.filter-bar,.nf-home .discovery>.row-heading,.nf-home #project-row,.nf-home #fresh-section,.nf-home #upcoming-section{display:none}
 .nf-rows{margin:0 calc(-1 * var(--nf-pad));position:relative;z-index:3}
@@ -121,15 +121,68 @@ footer{margin:0 var(--nf-pad);border-top:1px solid #ffffff14}
   .header nav{position:static;order:3;width:100%;height:36px;overflow-x:auto;scrollbar-width:none;gap:20px}
   .header nav::-webkit-scrollbar{display:none}
   .nav-link{padding:8px 0;font-size:13px}
-  .hero{min-height:620px;height:82vh}
-  .hero-content{padding-bottom:150px}
+  .hero{margin-top:112px;min-height:520px;height:calc(100vh - 130px);border-radius:14px}
+  .hero-content{padding-bottom:28px}
   .hero-art{opacity:.4;left:25%}
   .hero-side{display:none}
-  .discovery{margin-top:-90px}
+  .discovery{margin-top:22px}
   .nf-rank{font-size:96px}
 }
 @media(max-width:600px){
   .header-actions .upload-button{padding:8px 11px;font-size:12px}
   .hero-buttons .primary-button,.hero-buttons .secondary-button{padding:0 18px;min-height:44px}
-  .hero-description br{display:none}
 }
+
+.hero-image{border-radius:inherit}
+body:not(.nf-home) .discovery{margin-top:28px;padding-top:0}
+
+/* ───── Minimal pass: remove secondary information, keep title / art / one action ───── */
+.beta,.section-kicker,.hero .eyebrow,.hero-kicker,.hero h1 span,.hero-meta,.hero-side,.hero-art-caption,.water-ring,
+.card-top-tag,.card-category,.card-metrics,.card-bottom,
+.banner-orbit,.creator-banner p,
+.community-heading p,.community-guidelines,
+.detail-tags,.detail-notice,.detail-overline,
+footer p,.filter-symbol,.filter>span:not(.filter-symbol),.discovery-top,.catalog-status:empty{display:none!important}
+
+/* Nav & header */
+.header nav{gap:22px}
+.nav-link{font-size:14px;font-weight:500;color:#cfd2c8}
+.nav-link.active{color:#fff}
+.upload-button{padding:8px 14px;font-weight:600}
+
+/* Banner: title, one short line, two actions */
+.hero h1{font-size:clamp(44px,6vw,80px);letter-spacing:clamp(1px,.3vw,4px);margin:0}
+.hero-description{font-size:clamp(14px,1.2vw,17px);color:#e6e8e0;margin:14px 0 0;max-width:30em}
+.hero-buttons{margin-top:22px}
+.hero-save{border-width:1px;background:transparent}
+.hero{box-shadow:none;border:1px solid #ffffff10}
+
+/* Rows: fewer chrome, more air */
+.nf-row{margin-bottom:44px}
+.nf-row-title{font-size:clamp(16px,1.3vw,19px);font-weight:600;color:#f1f3ea;padding-bottom:12px}
+.card-art{border:0}
+.card-save{opacity:0;transition:opacity .2s}
+.project-card:hover .card-save,.project-card:focus-within .card-save,.card-save.saved{opacity:1}
+.card-info{padding:12px 14px 14px}
+.card-title{font-size:14px}
+.card-subtitle{font-size:12px;-webkit-line-clamp:2}
+body:not(.nf-home) .card-info{padding:10px 2px 0}
+.nf-arrow{font-size:36px}
+
+/* Browse bar */
+.filter{border-color:transparent;background:#ffffff0d;color:#cfd2c8;font-size:13px;padding:8px 16px}
+.filter.active{background:var(--lime);color:#17210e}
+.sort-label span{display:none}
+
+/* Detail: cover, title, description, creator, actions */
+.detail-subtitle{display:none}
+.detail-description{font-size:15px;line-height:1.8;color:#d6d9cf}
+.detail-creator{margin:18px 0 22px}
+.detail-body h2{font-size:clamp(26px,3.4vw,38px)}
+
+/* Creator banner / community / footer */
+.creator-banner{background:#171916;border:1px solid #ffffff10;padding:26px 30px}
+.creator-banner h2{font-size:19px;margin:0}
+.community-section{padding-top:56px}
+footer{padding:22px 0 28px;border-top:1px solid #ffffff10}
+footer>span{margin-left:auto}

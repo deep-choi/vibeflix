@@ -76,7 +76,6 @@ function renderRows(home){
   const live=projects.filter(p=>p.status!=='upcoming');
   const popular=[...live].sort((a,b)=>(b.recommendations||0)-(a.recommendations||0)||(b.rating||0)-(a.rating||0)||b.created-a.created).slice(0,10);
   const rows=[
-    {title:'인기 TOP 10',top:true,items:popular,min:3},
     {title:'지금, 주목할 바이브',items:live},
     {title:'플레이하고 싶은 게임',items:live.filter(p=>p.type==='game')},
     {title:'일상을 바꾸는 웹사이트 · 앱',items:live.filter(p=>['website','app'].includes(p.type))},
