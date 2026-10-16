@@ -55,3 +55,13 @@ Google 공개 설정은 `public/firebase-config.json`에 있습니다. Firebase 
 프로젝트 ID와 D1 바인딩은 `.openai/hosting.json`에 있습니다. Sites workflow로 소스를 동기화한 뒤 빌드 아카이브를 저장·배포합니다. 비밀값과 로컬 세션은 소스에 포함하지 않습니다.
 
 배경 산 사진: Unsplash photo `1464822759023-fed622ff2c3b`. 나머지 서비스 이미지는 사용자의 기존 `app-release/store-assets`와 `deepchoi/public`에서 가져왔습니다.
+
+## Cloudflare Workers 배포
+
+Sites와 별개로 Cloudflare 계정(`wrangler login`)에 직접 배포할 수 있습니다. 현재 Worker 이름은 `vibeflix`, D1 데이터베이스 이름은 `vibeflix-db`입니다.
+
+1. `npm run build`
+2. 새 마이그레이션이 있으면 `npx wrangler d1 execute vibeflix-db --remote --file drizzle/<파일>.sql`
+3. 빌드가 만드는 `dist/server/wrangler.json`의 `name`을 `vibeflix`, `d1_databases`를 `vibeflix-db`의 실제 `database_id`로 바꾼 뒤 `npx wrangler deploy` (`dist/`는 Git에 포함되지 않으며 빌드할 때마다 다시 만들어집니다.)
+
+주의: ChatGPT 로그인(`/signin-with-chatgpt`)은 Sites 전용이라 Cloudflare 직접 배포에서는 동작하지 않습니다. Google 로그인은 Firebase 콘솔 → Authentication → 승인된 도메인에 배포 도메인을 추가해야 합니다. 운영자 권한이 필요하면 `npx wrangler secret put ADMIN_EMAILS`로 설정합니다.
