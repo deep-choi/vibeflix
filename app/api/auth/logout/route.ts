@@ -1,0 +1,4 @@
+import { db, failure, json, origin } from '../../../../lib/api';
+import { digest, sessionName } from '../../../../lib/auth';
+export const dynamic='force-dynamic';
+export async function POST(request:Request){try{origin(request);const name=sessionName(request);const token=(request.headers.get('cookie')||'').split(';').map(s=>s.trim()).find(s=>s.startsWith(name+'='))?.split('=').slice(1).join('=');if(token)await db().prepare('DELETE FROM sessions WHERE hash=?').bind(await digest(token)).run();const secure=new URL(request.url).protocol==='https:'?'; Secure':'';const response=json({ok:true});response.headers.append('Set-Cookie',`${name}=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0${secure}`);response.headers.append('Set-Cookie',`vibeflix_signed_out=1; HttpOnly; Path=/; SameSite=Lax; Max-Age=604800${secure}`);return response;}catch(error){return failure(error);}}

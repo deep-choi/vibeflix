@@ -1,0 +1,11 @@
+import { env } from 'cloudflare:workers';
+import { boundedBody, sameOrigin } from './project-input';
+export class ApiError extends Error {constructor(public status:number,message:string){super(message);}}
+export const db=()=>{if(!env.DB)throw new ApiError(503,'데이터베이스에 연결할 수 없습니다.');return env.DB;};
+export const json=(value:unknown,status=200,headers:Record<string,string>={})=>Response.json(value,{status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff',...headers}});
+export function failure(error:unknown){if(error instanceof ApiError)return json({error:error.message},error.status);console.error('Community request failed',error instanceof Error?error.message:'unknown');return json({error:'요청을 처리하지 못했습니다. 잠시 후 다시 시도해주세요.'},503);}
+export function origin(request:Request){if(!sameOrigin(request))throw new ApiError(403,'이 사이트에서 다시 시도해주세요.');}
+export async function body(request:Request,limit=64000):Promise<Record<string,unknown>>{if(!request.headers.get('content-type')?.includes('application/json'))throw new ApiError(415,'JSON 요청이 필요합니다.');const raw=await boundedBody(request,limit);if(raw===null)throw new ApiError(413,'입력 내용이 너무 깁니다.');try{const value=JSON.parse(raw);if(!value||typeof value!=='object'||Array.isArray(value))throw Error();return value;}catch{throw new ApiError(400,'입력 형식을 확인해주세요.');}}
+export function text(value:unknown,min:number,max:number,label:string){if(typeof value!=='string'||value.trim().length<min||value.trim().length>max)throw new ApiError(400,`${label}: ${min}~${max}자로 입력해주세요.`);return value.trim();}
+export async function limit(userId:string,action:string,count:number,seconds=60){const window=Math.floor(Date.now()/(seconds*1000))*seconds*1000;const row=await db().prepare('INSERT INTO limits (id, window_start, count) VALUES (?, ?, 1) ON CONFLICT(id) DO UPDATE SET count = CASE WHEN window_start < excluded.window_start THEN 1 ELSE count + 1 END, window_start = excluded.window_start WHERE window_start < excluded.window_start OR count < ? RETURNING count').bind(`${userId}:${action}`,window,count).first();if(!row)throw new ApiError(429,'잠시 쉬었다 다시 시도해주세요. 등록 횟수 제한에 도달했습니다.');}
+export function pageParams(url:URL,max=30){const offset=Math.max(0,Math.min(10000,Number(url.searchParams.get('offset'))||0));return{offset,take:Math.max(1,Math.min(max,Number(url.searchParams.get('limit'))||20))};}

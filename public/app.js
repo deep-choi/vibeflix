@@ -15,6 +15,7 @@ let currentFeatured = 'koiworld';
 let detailId = null;
 let toastTimeout;
 let submitting = false;
+let editingProjectId = null;
 let saved;
 try {const value=JSON.parse(localStorage.getItem('vibeflix.saved.v2') || '[]');saved=new Set(Array.isArray(value)?value.filter(id=>typeof id==='string'):[]);} catch {saved=new Set();}
 function validUrl(value) {try{const url=new URL(value);return ['http:','https:'].includes(url.protocol)&&!url.username&&!url.password?url.href:'';}catch{return '';}}
@@ -37,12 +38,14 @@ function artMarkup(p) {
 }
 function cardMarkup(p) {
   const isSaved=saved.has(p.id);
-  return `<article class="project-card"><button class="card-open" data-detail="${escapeHtml(p.id)}" aria-label="${escapeHtml(p.title)} 자세히 보기">${artMarkup(p)}<div class="card-info"><div class="card-title-line"><span class="card-title">${escapeHtml(p.title)}</span><span class="card-category">${typeNames[p.type]}</span></div><div class="card-subtitle">${escapeHtml(p.subtitle)}</div><div class="card-bottom"><span class="creator-dot">${escapeHtml((p.creator||'V')[0].toUpperCase())}</span><span>${escapeHtml(p.creator)}</span><span class="card-availability ${p.status==='upcoming'?'upcoming':''}">${p.status==='upcoming'?'공개 준비 중':'● 지금 이용 가능'}</span></div></div></button>${p.badge?`<span class="card-top-tag ${p.featured?'lime':''}">${escapeHtml(p.badge)}</span>`:''}<button class="card-save ${isSaved?'saved':''}" data-save="${escapeHtml(p.id)}" aria-label="${escapeHtml(p.title)} ${isSaved?'찜 취소':'찜하기'}" aria-pressed="${isSaved}">${isSaved?'✓':'+'}</button></article>`;
+  return `<article class="project-card"><button class="card-open" data-detail="${escapeHtml(p.id)}" aria-label="${escapeHtml(p.title)} 자세히 보기">${artMarkup(p)}<div class="card-info"><div class="card-title-line"><span class="card-title">${escapeHtml(p.title)}</span><span class="card-category">${typeNames[p.type]}</span></div><div class="card-subtitle">${escapeHtml(p.subtitle)}</div><div class="card-metrics"><span class="card-rating">★ ${p.ratingCount?Number(p.rating).toFixed(1):'첫 평가를 기다려요'} <small>${p.ratingCount?'('+Number(p.ratingCount)+')':''}</small></span><span>♡ ${Number(p.recommendations||0)} <span class="metric-divider">·</span> 댓글 ${Number(p.commentCount||0)}</span></div><div class="card-bottom"><span class="creator-dot">${escapeHtml((p.creator||'V')[0].toUpperCase())}</span><span>${escapeHtml(p.creator)}</span><span class="card-availability ${p.status==='upcoming'?'upcoming':''}">${p.status==='upcoming'?'공개 준비 중':'● 지금 이용 가능'}</span></div></div></button>${p.badge?`<span class="card-top-tag ${p.featured?'lime':''}">${escapeHtml(p.badge)}</span>`:''}<button class="card-save ${isSaved?'saved':''}" data-save="${escapeHtml(p.id)}" aria-label="${escapeHtml(p.title)} ${isSaved?'찜 취소':'찜하기'}" aria-pressed="${isSaved}">${isSaved?'✓':'+'}</button></article>`;
 }
 function render() {
   let list=projects.filter(p=>(filter==='saved'?saved.has(p.id):(p.status!=='upcoming'||!!query)&&(filter==='all'||filter===p.type))&&`${p.title} ${p.subtitle} ${p.creator} ${p.description} ${(p.tags||[]).join(' ')}`.toLowerCase().includes(query));
   if(sort==='newest')list.sort((a,b)=>b.created-a.created);
   if(sort==='name')list.sort((a,b)=>a.title.localeCompare(b.title,'ko'));
+  if(sort==='rating')list.sort((a,b)=>(b.rating||0)-(a.rating||0)||(b.ratingCount||0)-(a.ratingCount||0));
+  if(sort==='popular')list.sort((a,b)=>(b.recommendations||0)-(a.recommendations||0));
   $('#project-row').innerHTML=list.map(cardMarkup).join('');
   $('#result-count').textContent=`${list.length}개의 작품`;
   $('#empty-state').hidden=list.length!==0;
@@ -61,10 +64,11 @@ function render() {
   updateHeroSave();requestAnimationFrame(updateArrows);
 }
 function setFilter(next,scroll=false){filter=next;render();$('#project-row').scrollLeft=0;if(scroll)$('#discover').scrollIntoView({behavior:'smooth'});}
-function toggleSave(id){
+async function toggleSave(id){
   if(!findProject(id))return;
+  if(user){try{const response=await fetch('/api/community/bookmarks',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({projectId:id,active:!saved.has(id)})});if(!response.ok){const result=await response.json();throw Error(result.error);}}catch(error){toast(error.message||'찜 목록을 저장하지 못했어요.');return;}}
   if(saved.has(id)){saved.delete(id);toast('찜한 작품에서 삭제했어요.');}else{saved.add(id);toast('나만의 바이브 컬렉션에 추가했어요.');}
-  try{localStorage.setItem('vibeflix.saved.v2',JSON.stringify([...saved]));}catch{toast('브라우저 저장 공간이 없어 이번 방문에서만 유지됩니다.');}
+  if(!user)try{localStorage.setItem('vibeflix.saved.v2',JSON.stringify([...saved]));}catch{toast('브라우저 저장 공간이 없어 이번 방문에서만 유지됩니다.');}
   const position=$('#project-row').scrollLeft;render();$('#project-row').scrollLeft=position;
   if(detailId===id&&$('#detail-dialog').open){$('#detail-save').textContent=saved.has(id)?'✓ 찜했어요':'＋ 찜하기';$('#detail-save').setAttribute('aria-pressed',String(saved.has(id)));}
 }
@@ -76,6 +80,8 @@ function openDetail(id){
   $('#detail-dialog').setAttribute('aria-labelledby','detail-title');$('#detail-save').addEventListener('click',()=>toggleSave(id));
   $('#remove-project')?.addEventListener('click',async event=>{event.target.disabled=true;try{const response=await fetch(`/api/projects/${encodeURIComponent(id)}`,{method:'DELETE'});const result=await response.json();if(!response.ok)throw Error(result.error);projects=projects.filter(item=>item.id!==id);$('#detail-dialog').close();render();toast('공개 목록에서 작품을 내렸어요.');}catch(error){event.target.disabled=false;toast(error.message||'잠시 후 다시 시도해주세요.');}});
   $('#detail-dialog').showModal();
+  const community=document.createElement('section');community.id='project-community';community.className='project-community';community.innerHTML='<p class="loading-copy">평가와 이야기를 불러오는 중…</p>';$('#detail-content').append(community);
+  window.VibeCommunity?.attachProject(p);
 }
 function updateArrows(){const row=$('#project-row');$('#row-prev').disabled=row.scrollLeft<5;$('#row-next').disabled=row.scrollLeft+row.clientWidth>=row.scrollWidth-5;}
 $$('[data-filter]').forEach(b=>b.addEventListener('click',()=>setFilter(b.dataset.filter)));
@@ -91,7 +97,7 @@ $('#search-toggle').setAttribute('aria-expanded','false');$('#search-toggle').ad
 $('#search').addEventListener('input',event=>{query=event.target.value.trim().toLowerCase();render();});
 $('#search-close').addEventListener('click',()=>{$('#search-wrap').hidden=true;$('#search').value='';query='';render();$('#search-toggle').setAttribute('aria-expanded','false');$('#search-toggle').focus();});
 $('#reset-filters').addEventListener('click',()=>{$('#search').value='';query='';setFilter('all');});
-$('#profile-button').addEventListener('click',()=>setFilter('saved',true));$('#hero-info').addEventListener('click',()=>openDetail(currentFeatured));$('#hero-save').addEventListener('click',()=>toggleSave(currentFeatured));
+$('#profile-button').addEventListener('click',()=>window.VibeCommunity?.openProfile());$('#hero-info').addEventListener('click',()=>openDetail(currentFeatured));$('#hero-save').addEventListener('click',()=>toggleSave(currentFeatured));
 const featured=[
   {id:'koiworld',title:'코이월드',sub:'KOIWORLD — YOUR LITTLE POND',kicker:'바쁜 하루 끝, 나만의 연못으로',description:'어떤 무늬의 코이가 태어날까요?<br>키우고, 교배하고, 수집하는 나만의 작은 힐링.',genre:'힐링 · 수집 · 육성',bg:'koi',image:'/assets/koi-icon.png',url:'https://koigarden.shop/'},
   {id:'fishing',title:'네모낚시',sub:'CAST A LINE. TAKE A BREATH.',kicker:'오늘은, 잠깐 물가에 앉아볼까요',description:'블록으로 만든 저수지에서 즐기는 좌대 낚시.<br>채비를 고르고, 찌를 바라보고, 대물을 만나보세요.',genre:'3D 복셀 · 낚시 시뮬레이션',bg:'fishing',image:'/assets/fishing-lake.jpg',url:'https://voxel-fishing-choi.web.app/'},
@@ -108,18 +114,19 @@ async function loadSession(){
   try{const response=await fetch('/api/session');if(!response.ok)throw Error('로그인 확인 실패');const data=await response.json();user=data.user;}catch{user=null;}
   $('#sign-in').hidden=!!user;$('#profile-button').hidden=!user;$('#sign-out').hidden=!user;
   if(user){$('#profile-button').textContent=user.name[0].toUpperCase();$('#profile-button').title=`${user.name} · 찜한 작품`;}
+  document.dispatchEvent(new CustomEvent('vibe:auth',{detail:user}));
 }
 const sessionReady=loadSession();
-async function openUpload(){await sessionReady;$('#upload-form').hidden=!user;$('#upload-auth').hidden=!!user;$('#form-error').hidden=true;if(!$('#upload-dialog').open)$('#upload-dialog').showModal();}
+async function openUpload(editId){await sessionReady;editingProjectId=typeof editId==='string'?editId:null;const p=editingProjectId?findProject(editingProjectId):null;const form=$('#upload-form');if(p){for(const key of ['title','creator','type','url','description','image'])form.elements.namedItem(key).value=p[key]||'';}else if(form.dataset.editing){form.reset();}form.dataset.editing=editingProjectId||'';if(user){form.elements.namedItem('creator').value=user.name;form.elements.namedItem('creator').readOnly=true;}$('#upload-dialog h2').textContent=p?'작품 소개를 다듬어주세요.':'당신의 작품을 소개해주세요.';$('#upload-form').hidden=!user;$('#upload-auth').hidden=!!user;$('#form-error').hidden=true;if(!$('#upload-dialog').open)$('#upload-dialog').showModal();}
 $('#upload-open').addEventListener('click',openUpload);$('#banner-upload').addEventListener('click',openUpload);
 $('#upload-form').addEventListener('submit',async event=>{
   event.preventDefault();if(submitting)return;const form=event.target;const data=new FormData(form);const payload=Object.fromEntries(data);$('#form-error').hidden=true;
   for(const name of ['title','creator','description']){const field=form.elements.namedItem(name);if(!String(data.get(name)).trim()){field.setCustomValidity('공백 이외의 내용을 입력해주세요.');field.reportValidity();field.addEventListener('input',()=>field.setCustomValidity(''),{once:true});return;}}
   submitting=true;const button=$('button[type="submit"]',form);button.disabled=true;button.textContent='작품을 등록하는 중…';
   try{
-    const response=await fetch('/api/projects',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const result=await response.json();
+    const response=await fetch(editingProjectId?`/api/projects/${encodeURIComponent(editingProjectId)}`:'/api/projects',{method:editingProjectId?'PATCH':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const result=await response.json();
     if(!response.ok){if(response.status===401){user=null;$('#upload-form').hidden=true;$('#upload-auth').hidden=false;}throw Error(result.error||'등록에 실패했어요. 잠시 후 다시 시도해주세요.');}
-    projects.unshift(result.project);form.reset();$('#upload-dialog').close();query='';$('#search').value='';sort='newest';$('#sort').value='newest';setFilter('all',true);toast('작품이 공개되었어요. 이제 다른 방문자도 볼 수 있어요.');
+    const edited=!!editingProjectId;editingProjectId=null;form.reset();delete form.dataset.editing;$('#upload-dialog').close();query='';$('#search').value='';sort='newest';$('#sort').value='newest';await loadCatalog();setFilter('all',true);toast(edited?'작품 소개를 수정했어요.':'작품이 공개되었어요. 이제 다른 방문자도 볼 수 있어요.');
   }catch(error){$('#form-error').textContent=error.message||'네트워크 연결을 확인하고 다시 시도해주세요.';$('#form-error').hidden=false;}
   finally{submitting=false;button.disabled=false;button.innerHTML='공개 등록하기 <span>↗</span>';}
 });
@@ -132,6 +139,8 @@ async function loadCatalog(){
   try{const response=await fetch('/api/projects');const result=await response.json();if(!Array.isArray(result.projects))throw Error('잘못된 응답');projects=result.projects;message=result.error||'';}
   catch{try{const response=await fetch('/catalog.json');if(!response.ok)throw Error();projects=await response.json();message='커뮤니티 작품을 불러오지 못했습니다. 기본 서비스는 계속 이용할 수 있어요.';}catch{message='작품을 불러올 수 없습니다. 연결을 확인한 뒤 새로고침해주세요.';}}
   $('#catalog-status').hidden=!message;$('#catalog-status').textContent=message;render();
+  document.dispatchEvent(new CustomEvent('vibe:catalog'));
 }
 loadCatalog();
 if(new URL(location.href).searchParams.get('upload')==='1')openUpload();
+window.Vibe={getUser:()=>user,getProjects:()=>projects,getSaved:()=>[...saved],setSaved:ids=>{saved=new Set(ids);render();},refreshAuth:loadSession,reload:loadCatalog,openDetail,openUpload,render,artMarkup,toast,escapeHtml,setFilter,patchProject:(id,patch)=>{const p=findProject(id);if(p)Object.assign(p,patch);render();}};

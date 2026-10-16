@@ -1,7 +1,7 @@
-import { getChatGPTUser } from '../../chatgpt-auth';
+import { currentUser, publicMember } from '../../../lib/auth';
+import { failure, json } from '../../../lib/api';
 
 export const dynamic = 'force-dynamic';
 export async function GET() {
-  const user = await getChatGPTUser();
-  return Response.json({ user: user ? { id: user.userId, name: user.fullName || '크리에이터' } : null }, { headers: { 'Cache-Control':'no-store' } });
+  try { const user = await currentUser(); return json({user:user?publicMember(user):null}); } catch(error){return failure(error);}
 }
