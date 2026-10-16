@@ -16,10 +16,21 @@ html{scroll-padding-top:80px}
 .header-actions{gap:18px}
 
 /* ───── Hero billboard ───── */
-.hero{box-sizing:border-box;margin:80px var(--nf-pad) 0;height:clamp(460px,calc(100vh - 100px),820px);border-radius:18px;display:flex;align-items:flex-end;background:#101110;isolation:isolate;box-shadow:0 0 0 1px #ffffff12,0 24px 60px #0008}
+.hero-carousel{--hero-gutter:clamp(28px,3.3vw,72px);--hero-width:calc(100vw - var(--hero-gutter) * 2);position:relative;margin-top:76px;overflow:hidden;padding:1px 0}
+.hero{box-sizing:border-box;margin:0 auto;width:var(--hero-width);height:auto;min-height:0;max-height:none;aspect-ratio:2.9;border-radius:24px;display:flex;align-items:flex-end;background:#101110;isolation:isolate;box-shadow:none}
+.hero-peek{position:absolute;top:1px;bottom:1px;width:var(--hero-width);border-radius:24px;background-color:#203b32;background-position:center;background-size:cover;padding:0;overflow:hidden;color:#fff;filter:brightness(.65);transition:filter .2s}
+.hero-peek:hover,.hero-peek:focus-visible{filter:brightness(1)}
+.hero-peek-prev{right:calc(50% + var(--hero-width) / 2 + 12px)}
+.hero-peek-next{left:calc(50% + var(--hero-width) / 2 + 12px)}
+.hero-peek span{position:absolute;top:50%;transform:translateY(-50%);font:300 64px/1 'DM Sans',sans-serif}
+.hero-peek-prev span{right:8px}.hero-peek-next span{left:8px}
+.hero .hero-art{top:8%;left:50%;width:46%;height:84%;opacity:1}
+.hero .hero-art>img{width:auto;height:85%;max-width:90%;object-fit:contain;aspect-ratio:1;transform:rotate(-9deg)}
+.hero[data-feature="dayflow"] .hero-art>img{width:auto;height:95%;aspect-ratio:auto;transform:rotate(8deg)}
+.hero[data-feature="fishing"] .hero-image{background-position:center 48%;background-size:cover}
 .hero-grain,.hero-image-caption,.hero-bottom-note{display:none}
 .hero-shade{background:linear-gradient(77deg,#000000d9 0%,#000000a0 30%,#00000018 62%,transparent 100%),linear-gradient(0deg,#000000b8 0%,#00000060 22%,transparent 46%),linear-gradient(180deg,#00000066 0%,transparent 16%)}
-.hero-content{margin:0 0 0 clamp(24px,3.2vw,56px);padding:0 0 clamp(32px,6vh,56px);max-width:min(600px,86%)}
+.hero-content{margin:0 0 0 clamp(24px,2.3vw,48px);padding:0 0 clamp(28px,2.5vw,52px);max-width:min(600px,60%)}
 .hero h1{font-size:clamp(46px,7vw,92px);letter-spacing:clamp(2px,.45vw,7px);font-weight:700;margin:10px 0 0;text-shadow:0 4px 30px #0009}
 .hero h1 span{font-size:clamp(11px,1.1vw,14px);letter-spacing:5px;margin:12px 0 0 2px}
 .hero-kicker{margin-top:18px;font-size:13px;letter-spacing:1.5px}
@@ -32,7 +43,8 @@ html{scroll-padding-top:80px}
 .hero .primary-button:hover{background:#d3ff7c}
 .hero-save{width:46px;height:46px;border:2px solid #ffffff80;background:#2a2a2a99}
 .hero-save:hover{border-color:#fff}
-.hero-side{right:clamp(16px,2vw,32px);bottom:clamp(32px,6vh,56px);padding:8px 14px;background:#33333399;border-radius:999px;border-left:0;gap:14px}
+.hero-side{right:clamp(24px,3vw,56px);bottom:32px;padding:0;background:none;border-radius:0;border-left:0;gap:0;z-index:4}
+.hero-side>span{display:none}.slide-lines{gap:8px}.slide-lines button{width:14px;height:24px}.slide-lines button:after{width:9px;height:9px;top:8px;left:3px;border-radius:50%;background:#ffffff65}.slide-lines button.selected:after{background:#fff}
 
 /* ───── Rows pulled up over the billboard ───── */
 .discovery{max-width:none;padding:0 var(--nf-pad) 40px;margin-top:28px;position:relative;z-index:2}
@@ -121,23 +133,40 @@ footer{margin:0 var(--nf-pad);border-top:1px solid #ffffff14}
   .header nav{position:static;order:3;width:100%;height:36px;overflow-x:auto;scrollbar-width:none;gap:20px}
   .header nav::-webkit-scrollbar{display:none}
   .nav-link{padding:8px 0;font-size:13px}
-  .hero{margin-top:112px;min-height:520px;height:calc(100vh - 130px);border-radius:14px}
-  .hero-content{padding-bottom:28px}
-  .hero-art{opacity:.4;left:25%}
-  .hero-side{display:none}
+  .hero-carousel{margin-top:112px;--hero-gutter:24px}
+  .hero{margin:0 auto;aspect-ratio:2.3;min-height:280px;height:auto;border-radius:18px}
+  .hero-content{padding-bottom:28px;max-width:70%}
+  .hero .hero-art{left:52%;width:46%;opacity:.8}
+  .hero-side{bottom:20px;right:20px}
+  .hero-peek{border-radius:18px}
+  .hero-peek span{font-size:44px}
   .discovery{margin-top:22px}
   .nf-rank{font-size:96px}
 }
 @media(max-width:600px){
   .header-actions .upload-button{padding:8px 11px;font-size:12px}
   .hero-buttons .primary-button,.hero-buttons .secondary-button{padding:0 18px;min-height:44px}
+  .hero-carousel{--hero-gutter:16px}
+  .hero{aspect-ratio:1.65;min-height:225px}
+  .hero-content{margin-left:20px;padding:24px 0 44px;max-width:92%}
+  .hero .hero-art{left:48%;width:52%;height:70%;top:4%;opacity:.65}
+  .hero[data-feature="dayflow"] .hero-art{top:4%}
+  .hero-shade{background:linear-gradient(90deg,#000a,transparent),linear-gradient(0deg,#07120ee6,transparent 95%)}
+  .hero .hero-description{font-size:12px;line-height:1.65;max-width:25em;margin-top:10px}
+  .hero .hero-buttons{margin-top:16px;gap:8px}
+  .hero .hero-buttons .primary-button,.hero .hero-buttons .secondary-button{font-size:12px;min-height:36px;padding:0 14px}
+  .hero .hero-save{width:36px;height:36px;font-size:22px}
+  .hero .hero-side{bottom:12px;right:14px}
+  .hero-peek-prev{right:calc(50% + var(--hero-width) / 2 + 6px)}
+  .hero-peek-next{left:calc(50% + var(--hero-width) / 2 + 6px)}
+  .hero-peek span{display:none}
 }
 
 .hero-image{border-radius:inherit}
 body:not(.nf-home) .discovery{margin-top:28px;padding-top:0}
 
 /* ───── Minimal pass: remove secondary information, keep title / art / one action ───── */
-.beta,.section-kicker,.hero .eyebrow,.hero-kicker,.hero h1 span,.hero-meta,.hero-side,.hero-art-caption,.water-ring,
+.beta,.section-kicker,.hero .eyebrow,.hero-kicker,.hero h1 span,.hero-meta,.hero-art-caption,.water-ring,
 .card-top-tag,.card-category,.card-metrics,.card-bottom,
 .banner-orbit,.creator-banner p,
 .community-heading p,.community-guidelines,
@@ -156,6 +185,7 @@ footer p,.filter-symbol,.filter>span:not(.filter-symbol),.discovery-top,.catalog
 .hero-buttons{margin-top:22px}
 .hero-save{border-width:1px;background:transparent}
 .hero{box-shadow:none;border:1px solid #ffffff10}
+@media(max-width:600px){.hero h1{font-size:34px;letter-spacing:-1px}}
 
 /* Rows: fewer chrome, more air */
 .nf-row{margin-bottom:44px}
@@ -186,3 +216,5 @@ body:not(.nf-home) .card-info{padding:10px 2px 0}
 .community-section{padding-top:56px}
 footer{padding:22px 0 28px;border-top:1px solid #ffffff10}
 footer>span{margin-left:auto}
+
+.no-chatgpt #chatgpt-sign-in{display:none}

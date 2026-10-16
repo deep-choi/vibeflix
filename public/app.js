@@ -131,13 +131,35 @@ const featured=[
   {id:'fishing',title:'네모낚시',sub:'CAST A LINE. TAKE A BREATH.',kicker:'오늘은, 잠깐 물가에 앉아볼까요',description:'블록으로 만든 저수지에서 즐기는 좌대 낚시.<br>채비를 고르고, 찌를 바라보고, 대물을 만나보세요.',genre:'3D 복셀 · 낚시 시뮬레이션',bg:'fishing',image:'/assets/fishing-lake.jpg',url:'https://voxel-fishing-choi.web.app/'},
   {id:'dayflow',title:'Dayflow',sub:'A LITTLE MORE FLOW IN YOUR DAY',kicker:'흩어진 하루가, 하나의 흐름으로',description:'일정, 할 일, 메모, 그리고 AI와의 대화.<br>복잡한 하루를 나만의 속도로 정리하는 공간.',genre:'AI · 일정 · 생산성',bg:'dayflow',image:'/assets/dayflow-screen.jpg',url:'https://dayflow.web.app/'}
 ];
-$$('[data-slide]').forEach(button=>button.addEventListener('click',()=>{
-  const index=Number(button.dataset.slide);const f=featured[index];currentFeatured=f.id;
+let featuredIndex=0;
+function selectFeatured(value){
+  const index=(value+featured.length)%featured.length;const f=featured[index];featuredIndex=index;currentFeatured=f.id;
   $('.hero h1').innerHTML=`${f.title}<span>${f.sub}</span>`;$('.hero-kicker').textContent=f.kicker;$('.hero-description').innerHTML=f.description;
   $('.hero-meta').innerHTML=`<span class="type-label">${f.id==='dayflow'?'앱':'게임'}</span><span>${f.genre}</span><span class="meta-dot">·</span><span>by deepchoi</span><span class="live-label">지금 이용 가능</span>`;
   $('.hero').dataset.feature=f.bg;$('#hero-art-image').src=f.image;$('#hero-play').href=f.url;$('#hero-play').innerHTML=f.id==='dayflow'?'서비스 바로가기 ↗':'<span class="play-icon">▶</span> 지금 플레이';$('.hero-side>span').innerHTML=`0${index+1} <i>/ 03</i>`;
+  $('.hero').setAttribute('aria-label',`추천 작품 ${f.title}`);
+  for(const [selector,offset] of [['.hero-peek-prev',-1],['.hero-peek-next',1]]){
+    const adjacent=featured[(index+offset+featured.length)%featured.length];const peek=$(selector);
+    peek.style.backgroundImage=`linear-gradient(#0003,#0006),url("${adjacent.id==='koiworld'?'/assets/koiworld-cover.png':adjacent.id==='dayflow'?'/assets/dayflow-cover.png':adjacent.image}")`;
+    peek.setAttribute('aria-label',`${offset<0?'이전':'다음'} 추천 작품: ${adjacent.title}`);
+  }
   $$('[data-slide]').forEach((b,i)=>{b.classList.toggle('selected',i===index);b.setAttribute('aria-pressed',String(i===index));});updateHeroSave();
-}));
+}
+$$('[data-slide]').forEach(button=>button.addEventListener('click',()=>selectFeatured(Number(button.dataset.slide))));
+$('.hero-peek-prev').addEventListener('click',()=>selectFeatured(featuredIndex-1));
+$('.hero-peek-next').addEventListener('click',()=>selectFeatured(featuredIndex+1));
+$('.hero-carousel').addEventListener('keydown',event=>{
+  if(!event.target.closest('.hero-peek,[data-slide]'))return;
+  if(event.key==='ArrowLeft'||event.key==='ArrowRight'){event.preventDefault();selectFeatured(featuredIndex+(event.key==='ArrowLeft'?-1:1));}
+});
+let heroTouch=null;
+$('.hero').addEventListener('touchstart',event=>{heroTouch=event.touches.length===1&&!event.target.closest('button,a')?{x:event.touches[0].clientX,y:event.touches[0].clientY}:null;},{passive:true});
+$('.hero').addEventListener('touchend',event=>{if(!heroTouch)return;const dx=event.changedTouches[0].clientX-heroTouch.x,dy=event.changedTouches[0].clientY-heroTouch.y;heroTouch=null;if(Math.abs(dx)>50&&Math.abs(dx)>Math.abs(dy)*1.3)selectFeatured(featuredIndex+(dx<0?1:-1));},{passive:true});
+$('.hero').addEventListener('touchcancel',()=>{heroTouch=null;},{passive:true});
+selectFeatured(0);
+// ChatGPT sign-in only exists on ChatGPT Sites; hide it where /signin-with-chatgpt is missing (fails open on network errors).
+fetch('/signin-with-chatgpt',{method:'HEAD',redirect:'manual'}).then(r=>r.status!==404,()=>true).then(available=>{if(!available)document.documentElement.classList.add('no-chatgpt');}).catch(()=>{});
+$('#upload-login').addEventListener('click',()=>{$('#upload-dialog').close();window.VibeCommunity?.login('upload');});
 async function loadSession(){
   try{const response=await fetch('/api/session');if(!response.ok)throw Error('로그인 확인 실패');const data=await response.json();user=data.user;}catch{user=null;}
   $('#sign-in').hidden=!!user;$('#profile-button').hidden=!user;$('#sign-out').hidden=!user;
