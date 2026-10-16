@@ -15,6 +15,14 @@ export const projects = sqliteTable('projects', {
   hiddenAt: integer('hidden_at'),
 }, table => [index('projects_owner_idx').on(table.ownerId),index('projects_created_idx').on(table.created)]);
 
+export const projectImages = sqliteTable('project_images', {
+  id: text('id').primaryKey(),
+  projectId: text('project_id').notNull(),
+  position: integer('position').notNull(),
+  data: text('data').notNull(),
+  created: integer('created').notNull(),
+}, table => [index('project_images_project_idx').on(table.projectId, table.position)]);
+
 export const profiles = sqliteTable('profiles', {
   id:text('id').primaryKey(), publicId:text('public_id').notNull().unique(),
   name:text('name').notNull(), bio:text('bio').notNull().default(''), avatar:text('avatar').notNull().default(''),

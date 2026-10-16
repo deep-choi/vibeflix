@@ -3,7 +3,8 @@ const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 const searchIcon = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8" stroke="currentColor" stroke-width="1.6"/><path d="m16 16 4.5 4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
-const typeNames = {website:'웹사이트',game:'게임',app:'앱'};
+const typeNames = {website:'웹사이트',game:'게임',app:'앱',art:'그림·만화',video:'영상',novel:'소설'};
+const ctaLabels = {game:'▶ 지금 플레이',video:'▶ 영상 보기',novel:'읽으러 가기 ↗',art:'작품 보러가기 ↗'};
 $('#search-toggle').innerHTML = searchIcon;
 $('#search-symbol').innerHTML = searchIcon;
 let projects = [];
@@ -19,7 +20,11 @@ let editingProjectId = null;
 let saved;
 try {const value=JSON.parse(localStorage.getItem('vibeflix.saved.v2') || '[]');saved=new Set(Array.isArray(value)?value.filter(id=>typeof id==='string'):[]);} catch {saved=new Set();}
 function validUrl(value) {try{const url=new URL(value);return ['http:','https:'].includes(url.protocol)&&!url.username&&!url.password?url.href:'';}catch{return '';}}
-function imageUrl(value) {return typeof value==='string'&&value.startsWith('/assets/')&&!value.includes('..')?value:validUrl(value);}
+function imageUrl(value) {return typeof value==='string'&&(value.startsWith('/assets/')||/^\/api\/projects\/[\w-]+\/cover(\?v=\d+)?$/.test(value)||/^\/api\/project-images\/[\w-]+$/.test(value))&&!value.includes('..')?value:validUrl(value);}
+function normalizeUrl(value) {const v=String(value||'').trim();return /^[a-z][a-z0-9+.-]*:/i.test(v)?v:v?`https://${v}`:'';}
+function publicUrlError(value) {const href=validUrl(value);if(!href)return '올바른 주소를 입력해주세요. (예: www.example.com)';const host=new URL(href).hostname.toLowerCase();return (host==='localhost'||host.endsWith('.localhost')||host.endsWith('.local')||!host.includes('.')||host.startsWith('[')||/^\d{1,3}(\.\d{1,3}){3}$/.test(host))?'누구나 접속할 수 있는 공개 주소만 등록할 수 있어요.':'';}
+const COVER={width:1280,height:720,maxBytes:800*1024,types:['image/png','image/jpeg','image/webp']};
+let cover={mode:'keep',data:''};
 function toast(message) {clearTimeout(toastTimeout);$('#toast').textContent=message;$('#toast').classList.add('visible');toastTimeout=setTimeout(()=>$('#toast').classList.remove('visible'),3500);}
 const findProject = id => projects.find(p=>p.id===id);
 
@@ -49,20 +54,44 @@ function render() {
   $('#project-row').innerHTML=list.map(cardMarkup).join('');
   $('#result-count').textContent=`${list.length}개의 작품`;
   $('#empty-state').hidden=list.length!==0;
-  $('#empty-message').textContent=filter==='saved'&&!query?'마음에 드는 작품의 + 버튼을 눌러 나만의 컬렉션을 만들어보세요.':'다른 검색어나 카테고리로 새로운 작품을 찾아보세요.';
-  const titles={all:'다음으로 빠져들 작품은?',website:'아이디어를 만나는 새로운 창.',game:'플레이 버튼 너머의 새로운 세계.',app:'일상에 작은 변화를 더하는 앱.',saved:'다시 만나고 싶은 작품들.'};
+  $('#empty-message').textContent=filter==='saved'&&!query?'마음에 드는 작품의 + 버튼을 눌러 나만의 컬렉션을 만들어보세요.':!query&&['art','video','novel'].includes(filter)?'아직 등록된 작품이 없어요. 첫 번째 작품의 주인공이 되어보세요.':'다른 검색어나 카테고리로 새로운 작품을 찾아보세요.';
+  const titles={all:'다음으로 빠져들 작품은?',website:'아이디어를 만나는 새로운 창.',game:'플레이 버튼 너머의 새로운 세계.',app:'일상에 작은 변화를 더하는 앱.',art:'상상이 그림이 되는 순간.',video:'움직이는 상상, 영상.',novel:'한 줄에서 시작되는 이야기.',saved:'다시 만나고 싶은 작품들.'};
   $('#discovery-title').textContent=titles[filter];
   $('#row-title').innerHTML=query?`검색 결과 <span class="muted">${escapeHtml($('#search').value)}</span>`:filter==='saved'?'나만의 바이브 컬렉션':'<span class="trending-icon">↗</span> 지금, 주목할 바이브';
   $$('[data-filter]').forEach(b=>{b.classList.toggle('active',b.dataset.filter===filter);b.setAttribute('aria-pressed',String(b.dataset.filter===filter));});
   $$('[data-nav]').forEach(b=>b.classList.toggle('active',b.dataset.nav===filter));
   $('#saved-count').textContent=saved.size?saved.size:'';
   $('#fresh-section').hidden=filter!=='all'||!!query;
-  $('#fresh-grid').innerHTML=projects.filter(p=>p.type!=='game'&&p.status!=='upcoming').slice(0,3).map(p=>`<button class="fresh-card" data-detail="${escapeHtml(p.id)}" aria-label="${escapeHtml(p.title)} 자세히 보기">${artMarkup(p)}<div class="fresh-text"><span class="fresh-label">${typeNames[p.type]} <span aria-hidden="true">/</span> ${escapeHtml(p.creator)}</span><h4>${escapeHtml(p.title)}</h4><p>${escapeHtml(p.subtitle)}</p><span class="fresh-cta">발견하기 ↗</span></div></button>`).join('');
+  $('#fresh-grid').innerHTML=projects.filter(p=>['website','app'].includes(p.type)&&p.status!=='upcoming').slice(0,3).map(p=>`<button class="fresh-card" data-detail="${escapeHtml(p.id)}" aria-label="${escapeHtml(p.title)} 자세히 보기">${artMarkup(p)}<div class="fresh-text"><span class="fresh-label">${typeNames[p.type]} <span aria-hidden="true">/</span> ${escapeHtml(p.creator)}</span><h4>${escapeHtml(p.title)}</h4><p>${escapeHtml(p.subtitle)}</p><span class="fresh-cta">발견하기 ↗</span></div></button>`).join('');
   const upcoming=projects.filter(p=>p.status==='upcoming'&&(filter==='all'||filter===p.type)&&!query);
   $('#upcoming-section').hidden=!upcoming.length;
   $('#upcoming-grid').innerHTML=upcoming.map(cardMarkup).join('');
+  renderRows(filter==='all'&&!query);
   updateHeroSave();requestAnimationFrame(updateArrows);
 }
+function renderRows(home){
+  const host=$('#nf-rows');document.body.classList.toggle('nf-home',home);
+  const positions=$$('.nf-scroller',host).map(el=>el.scrollLeft);
+  if(!home){host.innerHTML='';return;}
+  const live=projects.filter(p=>p.status!=='upcoming');
+  const popular=[...live].sort((a,b)=>(b.recommendations||0)-(a.recommendations||0)||(b.rating||0)-(a.rating||0)||b.created-a.created).slice(0,10);
+  const rows=[
+    {title:'인기 TOP 10',top:true,items:popular,min:3},
+    {title:'지금, 주목할 바이브',items:live},
+    {title:'플레이하고 싶은 게임',items:live.filter(p=>p.type==='game')},
+    {title:'일상을 바꾸는 웹사이트 · 앱',items:live.filter(p=>['website','app'].includes(p.type))},
+    {title:'그림 · 만화 · 일러스트',items:live.filter(p=>p.type==='art')},
+    {title:'영상',items:live.filter(p=>p.type==='video')},
+    {title:'소설',items:live.filter(p=>p.type==='novel')},
+    {title:'방금 올라온 커뮤니티 작품',items:live.filter(p=>p.badge==='COMMUNITY').sort((a,b)=>b.created-a.created)},
+    {title:'내가 찜한 작품',items:projects.filter(p=>saved.has(p.id))},
+    {title:'곧 공개됩니다',items:projects.filter(p=>p.status==='upcoming')},
+  ].filter(r=>r.items.length>=(r.min||1));
+  host.innerHTML=rows.map(r=>`<section class="nf-row${r.top?' nf-top':''}" aria-label="${escapeHtml(r.title)}"><h3 class="nf-row-title">${escapeHtml(r.title)}</h3><div class="nf-row-wrap"><button class="nf-arrow prev" data-row-scroll="-1" aria-label="이전 작품" tabindex="-1">‹</button><div class="nf-scroller">${r.items.map((p,i)=>r.top?`<div class="nf-ranked"><span class="nf-rank" aria-hidden="true">${i+1}</span>${cardMarkup(p)}</div>`:cardMarkup(p)).join('')}</div><button class="nf-arrow next" data-row-scroll="1" aria-label="다음 작품" tabindex="-1">›</button></div></section>`).join('');
+  $$('.nf-scroller',host).forEach((el,i)=>{el.scrollLeft=positions[i]||0;});
+}
+document.addEventListener('click',event=>{const button=event.target.closest('[data-row-scroll]');if(!button)return;const scroller=$('.nf-scroller',button.parentElement);scroller.scrollBy({left:Number(button.dataset.rowScroll)*scroller.clientWidth*.85,behavior:'smooth'});});
+{const header=$('.header');const onScroll=()=>header.classList.toggle('scrolled',window.scrollY>20);window.addEventListener('scroll',onScroll,{passive:true});onScroll();}
 function setFilter(next,scroll=false){filter=next;render();$('#project-row').scrollLeft=0;if(scroll)$('#discover').scrollIntoView({behavior:'smooth'});}
 async function toggleSave(id){
   if(!findProject(id))return;
@@ -76,7 +105,7 @@ function updateHeroSave(){const state=saved.has(currentFeatured);$('#hero-save')
 function openDetail(id){
   const p=findProject(id);if(!p)return;detailId=id;
   const url=validUrl(p.url);
-  $('#detail-content').innerHTML=`<div class="detail-cover">${artMarkup(p)}</div><div class="detail-body"><div class="detail-overline"><span class="type-label">${typeNames[p.type]}</span><span>${p.status==='upcoming'?'IN DEVELOPMENT':p.badge==='COMMUNITY'?'COMMUNITY PROJECT':'MADE BY DEEPCHOI'}</span></div><h2 id="detail-title">${escapeHtml(p.title)}</h2><p class="detail-subtitle">${escapeHtml(p.subtitle)}</p><p class="detail-description">${escapeHtml(p.description)}</p><div class="detail-creator"><span class="creator-dot">${escapeHtml((p.creator||'V')[0].toUpperCase())}</span>Created by ${escapeHtml(p.creator)}</div><div class="detail-tags">${(p.tags||[]).map(t=>`<span>#${escapeHtml(t)}</span>`).join('')}</div><div class="detail-actions">${url?`<a class="primary-button" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${p.type==='game'?'▶ 지금 플레이':'서비스 바로가기 ↗'}</a>`:'<button class="primary-button" disabled>공개 준비 중</button>'}<button class="secondary-button" id="detail-save" aria-pressed="${saved.has(id)}">${saved.has(id)?'✓ 찜했어요':'＋ 찜하기'}</button></div><p class="detail-notice">${url?'실제 서비스가 새 탭에서 열립니다. 서비스별로 별도 로그인이 필요할 수 있어요.':'아직 공개 플레이 링크가 준비되지 않았습니다. 정식 공개를 기다려주세요.'}</p>${p.owned?'<button class="remove-project" id="remove-project">내 작품을 공개 목록에서 내리기</button>':''}</div>`;
+  $('#detail-content').innerHTML=`<div class="detail-cover">${artMarkup(p)}</div><div class="detail-body"><div class="detail-overline"><span class="type-label">${typeNames[p.type]}</span><span>${p.status==='upcoming'?'IN DEVELOPMENT':p.badge==='COMMUNITY'?'COMMUNITY PROJECT':'MADE BY DEEPCHOI'}</span></div><h2 id="detail-title">${escapeHtml(p.title)}</h2><p class="detail-subtitle">${escapeHtml(p.subtitle)}</p><p class="detail-description">${escapeHtml(p.description)}</p>${(p.gallery||[]).length?`<div class="detail-gallery">${p.gallery.filter(imageUrl).map((src,i)=>`<img src="${escapeHtml(imageUrl(src))}" alt="${escapeHtml(p.title)} 소개 이미지 ${i+1}" loading="lazy">`).join('')}</div>`:''}<div class="detail-creator"><span class="creator-dot">${escapeHtml((p.creator||'V')[0].toUpperCase())}</span>Created by ${escapeHtml(p.creator)}</div><div class="detail-tags">${(p.tags||[]).map(t=>`<span>#${escapeHtml(t)}</span>`).join('')}</div><div class="detail-actions">${url?`<a class="primary-button" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${ctaLabels[p.type]||'서비스 바로가기 ↗'}</a>`:'<button class="primary-button" disabled>공개 준비 중</button>'}<button class="secondary-button" id="detail-save" aria-pressed="${saved.has(id)}">${saved.has(id)?'✓ 찜했어요':'＋ 찜하기'}</button></div><p class="detail-notice">${url?'작품 페이지가 새 탭에서 열립니다. 서비스별로 별도 로그인이 필요할 수 있어요.':'아직 공개 플레이 링크가 준비되지 않았습니다. 정식 공개를 기다려주세요.'}</p>${p.owned?'<button class="remove-project" id="remove-project">내 작품을 공개 목록에서 내리기</button>':''}</div>`;
   $('#detail-dialog').setAttribute('aria-labelledby','detail-title');$('#detail-save').addEventListener('click',()=>toggleSave(id));
   $('#remove-project')?.addEventListener('click',async event=>{event.target.disabled=true;try{const response=await fetch(`/api/projects/${encodeURIComponent(id)}`,{method:'DELETE'});const result=await response.json();if(!response.ok)throw Error(result.error);projects=projects.filter(item=>item.id!==id);$('#detail-dialog').close();render();toast('공개 목록에서 작품을 내렸어요.');}catch(error){event.target.disabled=false;toast(error.message||'잠시 후 다시 시도해주세요.');}});
   $('#detail-dialog').showModal();
@@ -117,16 +146,90 @@ async function loadSession(){
   document.dispatchEvent(new CustomEvent('vibe:auth',{detail:user}));
 }
 const sessionReady=loadSession();
-async function openUpload(editId){await sessionReady;editingProjectId=typeof editId==='string'?editId:null;const p=editingProjectId?findProject(editingProjectId):null;const form=$('#upload-form');if(p){for(const key of ['title','creator','type','url','description','image'])form.elements.namedItem(key).value=p[key]||'';}else if(form.dataset.editing){form.reset();}form.dataset.editing=editingProjectId||'';if(user){form.elements.namedItem('creator').value=user.name;form.elements.namedItem('creator').readOnly=true;}$('#upload-dialog h2').textContent=p?'작품 소개를 다듬어주세요.':'당신의 작품을 소개해주세요.';$('#upload-form').hidden=!user;$('#upload-auth').hidden=!!user;$('#form-error').hidden=true;if(!$('#upload-dialog').open)$('#upload-dialog').showModal();}
+async function openUpload(editId){await sessionReady;editingProjectId=typeof editId==='string'?editId:null;const p=editingProjectId?findProject(editingProjectId):null;const form=$('#upload-form');if(p){for(const key of ['title','creator','type','url','description'])form.elements.namedItem(key).value=p[key]||'';}else if(form.dataset.editing){form.reset();}coverError('');setCover('keep','',p&&imageUrl(p.image));galleryError('');setGallery((p?.gallery||[]).filter(src=>/^\/api\/project-images\/[\w-]+$/.test(src)).map(src=>({id:src.split('/').pop(),src})));updateDescriptionCount();form.dataset.editing=editingProjectId||'';if(user){form.elements.namedItem('creator').value=user.name;form.elements.namedItem('creator').readOnly=true;}$('#upload-dialog h2').textContent=p?'작품 소개를 다듬어주세요.':'당신의 작품을 소개해주세요.';$('#upload-form').hidden=!user;$('#upload-auth').hidden=!!user;$('#form-error').hidden=true;if(!$('#upload-dialog').open)$('#upload-dialog').showModal();}
+const GALLERY={max:4,maxBytes:700*1024,maxWidth:1600};
+let gallery=[];
+function galleryError(message){const el=$('#gallery-error');el.textContent=message||'';el.hidden=!message;}
+function setGallery(items){
+  gallery=items;const list=$('#gallery-list');
+  list.innerHTML=gallery.map((item,i)=>`<figure class="gallery-thumb"><img src="${escapeHtml(item.src)}" alt="소개 이미지 ${i+1}"><button type="button" data-gallery-remove="${i}" aria-label="소개 이미지 ${i+1} 삭제">✕</button></figure>`).join('');
+  list.hidden=!gallery.length;$('#gallery-add').hidden=gallery.length>=GALLERY.max;
+}
+// Downscale + re-encode in the browser so any normal photo or illustration fits the upload budget.
+async function shrinkImage(file){
+  const url=URL.createObjectURL(file);
+  try{
+    const img=await new Promise((resolve,reject)=>{const el=new Image();el.onload=()=>resolve(el);el.onerror=()=>reject(Error('open'));el.src=url;});
+    let scale=Math.min(1,GALLERY.maxWidth/img.naturalWidth,4096/img.naturalHeight);
+    for(let attempt=0;attempt<6;attempt++){
+      const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(img.naturalWidth*scale));canvas.height=Math.max(1,Math.round(img.naturalHeight*scale));
+      const ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(img,0,0,canvas.width,canvas.height);
+      for(const quality of [.88,.78,.66,.55]){
+        let blob=await new Promise(r=>canvas.toBlob(r,'image/webp',quality));
+        if(!blob||blob.type!=='image/webp')blob=await new Promise(r=>canvas.toBlob(r,'image/jpeg',quality));
+        if(blob&&blob.size<=GALLERY.maxBytes)return await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=reject;reader.readAsDataURL(blob);});
+      }
+      scale*=.8;
+    }
+    throw Error('too large');
+  }finally{URL.revokeObjectURL(url);}
+}
+$('#gallery-add').addEventListener('click',()=>$('#gallery-file').click());
+$('#gallery-list').addEventListener('click',event=>{const button=event.target.closest('[data-gallery-remove]');if(!button)return;galleryError('');setGallery(gallery.filter((_,i)=>i!==Number(button.dataset.galleryRemove)));});
+$('#gallery-file').addEventListener('change',async event=>{
+  const files=[...event.target.files];event.target.value='';if(!files.length)return;galleryError('');
+  const room=GALLERY.max-gallery.length;const problems=[];
+  if(files.length>room)problems.push(`최대 ${GALLERY.max}장까지라서 ${files.length-room}장은 제외했어요.`);
+  const next=[...gallery];$('#gallery-add').disabled=true;$('#gallery-add').textContent='이미지 최적화 중…';
+  for(const file of files.slice(0,room)){
+    if(!['image/png','image/jpeg','image/webp'].includes(file.type)){problems.push(`${file.name}: PNG, JPG, WebP만 올릴 수 있어요.`);continue;}
+    if(file.size>20*1024*1024){problems.push(`${file.name}: 20MB 이하 이미지만 올릴 수 있어요.`);continue;}
+    try{const data=await shrinkImage(file);next.push({data,src:data});}catch{problems.push(`${file.name}: 이미지를 처리하지 못했어요.`);}
+  }
+  $('#gallery-add').disabled=false;$('#gallery-add').textContent='＋ 내 컴퓨터에서 이미지 추가';setGallery(next);galleryError(problems.join(' '));
+});
+function setCover(mode,data,existing){
+  cover={mode,data};const preview=$('#cover-preview');const img=$('img',preview);
+  const src=mode==='new'?data:mode==='keep'?(existing||''):'';
+  preview.hidden=!src;if(src)img.src=src;else img.removeAttribute('src');
+  $('#cover-info').textContent=mode==='new'?`${COVER.width} × ${COVER.height}px · ${Math.round(data.length*0.75/1024)}KB`:mode==='keep'&&src?'현재 등록된 커버 이미지':'';
+  $('#cover-clear').hidden=!src;$('#cover-pick').textContent=src?'다른 이미지 선택':'내 컴퓨터에서 이미지 선택';$('#cover-file').value='';
+}
+function coverError(message){const el=$('#cover-error');el.textContent=message||'';el.hidden=!message;}
+function updateDescriptionCount(){$('#description-count').textContent=$('#upload-description').value.length.toLocaleString('ko-KR');}
+$('#upload-description').addEventListener('input',updateDescriptionCount);
+$('#cover-pick').addEventListener('click',()=>$('#cover-file').click());
+$('#cover-clear').addEventListener('click',()=>{coverError('');setCover('remove','');});
+$('#cover-file').addEventListener('change',event=>{
+  const file=event.target.files[0];if(!file)return;coverError('');
+  const reject=message=>{coverError(message);event.target.value='';};
+  if(!COVER.types.includes(file.type))return reject('PNG, JPG, WebP 형식의 이미지만 올릴 수 있어요.');
+  if(file.size>COVER.maxBytes)return reject(`파일이 너무 커요. (${(file.size/1024).toFixed(0)}KB) ${COVER.maxBytes/1024}KB 이하로 줄여주세요.`);
+  const reader=new FileReader();
+  reader.onerror=()=>reject('이미지를 읽을 수 없어요. 다른 파일을 선택해주세요.');
+  reader.onload=()=>{
+    const probe=new Image();
+    probe.onerror=()=>reject('이미지를 열 수 없어요. 손상된 파일일 수 있어요.');
+    probe.onload=()=>{
+      if(probe.naturalWidth!==COVER.width||probe.naturalHeight!==COVER.height)return reject(`이미지 크기가 맞지 않아요. (현재 ${probe.naturalWidth} × ${probe.naturalHeight}px) ${COVER.width} × ${COVER.height}px로 맞춰서 다시 올려주세요.`);
+      setCover('new',reader.result);
+    };
+    probe.src=reader.result;
+  };
+  reader.readAsDataURL(file);
+});
 $('#upload-open').addEventListener('click',openUpload);$('#banner-upload').addEventListener('click',openUpload);
 $('#upload-form').addEventListener('submit',async event=>{
   event.preventDefault();if(submitting)return;const form=event.target;const data=new FormData(form);const payload=Object.fromEntries(data);$('#form-error').hidden=true;
+  const urlField=form.elements.namedItem('url');payload.url=normalizeUrl(payload.url);const urlProblem=publicUrlError(payload.url);if(urlProblem){urlField.setCustomValidity(urlProblem);urlField.reportValidity();urlField.addEventListener('input',()=>urlField.setCustomValidity(''),{once:true});return;}
+  payload.gallery=gallery.map(item=>item.id||item.data);
+  if(cover.mode==='new')payload.image=cover.data;else if(cover.mode==='remove')payload.image='';
   for(const name of ['title','creator','description']){const field=form.elements.namedItem(name);if(!String(data.get(name)).trim()){field.setCustomValidity('공백 이외의 내용을 입력해주세요.');field.reportValidity();field.addEventListener('input',()=>field.setCustomValidity(''),{once:true});return;}}
   submitting=true;const button=$('button[type="submit"]',form);button.disabled=true;button.textContent='작품을 등록하는 중…';
   try{
-    const response=await fetch(editingProjectId?`/api/projects/${encodeURIComponent(editingProjectId)}`:'/api/projects',{method:editingProjectId?'PATCH':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const result=await response.json();
+    const response=await fetch(editingProjectId?`/api/projects/${encodeURIComponent(editingProjectId)}`:'/api/projects',{method:editingProjectId?'PATCH':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const result=await response.json().catch(()=>({}));
     if(!response.ok){if(response.status===401){user=null;$('#upload-form').hidden=true;$('#upload-auth').hidden=false;}throw Error(result.error||'등록에 실패했어요. 잠시 후 다시 시도해주세요.');}
-    const edited=!!editingProjectId;editingProjectId=null;form.reset();delete form.dataset.editing;$('#upload-dialog').close();query='';$('#search').value='';sort='newest';$('#sort').value='newest';await loadCatalog();setFilter('all',true);toast(edited?'작품 소개를 수정했어요.':'작품이 공개되었어요. 이제 다른 방문자도 볼 수 있어요.');
+    const edited=!!editingProjectId;editingProjectId=null;form.reset();setCover('keep','');setGallery([]);updateDescriptionCount();delete form.dataset.editing;$('#upload-dialog').close();query='';$('#search').value='';sort='newest';$('#sort').value='newest';await loadCatalog();setFilter('all',true);toast(edited?'작품 소개를 수정했어요.':'작품이 공개되었어요. 이제 다른 방문자도 볼 수 있어요.');
   }catch(error){$('#form-error').textContent=error.message||'네트워크 연결을 확인하고 다시 시도해주세요.';$('#form-error').hidden=false;}
   finally{submitting=false;button.disabled=false;button.innerHTML='공개 등록하기 <span>↗</span>';}
 });
