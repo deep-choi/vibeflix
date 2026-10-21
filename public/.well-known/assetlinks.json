@@ -1,0 +1,17 @@
+[
+    {
+        "target":  {
+                       "sha256_cert_fingerprints":  [
+                                                        "48:5C:36:CF:30:C7:36:D0:ED:15:EC:BF:A3:F4:BB:54:B7:77:69:01:53:C5:84:8B:7D:74:75:5F:AD:CB:9F:C3",
+                                                        "E0:1E:CE:14:0A:F7:3E:E4:C6:13:B6:BF:CB:98:7E:CE:5C:2C:C4:A5:E4:95:1A:E9:83:2F:21:FC:59:15:7C:3D",
+                                                        "E0:F8:42:75:0C:97:4A:57:83:58:BE:D0:22:AD:46:04:20:F8:FB:0A:81:11:D0:3D:5C:6F:CC:D6:01:D6:CA:D5",
+                                                        "D9:53:B4:5F:34:29:E1:A4:0B:29:1A:E3:AF:85:26:08:7D:EF:8F:7F:6A:F6:6E:C3:04:56:B1:A8:6B:6F:3D:FC"
+                                                    ],
+                       "namespace":  "android_app",
+                       "package_name":  "com.deepchoi.vibeflix"
+                   },
+        "relation":  [
+                         "delegate_permission/common.handle_all_urls"
+                     ]
+    }
+]

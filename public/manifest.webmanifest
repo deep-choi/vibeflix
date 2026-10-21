@@ -1,0 +1,16 @@
+{
+  "id": "/",
+  "name": "VIBEFLIX",
+  "short_name": "VIBEFLIX",
+  "description": "크리에이터의 웹사이트, 앱, 게임과 창작물을 발견하고 함께 이야기하세요.",
+  "lang": "ko-KR",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#121412",
+  "theme_color": "#121412",
+  "icons": [
+    { "src": "/assets/app-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/app-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

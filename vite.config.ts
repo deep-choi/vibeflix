@@ -65,6 +65,7 @@ export default defineConfig(async ({ command }) => {
       sites({ mockAuth: !managedLinux }),
       connectorPreview(),
       cloudflare({
+        ...(process.env.VIBEFLIX_QA_PERSIST ? { persistState: { path: process.env.VIBEFLIX_QA_PERSIST } } : {}),
         viteEnvironment: { name: "rsc", childEnvironments: ["ssr"] },
         inspectorPort: false,
         config: {

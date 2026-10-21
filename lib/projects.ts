@@ -3,7 +3,7 @@ import { parseGalleryImage, type ContentBlock } from './project-input';
 
 // Curated works first, then member uploads, then sample placeholders
 export const SOURCE_ORDER="CASE source WHEN 'catalog' THEN 0 WHEN 'community' THEN 1 ELSE 2 END";
-export const PROJECT_COLUMNS="id, owner_id, title, creator, type, description, url, CASE WHEN image LIKE 'data:%' THEN '/api/projects/' || id || '/cover?v=' || length(image) ELSE image END AS image, created, source, subtitle, art, badge, status, tags, genres, details, featured, sort, hidden_at";
+export const PROJECT_COLUMNS="id, owner_id, title, creator, type, description, url, CASE WHEN image LIKE 'data:%' THEN '/api/projects/' || id || '/cover?v=' || length(image) ELSE image END AS image, created, source, subtitle, art, badge, status, tags, genres, details, visibility, featured, sort, hidden_at, (SELECT public_id FROM profiles WHERE profiles.id = projects.owner_id) AS owner_public_id";
 const parseTags=(value:unknown)=>{try{const v=JSON.parse(String(value||'[]'));return Array.isArray(v)?v.map(String):[];}catch{return [];}};
 
 // Shape a projects row the way the site expects (curated and community works look the same to the client).
@@ -16,6 +16,7 @@ export function publicProject(row:Record<string,unknown>,userId=''){
     art:row.art||'custom',tags:tags.length?tags:community?['커뮤니티']:[],genres:parseTags(row.genres),badge:row.badge||(community?'COMMUNITY':''),
     status:row.status||'live',featured:!!row.featured,owned:!!userId&&row.source==='community'&&row.owner_id===userId,
     sample:row.source==='sample', // placeholder content an operator added; shown with a "예시" label and no link
+    draft:row.visibility==='draft',creatorId:row.source==='catalog'?'':String(row.owner_public_id||''),
     details:(()=>{try{const d=JSON.parse(String(row.details||'{}'));return d&&typeof d==='object'?d:{};}catch{return {};}})(),
   };
 }
@@ -41,22 +42,25 @@ export async function listBanners(includeDisabled=false){
 
 /**
  * Turns validated body blocks into D1 statements: new images are inserted into project_images, kept ones are
- * re-ordered, and images no longer referenced are deleted. Returns the JSON to store in projects.content.
+ * re-ordered, and images no longer referenced are deleted. Images are scoped to the work body (entryId null)
+ * or to one episode/update. Returns the JSON to store in the content column.
  */
-export async function contentStatements(projectId:string,blocks:ContentBlock[],now=Date.now()){
-  const existing=new Set(((await db().prepare('SELECT id FROM project_images WHERE project_id=?').bind(projectId).all()).results).map(r=>String(r.id)));
+export async function contentStatements(projectId:string,blocks:ContentBlock[],now=Date.now(),entryId:string|null=null){
+  const existing=new Set(((await db().prepare('SELECT id FROM project_images WHERE project_id=? AND entry_id IS ?').bind(projectId,entryId).all()).results).map(r=>String(r.id)));
   const stored:Record<string,string>[]=[];const ops:D1PreparedStatement[]=[];const keep=new Set<string>();let position=0;
   for(const b of blocks){
+    if(b.type==='video'){stored.push({type:'video',url:b.url});continue;}
     if(b.type!=='image'){stored.push({type:b.type,text:b.text});continue;}
-    if(b.data){const id=`img-${crypto.randomUUID()}`;ops.push(db().prepare('INSERT INTO project_images (id,project_id,position,data,created) VALUES (?,?,?,?,?)').bind(id,projectId,position++,b.data,now));stored.push({type:'image',id,caption:b.caption||''});}
+    if(b.data){const id=`img-${crypto.randomUUID()}`;ops.push(db().prepare('INSERT INTO project_images (id,project_id,position,data,created,entry_id) VALUES (?,?,?,?,?,?)').bind(id,projectId,position++,b.data,now,entryId));stored.push({type:'image',id,caption:b.caption||''});}
     else if(b.id&&existing.has(b.id)){keep.add(b.id);ops.push(db().prepare('UPDATE project_images SET position=? WHERE id=? AND project_id=?').bind(position++,b.id,projectId));stored.push({type:'image',id:b.id,caption:b.caption||''});}
     else throw new ApiError(400,'본문 이미지 정보를 확인해주세요. 새로고침 후 다시 시도해주세요.');
   }
   for(const id of existing)if(!keep.has(id))ops.push(db().prepare('DELETE FROM project_images WHERE id=? AND project_id=?').bind(id,projectId));
   return {ops,json:JSON.stringify(stored)};
 }
+export type ResolvedBlock={type:'heading'|'text';text:string}|{type:'image';id:string;src:string;caption:string}|{type:'video';url:string};
 /** Body blocks for the editor/viewer, with image ids resolved to URLs. */
-export function resolveContent(raw:unknown){
+export function resolveContent(raw:unknown):ResolvedBlock[]{
   let blocks:Record<string,string>[]=[];try{const v=JSON.parse(String(raw||'[]'));if(Array.isArray(v))blocks=v;}catch{}
-  return blocks.map(b=>b.type==='image'?{type:'image',id:b.id,src:b.src||`/api/project-images/${b.id}`,caption:b.caption||''}:{type:b.type,text:b.text});
+  return blocks.map(b=>b.type==='image'?{type:'image' as const,id:b.id,src:b.src||`/api/project-images/${b.id}`,caption:b.caption||''}:b.type==='video'?{type:'video' as const,url:b.url}:{type:(b.type==='heading'?'heading':'text') as 'heading'|'text',text:String(b.text||'')});
 }

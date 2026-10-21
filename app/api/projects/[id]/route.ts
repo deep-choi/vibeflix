@@ -4,16 +4,18 @@ import { parseProject, parseCover, parseContent, projectProblem, sameOrigin, CON
 import { body, db, failure, json, limit, origin, ApiError } from '../../../../lib/api';
 import { contentStatements, isCuratedOrigin, resolveContent } from '../../../../lib/projects';
 
+import { assertVisibleAuthor } from '../../../../lib/member-safety';
 export const dynamic = 'force-dynamic';
 
 /** Full work for the editor: details and body blocks (image blocks carry their URL). */
 export async function GET(_request: Request, context: { params: Promise<{id:string}> }) {
   try {
     const {id}=await context.params;const user=await currentUser();
-    const row=await db().prepare('SELECT id,owner_id,details,content FROM projects WHERE id=? AND deleted_at IS NULL AND (hidden_at IS NULL OR owner_id=?)').bind(id,user?.id||'').first();
+    const row=await db().prepare("SELECT id,owner_id,details,content,visibility FROM projects WHERE id=? AND deleted_at IS NULL AND ((hidden_at IS NULL AND visibility='public') OR owner_id=?)").bind(id,user?.id||'').first();
     if(!row)throw new ApiError(404,'작품을 찾을 수 없습니다.');
+    await assertVisibleAuthor(String(row.owner_id),user?.id);
     let details={};try{details=JSON.parse(String(row.details||'{}'));}catch{}
-    return json({id,details,content:resolveContent(row.content)});
+    return json({id,details,content:resolveContent(row.content),draft:row.visibility==='draft'});
   } catch(error){return failure(error);}
 }
 
@@ -48,7 +50,7 @@ export async function PATCH(request:Request,context:{params:Promise<{id:string}>
       if(!blocks)throw new ApiError(400,`본문은 블록 ${CONTENT.maxBlocks}개, 이미지 ${CONTENT.maxImages}장(장당 ${GALLERY.maxBytes/1024}KB 이하), 글 ${CONTENT.maxTotalText.toLocaleString('ko-KR')}자까지 쓸 수 있어요.`);
       ({ops,json:content}=await contentStatements(id,blocks));
     }
-    await db().prepare('UPDATE projects SET title=?,description=?,creator=?,type=?,url=?,image=?,genres=?,details=?,content=? WHERE id=? AND owner_id=? AND deleted_at IS NULL').bind(parsed.title,parsed.description,user.name,parsed.type,parsed.url||null,image,JSON.stringify(parsed.genres),JSON.stringify(parsed.details),content,id,user.id).run();
+    await db().prepare('UPDATE projects SET title=?,description=?,creator=?,type=?,url=?,image=?,genres=?,details=?,content=?,visibility=? WHERE id=? AND owner_id=? AND deleted_at IS NULL').bind(parsed.title,parsed.description,user.name,parsed.type,parsed.url||null,image,JSON.stringify(parsed.genres),JSON.stringify(parsed.details),content,b.draft===true?'draft':b.draft===false?'public':String(existing.visibility||'public'),id,user.id).run();
     if(ops.length)await db().batch(ops);
     return json({ok:true});
   }catch(error){if(error instanceof Error&&error.message.includes('UNIQUE'))return json({error:'이미 등록된 링크입니다.'},409);return failure(error);}

@@ -223,7 +223,7 @@ async function loadUsers(){
     <td><span class="title">${esc(u.name)}</span>${u.self?` ${badge('나','pin')}`:''}</td>
     <td>${u.provider==='google'?'Google':'ChatGPT'}</td>
     <td>${u.role==='admin'?badge('운영자','pin'):badge('회원','plain')}</td>
-    <td>${u.suspended?badge('정지','off'):badge('정상','ok')}</td>
+    <td>${u.suspended?badge('정지','off'):badge('정상','ok')}${u.deletionRequested?badge('탈퇴 요청','off'):''}</td>
     <td class="num">${fmtDate(u.created)}</td>
     <td class="num">${u.projects} · ${u.posts} · ${u.comments}</td>
     <td><div class="ad-actions">${u.self?'':`${u.role==='admin'?`<button class="ad-btn" data-user="${esc(u.id)}" data-action="make-member" data-name="${esc(u.name)}">운영자 해제</button>`:`<button class="ad-btn" data-user="${esc(u.id)}" data-action="make-admin" data-name="${esc(u.name)}">운영자 지정</button>`}${u.suspended?`<button class="ad-btn" data-user="${esc(u.id)}" data-action="unsuspend" data-name="${esc(u.name)}">정지 해제</button>`:`<button class="ad-btn danger" data-user="${esc(u.id)}" data-action="suspend" data-name="${esc(u.name)}" ${u.role==='admin'?'disabled title="운영자는 먼저 해제하세요"':''}>정지</button>`}<button class="ad-btn danger" data-delete-user="${esc(u.id)}" data-name="${esc(u.name)}" ${u.role==='admin'?'disabled title="운영자는 먼저 해제하세요"':''}>삭제</button>`}</div></td></tr>`))||empty(state.q?'검색 결과가 없어요.':'아직 회원이 없어요.');

@@ -1,19 +1,20 @@
 import { ApiError, db } from './api';
-import type { Member } from './auth';
+import { currentUser, type Member } from './auth';
+import { assertVisibleAuthor } from './member-safety';
 
 export async function entity(kind:string,id:string){
   if(!['project','post','comment'].includes(kind)||!id||id.length>100)throw new ApiError(400,'대상을 확인해주세요.');
   if(kind==='project'){
-    const p=await db().prepare('SELECT id, owner_id, title, source, status FROM projects WHERE id = ? AND deleted_at IS NULL AND hidden_at IS NULL').bind(id).first();
-    if(p)return{id,ownerId:p.source==='catalog'?null:String(p.owner_id),title:String(p.title),status:String(p.status||'live'),kind};
+    const p=await db().prepare("SELECT id, owner_id, title, source, status FROM projects WHERE id = ? AND deleted_at IS NULL AND hidden_at IS NULL AND visibility = 'public'").bind(id).first();
+    if(p){await assertVisibleAuthor(String(p.owner_id),(await currentUser())?.id);return{id,ownerId:p.source==='catalog'?null:String(p.owner_id),title:String(p.title),status:String(p.status||'live'),kind};}
   }
   if(kind==='post'){
     const p=await db().prepare('SELECT id, owner_id, title FROM posts WHERE id = ? AND deleted_at IS NULL AND hidden_at IS NULL').bind(id).first();
-    if(p)return{id,ownerId:String(p.owner_id),title:String(p.title),status:'live',kind};
+    if(p){await assertVisibleAuthor(String(p.owner_id),(await currentUser())?.id);return{id,ownerId:String(p.owner_id),title:String(p.title),status:'live',kind};}
   }
   if(kind==='comment'){
     const c=await db().prepare('SELECT id, owner_id, target_kind, target_id FROM comments WHERE id = ? AND deleted_at IS NULL AND hidden_at IS NULL').bind(id).first();
-    if(c){await entity(String(c.target_kind),String(c.target_id));return{id,ownerId:String(c.owner_id),title:'댓글',status:'live',kind};}
+    if(c){await assertVisibleAuthor(String(c.owner_id),(await currentUser())?.id);await entity(String(c.target_kind),String(c.target_id));return{id,ownerId:String(c.owner_id),title:'댓글',status:'live',kind};}
   }
   throw new ApiError(404,'삭제되었거나 찾을 수 없는 콘텐츠입니다.');
 }
@@ -30,6 +31,7 @@ export async function stats(kind:string,id:string,userId=''){
 export async function notify(recipient:string|null,actor:Member,kind:string,targetKind:string,targetId:string,excerpt:string){
   if(!recipient){const admins=await db().prepare("SELECT id FROM profiles WHERE role='admin' AND suspended=0 LIMIT 10").all();for(const admin of admins.results)await notify(String(admin.id),actor,kind,targetKind,targetId,excerpt);return;}
   if(recipient===actor.id)return;
+  if(await db().prepare('SELECT 1 FROM member_blocks WHERE owner_id=? AND target_id=?').bind(recipient,actor.id).first())return;
   await db().prepare('INSERT INTO notifications (id,recipient_id,actor_id,kind,target_kind,target_id,excerpt,created) VALUES (?,?,?,?,?,?,?,?)').bind(crypto.randomUUID(),recipient,actor.id,kind,targetKind,targetId,excerpt.slice(0,140),Date.now()).run();
 }
 export const postSelect=`SELECT p.id,p.title,p.body,p.category,p.project_id,p.created,p.updated,u.public_id AS author_id,u.name AS author_name,u.avatar AS author_avatar,(p.owner_id = ?) AS owned,(SELECT COUNT(*) FROM reactions r WHERE r.target_kind = 'post' AND r.target_id = p.id) AS recommendations,(SELECT COUNT(*) FROM comments c WHERE c.target_kind = 'post' AND c.target_id = p.id AND c.deleted_at IS NULL AND c.hidden_at IS NULL) AS comments,EXISTS(SELECT 1 FROM reactions r WHERE r.target_kind='post' AND r.target_id=p.id AND r.user_id=?) AS recommended FROM posts p JOIN profiles u ON u.id=p.owner_id`;

@@ -31,7 +31,8 @@ function publicUrlError(value) {const href=validUrl(value);if(!href)return '올�
 const COVER={width:1280,height:720,maxBytes:800*1024,types:['image/png','image/jpeg','image/webp']};
 let cover={mode:'keep',data:''};
 function toast(message) {clearTimeout(toastTimeout);$('#toast').textContent=message;$('#toast').classList.add('visible');toastTimeout=setTimeout(()=>$('#toast').classList.remove('visible'),3500);}
-const findProject = id => projects.find(p=>p.id===id);
+let myDrafts = [];
+const findProject = id => projects.find(p=>p.id===id) || myDrafts.find(p=>p.id===id);
 
 function artMarkup(p) {
   const art=['koiworld','dayflow','fishing','learnhub','deepchoi','godoftop','voyage'].includes(p.art)?p.art:'custom';
@@ -51,7 +52,7 @@ function cardMarkup(p) {
   return `<article class="project-card"><button class="card-open" data-detail="${escapeHtml(p.id)}" aria-label="${escapeHtml(p.title)} 자세히 보기">${artMarkup(p)}<div class="card-info"><div class="card-title-line"><span class="card-title">${escapeHtml(p.title)}</span><span class="card-category">${typeNames[p.type]}</span></div><div class="card-subtitle">${escapeHtml(p.subtitle)}</div><div class="card-metrics"><span class="card-rating">★ ${p.ratingCount?Number(p.rating).toFixed(1):'첫 평가를 기다려요'} <small>${p.ratingCount?'('+Number(p.ratingCount)+')':''}</small></span><span>♡ ${Number(p.recommendations||0)} <span class="metric-divider">·</span> 댓글 ${Number(p.commentCount||0)}</span></div><div class="card-bottom"><span class="creator-dot">${escapeHtml((p.creator||'V')[0].toUpperCase())}</span><span>${escapeHtml(p.creator)}</span><span class="card-availability ${p.status==='upcoming'||p.sample?'upcoming':''}">${p.sample?'예시 작품':p.status==='upcoming'?'공개 준비 중':'● 지금 이용 가능'}</span></div></div></button>${p.badge?`<span class="card-top-tag ${p.featured?'lime':''}">${escapeHtml(p.badge)}</span>`:''}<button class="card-save ${isSaved?'saved':''}" data-save="${escapeHtml(p.id)}" aria-label="${escapeHtml(p.title)} ${isSaved?'찜 취소':'찜하기'}" aria-pressed="${isSaved}">${isSaved?'✓':'+'}</button></article>`;
 }
 function render() {
-  let list=projects.filter(p=>(filter==='saved'?saved.has(p.id):(p.status!=='upcoming'||!!query)&&(filter==='all'||filter===p.type))&&`${p.title} ${p.subtitle} ${p.creator} ${p.description} ${(p.tags||[]).join(' ')}`.toLowerCase().includes(query));
+  let list=projects.filter(p=>(filter==='saved'?saved.has(p.id):(p.status!=='upcoming'||!!query)&&(filter==='all'||filter===p.type))&&`${p.title} ${p.subtitle} ${p.creator} ${p.description} ${(p.tags||[]).join(' ')} ${(p.details?.stack||[]).join(' ')} ${(p.details?.making?.tools||[]).join(' ')}`.toLowerCase().includes(query));
   if(sort==='newest')list.sort((a,b)=>b.created-a.created);
   if(sort==='name')list.sort((a,b)=>a.title.localeCompare(b.title,'ko'));
   if(sort==='rating')list.sort((a,b)=>(b.rating||0)-(a.rating||0)||(b.ratingCount||0)-(a.ratingCount||0));
@@ -99,7 +100,7 @@ function renderRows(mode){
   const host=$('#nf-rows');document.body.classList.toggle('nf-home',!!mode);document.body.classList.toggle('nf-category',!!mode&&mode!=='home');
   const positions=$$('.nf-scroller',host).map(el=>el.scrollLeft);const sameMode=host.dataset.mode===String(mode);host.dataset.mode=String(mode);
   if(!mode){host.innerHTML='';return;}
-  if(mode!=='home'){const rows=categoryRows(mode);host.innerHTML=categoryHead(typeNames[mode],typeTaglines[mode],projects.filter(p=>p.type===mode).length,rows)+rows.map(rowMarkup).join('');return;}
+  if(mode!=='home'){const rows=categoryRows(mode);host.innerHTML=categoryHead(typeNames[mode],typeTaglines[mode],projects.filter(p=>p.type===mode).length,rows)+(mode==='website'?stackChips():'')+rows.map(rowMarkup).join('');return;}
   const live=projects.filter(p=>p.status!=='upcoming');
   // Category rows follow the header nav order and stay visible even when empty
   const typeRow=type=>({title:typeNames[type],type,items:live.filter(p=>p.type===type),always:true,more:`<button class="nf-row-more" data-nav-to="${type}">전체 보기 ›</button>`});
@@ -152,9 +153,10 @@ async function toggleSave(id){
 function updateHeroSave(){const state=saved.has(currentFeatured);$('#hero-save').classList.toggle('saved',state);$('#hero-save').textContent=state?'✓':'＋';$('#hero-save').setAttribute('aria-pressed',String(state));$('#hero-save').setAttribute('aria-label',`${findProject(currentFeatured)?.title||'작품'} ${state?'찜 취소':'찜하기'}`);}
 const sampleCta={novel:'예시 1화 읽기 →',art:'예시 작품 보기 →',video:'▶ 예시 영상 보기'};
 function openDetail(id){
+  hit(id,'view');
   const p=findProject(id);if(!p)return;detailId=id;
   const url=validUrl(p.url);
-  $('#detail-content').innerHTML=`<div class="detail-cover">${artMarkup(p)}</div><div class="detail-body"><div class="detail-overline"><span class="type-label">${typeNames[p.type]}</span><span>${p.sample?'SAMPLE · 예시 작품':p.status==='upcoming'?'IN DEVELOPMENT':p.badge==='COMMUNITY'?'COMMUNITY PROJECT':'MADE BY DEEPCHOI'}</span></div><h2 id="detail-title">${escapeHtml(p.title)}</h2><p class="detail-subtitle">${escapeHtml(p.subtitle)}</p><p class="detail-description">${escapeHtml(p.description)}</p>${(p.gallery||[]).length?`<div class="detail-gallery">${p.gallery.filter(imageUrl).map((src,i)=>`<img src="${escapeHtml(imageUrl(src))}" alt="${escapeHtml(p.title)} 소개 이미지 ${i+1}" loading="lazy">`).join('')}</div>`:''}<div class="detail-creator"><span class="creator-dot">${escapeHtml((p.creator||'V')[0].toUpperCase())}</span>Created by ${escapeHtml(p.creator)}</div><div class="detail-tags">${(p.tags||[]).map(t=>`<span>#${escapeHtml(t)}</span>`).join('')}</div><div class="detail-actions">${p.sample?`<a class="primary-button" href="/works/${encodeURIComponent(p.id)}">${sampleCta[p.type]||'예시 보기'}</a>`:url?`<a class="primary-button" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${ctaLabels[p.type]||'서비스 바로가기 ↗'}</a>`:'<button class="primary-button" disabled>공개 준비 중</button>'}${p.sample?'':`<a class="secondary-button" href="/works/${encodeURIComponent(p.id)}">상세 페이지 →</a>`}<button class="secondary-button" id="detail-save" aria-pressed="${saved.has(id)}">${saved.has(id)?'✓ 찜했어요':'＋ 찜하기'}</button></div><p class="detail-notice">${p.sample?'화면 구성을 보여주기 위해 운영자가 만든 예시 작품이에요. 사이트 안의 예시 페이지에서 볼 수 있어요.':url?'작품 페이지가 새 탭에서 열립니다. 서비스별로 별도 로그인이 필요할 수 있어요.':'아직 공개 플레이 링크가 준비되지 않았습니다. 정식 공개를 기다려주세요.'}</p>${p.owned?'<button class="remove-project" id="remove-project">내 작품을 공개 목록에서 내리기</button>':''}</div>`;
+  $('#detail-content').innerHTML=`<div class="detail-cover">${artMarkup(p)}</div><div class="detail-body"><div class="detail-overline"><span class="type-label">${typeNames[p.type]}</span><span>${p.sample?'SAMPLE · 예시 작품':p.status==='upcoming'?'IN DEVELOPMENT':p.badge==='COMMUNITY'?'COMMUNITY PROJECT':'MADE BY DEEPCHOI'}</span></div><h2 id="detail-title">${escapeHtml(p.title)}</h2><p class="detail-subtitle">${escapeHtml(p.subtitle)}</p><p class="detail-description">${escapeHtml(p.description)}</p>${(p.gallery||[]).length?`<div class="detail-gallery">${p.gallery.filter(imageUrl).map((src,i)=>`<img src="${escapeHtml(imageUrl(src))}" alt="${escapeHtml(p.title)} 소개 이미지 ${i+1}" loading="lazy">`).join('')}</div>`:''}<div class="detail-creator"><span class="creator-dot">${escapeHtml((p.creator||'V')[0].toUpperCase())}</span>Created by ${p.creatorId?`<a class="detail-creator-link" href="/creators/${encodeURIComponent(p.creatorId)}">${escapeHtml(p.creator)}</a>`:escapeHtml(p.creator)}</div><div class="detail-tags">${(p.tags||[]).map(t=>`<span>#${escapeHtml(t)}</span>`).join('')}</div><div class="detail-actions">${p.sample?`<a class="primary-button" href="/works/${encodeURIComponent(p.id)}">${sampleCta[p.type]||'예시 보기'}</a>`:url?`<a class="primary-button" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${ctaLabels[p.type]||'서비스 바로가기 ↗'}</a>`:'<button class="primary-button" disabled>공개 준비 중</button>'}${p.sample?'':`<a class="secondary-button" href="/works/${encodeURIComponent(p.id)}">상세 페이지 →</a>`}<button class="secondary-button" id="detail-save" aria-pressed="${saved.has(id)}">${saved.has(id)?'✓ 찜했어요':'＋ 찜하기'}</button></div><p class="detail-notice">${p.sample?'화면 구성을 보여주기 위해 운영자가 만든 예시 작품이에요. 사이트 안의 예시 페이지에서 볼 수 있어요.':url?'작품 페이지가 새 탭에서 열립니다. 서비스별로 별도 로그인이 필요할 수 있어요.':'아직 공개 플레이 링크가 준비되지 않았습니다. 정식 공개를 기다려주세요.'}</p>${p.owned?'<button class="remove-project" id="remove-project">내 작품을 공개 목록에서 내리기</button>':''}</div>`;
   $('#detail-dialog').setAttribute('aria-labelledby','detail-title');$('#detail-save').addEventListener('click',()=>toggleSave(id));
   $('#remove-project')?.addEventListener('click',async event=>{event.target.disabled=true;try{const response=await fetch(`/api/projects/${encodeURIComponent(id)}`,{method:'DELETE'});const result=await response.json();if(!response.ok)throw Error(result.error);projects=projects.filter(item=>item.id!==id);$('#detail-dialog').close();render();toast('공개 목록에서 작품을 내렸어요.');}catch(error){event.target.disabled=false;toast(error.message||'잠시 후 다시 시도해주세요.');}});
   $('#detail-dialog').showModal();
@@ -257,7 +259,7 @@ function renderUploadGenres(){
 }
 $('#upload-form').elements.namedItem('type').addEventListener('change',event=>{renderUploadGenres();renderUploadDetails(event.target.value);});
 $('#upload-genres').addEventListener('click',event=>{const chip=event.target.closest('[data-genre]');if(!chip)return;const g=chip.dataset.genre;if(uploadGenres.has(g))uploadGenres.delete(g);else if(uploadGenres.size>=3){toast('장르는 3개까지 고를 수 있어요.');return;}else uploadGenres.add(g);renderUploadGenres();});
-async function openUpload(editId){await sessionReady;editingProjectId=typeof editId==='string'?editId:null;const p=editingProjectId?findProject(editingProjectId):null;const form=$('#upload-form');if(p){for(const key of ['title','creator','type','url','description'])form.elements.namedItem(key).value=p[key]||'';}else if(form.dataset.editing){form.reset();}uploadGenres=new Set(p?.genres||(form.dataset.editing?[]:uploadGenres));renderUploadGenres();renderUploadDetails(form.elements.namedItem('type').value,p?.details||{});coverError('');setCover('keep','',p&&imageUrl(p.image));if(p){setBlocks([]);loadBodyForEdit(p.id);}else if(form.dataset.editing||!blocks.length)setBlocks([]);updateDescriptionCount();form.dataset.editing=editingProjectId||'';if(user){form.elements.namedItem('creator').value=user.name;form.elements.namedItem('creator').readOnly=true;}$('#upload-dialog h2').textContent=p?'작품 소개를 다듬어주세요.':'당신의 작품을 소개해주세요.';$('#upload-form').hidden=!user;$('#upload-auth').hidden=!!user;$('#form-error').hidden=true;if(!$('#upload-dialog').open)$('#upload-dialog').showModal();}
+async function openUpload(editId){await sessionReady;editingProjectId=typeof editId==='string'?editId:null;const p=editingProjectId?findProject(editingProjectId):null;const form=$('#upload-form');if(p){for(const key of ['title','creator','type','url','description'])form.elements.namedItem(key).value=p[key]||'';}else if(form.dataset.editing){form.reset();}uploadGenres=new Set(p?.genres||(form.dataset.editing?[]:uploadGenres));renderUploadGenres();renderUploadDetails(form.elements.namedItem('type').value,p?.details||{});coverError('');setCover('keep','',p&&imageUrl(p.image));if(p){setBlocks([]);loadBodyForEdit(p.id);}else if(form.dataset.editing||!bodyEditor.length)setBlocks([]);updateDescriptionCount();form.dataset.editing=editingProjectId||'';if(user){form.elements.namedItem('creator').value=user.name;form.elements.namedItem('creator').readOnly=true;}$('#upload-dialog h2').textContent=p?'작품 소개를 다듬어주세요.':'당신의 작품을 소개해주세요.';$('#upload-form').hidden=!user;$('#upload-auth').hidden=!!user;$('#form-error').hidden=true;if(!$('#upload-dialog').open)$('#upload-dialog').showModal();}
 const GALLERY={max:8,maxBytes:700*1024,maxWidth:1600};
 // ───── Upload form: category fields + vertical body editor ─────
 // The link field changes meaning per category: sites/games need it, apps need it or a store link, videos need YouTube/Vimeo.
@@ -272,64 +274,51 @@ const linkRules={
 const bodyHints={website:'스크린샷과 설명을 번갈아 넣으면 상세 페이지가 읽기 좋아져요.',app:'앱 화면 스크린샷과 기능 설명을 넣어보세요.',game:'플레이 화면 스크린샷과 게임 이야기를 넣어보세요.',art:'그림을 순서대로 올리면 세로로 이어서 보여요. 웹툰·만화는 컷 순서대로 올려주세요.',video:'제작 과정, 크레딧, 비하인드를 적어보세요.',novel:'회차마다 ‘소제목’을 넣고 그 아래에 ‘글’을 이어서 쓰세요.'};
 const detailField=(label,control,hint='')=>`<label class="detail-input"><span>${label}${hint?` <small>${hint}</small>`:''}</span>${control}</label>`;
 const sel=(name,options,value)=>`<select name="${name}">${options.map(([v,l])=>`<option value="${v}" ${v===value?'selected':''}>${l}</option>`).join('')}</select>`;
+const checks=(name,options,selected=[])=>`<div class="detail-checks">${options.map(([k,l])=>`<label><input type="checkbox" name="${name}" value="${k}" ${selected.includes(k)?'checked':''}> ${l}</label>`).join('')}</div>`;
+const WARNING_OPTIONS=[['violence','폭력'],['horror','공포'],['language','거친 언어'],['mature','성인 소재'],['flashing','깜빡이는 화면']];
 function renderUploadDetails(type,d={}){
   const v=k=>escapeHtml(Array.isArray(d[k])?d[k].join(k==='features'?'\n':', '):d[k]||'');
+  const m=d.making||{};const mv=k=>escapeHtml(Array.isArray(m[k])?m[k].join(', '):m[k]||'');
+  const form=label=>detailField(label,sel('d_form',[['','선택'],['single','단편'],['serial',type==='video'?'시리즈':'연재']],d.form||''),'연재·시리즈는 등록 후 작품 페이지에서 회차를 올려요');
+  const warnings=`<div class="detail-input"><span>소재 경고 <small>해당하면 선택 · 작품 페이지 위에 안내돼요</small></span>${checks('d_warnings',WARNING_OPTIONS,d.warnings||[])}</div>`;
   const html={
-    website:detailField('주요 기능',`<textarea name="d_features" rows="3" maxlength="420" placeholder="한 줄에 하나씩, 최대 5개">${v('features')}</textarea>`)+detailField('사용 기술',`<input name="d_stack" maxlength="260" placeholder="예: React, Supabase, Tailwind" value="${v('stack')}">`,'쉼표로 구분'),
-    app:`<div class="detail-input"><span>플랫폼</span><div class="detail-checks">${[['ios','iOS'],['android','Android'],['web','웹']].map(([k,l])=>`<label><input type="checkbox" name="d_platforms" value="${k}" ${(d.platforms||[]).includes(k)?'checked':''}> ${l}</label>`).join('')}</div></div>`+detailField('App Store 링크',`<input name="d_appStore" maxlength="2000" placeholder="https://apps.apple.com/..." value="${v('appStore')}">`)+detailField('Google Play 링크',`<input name="d_playStore" maxlength="2000" placeholder="https://play.google.com/..." value="${v('playStore')}">`),
-    game:`<div class="form-pair">${detailField('플레이 방식',sel('d_playMode',[['','선택'],['browser','브라우저에서 바로'],['download','다운로드 설치'],['mobile','모바일']],d.playMode||''))}${detailField('플레이 시간',`<input name="d_playtime" maxlength="30" placeholder="예: 10~20분" value="${v('playtime')}">`)}</div>`+detailField('조작법',`<textarea name="d_controls" rows="3" maxlength="500" placeholder="예: WASD 이동 · 마우스 조준 · 스페이스 점프">${v('controls')}</textarea>`)+detailField('트레일러 링크',`<input name="d_trailer" maxlength="2000" placeholder="YouTube 또는 Vimeo (선택)" value="${v('trailer')}">`),
-    art:detailField('형식',sel('d_format',[['','선택'],['illustration','일러스트'],['webtoon','웹툰 (세로 스크롤)'],['comic','만화']],d.format||''),'웹툰·만화는 이미지가 간격 없이 이어져 보여요'),
-    video:detailField('길이',`<input name="d_duration" maxlength="20" placeholder="예: 3분 20초" value="${v('duration')}">`),
-    novel:detailField('연재 상태',sel('d_status',[['','선택'],['ongoing','연재 중'],['complete','완결']],d.status||'')),
+    website:detailField('주요 기능',`<textarea name="d_features" rows="3" maxlength="420" placeholder="한 줄에 하나씩, 최대 5개">${v('features')}</textarea>`)+detailField('사용 기술',`<input name="d_stack" maxlength="260" placeholder="예: React, Supabase, Tailwind" value="${v('stack')}">`,'쉼표로 구분 · 웹사이트 페이지에서 기술로 찾을 수 있어요'),
+    app:`<div class="detail-input"><span>플랫폼</span>${checks('d_platforms',[['ios','iOS'],['android','Android'],['web','웹']],d.platforms||[])}</div>`+detailField('App Store 링크',`<input name="d_appStore" maxlength="2000" placeholder="https://apps.apple.com/..." value="${v('appStore')}">`)+detailField('Google Play 링크',`<input name="d_playStore" maxlength="2000" placeholder="https://play.google.com/..." value="${v('playStore')}">`)+`<div class="form-pair">${detailField('가격',sel('d_price',[['','선택'],['free','무료'],['paid','유료'],['iap','무료 · 앱 내 결제']],d.price||''))}<div class="detail-input"><span>베타 테스터</span>${checks('d_beta',[['on','모집 중']],d.beta?['on']:[])}</div></div>`+detailField('베타 참여 링크',`<input name="d_betaUrl" maxlength="2000" placeholder="TestFlight·Play 테스트 링크 (선택)" value="${v('betaUrl')}">`),
+    game:`<div class="form-pair">${detailField('개발 단계',sel('d_stage',[['','선택'],['demo','데모'],['early','얼리 액세스'],['release','정식 출시']],d.stage||''))}${detailField('플레이 방식',sel('d_playMode',[['','선택'],['browser','브라우저에서 바로'],['download','다운로드 설치'],['mobile','모바일']],d.playMode||''))}</div><div class="detail-input"><span>조작 장치</span>${checks('d_inputs',[['keyboard','키보드'],['mouse','마우스'],['gamepad','게임패드'],['touch','터치']],d.inputs||[])}</div>`+detailField('플레이 시간',`<input name="d_playtime" maxlength="30" placeholder="예: 10~20분" value="${v('playtime')}">`)+detailField('조작법',`<textarea name="d_controls" rows="3" maxlength="500" placeholder="예: WASD 이동 · 마우스 조준 · 스페이스 점프">${v('controls')}</textarea>`)+detailField('트레일러 링크',`<input name="d_trailer" maxlength="2000" placeholder="YouTube 또는 Vimeo (선택)" value="${v('trailer')}">`)+detailField('itch.io 임베드 주소',`<input name="d_embed" maxlength="2000" placeholder="https://itch.io/embed-upload/... (선택)" value="${v('embed')}">`,'넣으면 작품 페이지에서 바로 플레이할 수 있어요')+warnings,
+    art:`<div class="form-pair">${detailField('형식',sel('d_format',[['','선택'],['illustration','일러스트'],['webtoon','웹툰 (세로 스크롤)'],['comic','만화']],d.format||''))}${form('연재 여부')}</div>`+detailField('라이선스',sel('d_license',[['','선택'],['all-rights','모든 권리 보유 · 무단 사용 금지'],['cc-by','CC BY · 출처 표시'],['cc-by-nc','CC BY-NC · 비상업적 이용'],['cc0','CC0 · 자유 이용']],d.license||''))+warnings,
+    video:`<div class="form-pair">${detailField('길이',`<input name="d_duration" maxlength="20" placeholder="예: 3분 20초" value="${v('duration')}">`)}${form('형식')}</div>`+detailField('챕터',`<textarea name="d_chapters" rows="3" maxlength="2000" placeholder="0:00 인트로&#10;1:20 본편">${v('chapters')}</textarea>`,'한 줄에 하나씩')+detailField('크레딧',`<textarea name="d_credits" rows="3" maxlength="1000" placeholder="출연, 음악, 사용한 AI 도구 등">${v('credits')}</textarea>`)+warnings,
+    novel:`<div class="form-pair">${form('형식')}${detailField('연재 상태',sel('d_status',[['','선택'],['ongoing','연재 중'],['complete','완결']],d.status||''))}</div>`+warnings,
   }[type]||'';
-  const box=$('#upload-details');box.innerHTML=html;box.hidden=!html;
+  // How it was made with AI — shared by every category
+  const making=`<div class="making-fields"><span class="cover-label">AI로 만든 과정 <small>선택 · 작품 페이지에 따로 소개돼요</small></span><div class="form-pair">${detailField('사용한 AI 도구',`<input name="m_tools" maxlength="260" placeholder="예: Claude, Cursor, Midjourney" value="${mv('tools')}">`,'쉼표로 구분')}${detailField('제작 기간',`<input name="m_days" maxlength="30" placeholder="예: 3일" value="${mv('days')}">`)}</div>${detailField('만든 과정',`<textarea name="m_process" rows="3" maxlength="2000" placeholder="어떤 아이디어로 시작해서, AI와 어떻게 만들었는지 들려주세요.">${mv('process')}</textarea>`)}<div class="form-pair">${detailField('GitHub 링크',`<input name="m_github" maxlength="2000" placeholder="https://github.com/... (선택)" value="${mv('github')}">`)}<div class="detail-input"><span>소스 공개</span>${checks('m_openSource',[['on','오픈소스예요']],m.openSource?['on']:[])}</div></div></div>`;
+  const box=$('#upload-details');box.innerHTML=html+making;box.hidden=false;
   const rule=linkRules[type]||linkRules.website;const url=$('#upload-form').elements.namedItem('url');
   $('#url-label').textContent=rule.label;$('#url-required').hidden=!rule.required;url.required=rule.required;url.placeholder=rule.placeholder;$('#url-hint').textContent=rule.hint;
-  $('#content-hint').textContent=bodyHints[type]||'';
+  bodyEditor.setHint(bodyHints[type]||'');
 }
 function gatherDetails(form){
-  const out={};
-  for(const [k,val] of new FormData(form).entries()){if(!k.startsWith('d_'))continue;const key=k.slice(2);if(key==='platforms'){(out.platforms||=[]).push(val);continue;}out[key]=String(val).trim();}
+  const out={},making={};const many=['platforms','inputs','warnings'];
+  for(const [k,val] of new FormData(form).entries()){
+    if(k.startsWith('m_')){making[k.slice(2)]=String(val).trim();continue;}
+    if(!k.startsWith('d_'))continue;const key=k.slice(2);
+    if(many.includes(key)){(out[key]||=[]).push(val);continue;}out[key]=String(val).trim();
+  }
   if(out.features)out.features=out.features.split('\n').map(x=>x.trim()).filter(Boolean);
   if(out.stack)out.stack=out.stack.split(',').map(x=>x.trim()).filter(Boolean);
+  if(making.tools)making.tools=making.tools.split(',').map(x=>x.trim()).filter(Boolean);
+  out.making=making;
   return out;
 }
-// Body blocks: {type:'heading'|'text',text} or {type:'image',id?,data?,src,caption}
-let blocks=[];
-const blockNames={heading:'소제목',text:'글',image:'이미지'};
-function contentError(message){const el=$('#content-error');el.textContent=message||'';el.hidden=!message;}
-function renderBlocks(){
-  $('#content-blocks').innerHTML=blocks.map((b,i)=>`<div class="cblock cblock-${b.type}" data-block="${i}"><div class="cblock-bar"><span>${blockNames[b.type]}</span><button type="button" data-block-move="-1" aria-label="위로" ${i===0?'disabled':''}>↑</button><button type="button" data-block-move="1" aria-label="아래로" ${i===blocks.length-1?'disabled':''}>↓</button><button type="button" data-block-remove aria-label="${blockNames[b.type]} 삭제">✕</button></div>${
-    b.type==='heading'?`<input data-block-text maxlength="100" placeholder="소제목 (예: 1화 · 시작)" value="${escapeHtml(b.text||'')}">`:
-    b.type==='text'?`<textarea data-block-text rows="6" maxlength="5000" placeholder="내용을 입력하세요.">${escapeHtml(b.text||'')}</textarea>`:
-    `<img src="${escapeHtml(b.src)}" alt=""><input data-block-caption maxlength="200" placeholder="이미지 설명 (선택)" value="${escapeHtml(b.caption||'')}">`}</div>`).join('');
-  const images=blocks.filter(b=>b.type==='image').length;const add=$('#content-add-image');add.disabled=images>=GALLERY.max;add.textContent=images>=GALLERY.max?`이미지 ${GALLERY.max}장 모두 사용`:'＋ 이미지';
-}
-function setBlocks(next){blocks=next;contentError('');renderBlocks();}
+// Body editor shared with work pages (public/block-editor.js)
+const bodyEditor=BlockEditor.create($('#content-editor'));
+function setBlocks(next){bodyEditor.set(next);}
 async function loadBodyForEdit(id){
   try{const response=await fetch(`/api/projects/${encodeURIComponent(id)}`);if(!response.ok)return;const full=await response.json();if(editingProjectId!==id)return;
-    renderUploadDetails($('#upload-form').elements.namedItem('type').value,full.details||{});
-    setBlocks((full.content||[]).map(b=>b.type==='image'?{type:'image',id:b.id,src:b.src,caption:b.caption||''}:{type:b.type,text:b.text||''}));
+    renderUploadDetails($('#upload-form').elements.namedItem('type').value,full.details||{});setBlocks(full.content||[]);
   }catch{}
 }
-$('#content-blocks').addEventListener('input',event=>{const el=event.target.closest('[data-block]');if(!el)return;const b=blocks[Number(el.dataset.block)];if(event.target.matches('[data-block-text]'))b.text=event.target.value;if(event.target.matches('[data-block-caption]'))b.caption=event.target.value;});
-$('#content-blocks').addEventListener('click',event=>{const el=event.target.closest('[data-block]');if(!el)return;const i=Number(el.dataset.block);
-  if(event.target.closest('[data-block-remove]')){blocks.splice(i,1);renderBlocks();return;}
-  const move=event.target.closest('[data-block-move]');if(move){const j=i+Number(move.dataset.blockMove);if(j<0||j>=blocks.length)return;[blocks[i],blocks[j]]=[blocks[j],blocks[i]];renderBlocks();}});
-$$('[data-add-block]').forEach(button=>button.addEventListener('click',()=>{if(blocks.length>=60){contentError('블록은 60개까지 만들 수 있어요.');return;}blocks.push({type:button.dataset.addBlock,text:''});renderBlocks();$('#content-blocks .cblock:last-child [data-block-text]')?.focus();}));
-$('#content-add-image').addEventListener('click',()=>$('#content-file').click());
-$('#content-file').addEventListener('change',async event=>{
-  const files=[...event.target.files];event.target.value='';if(!files.length)return;contentError('');
-  const room=GALLERY.max-blocks.filter(b=>b.type==='image').length;const problems=[];
-  if(files.length>room)problems.push(`이미지는 최대 ${GALLERY.max}장이라서 ${files.length-room}장은 제외했어요.`);
-  const button=$('#content-add-image');button.disabled=true;button.textContent='이미지 최적화 중…';
-  for(const file of files.slice(0,room)){
-    if(!['image/png','image/jpeg','image/webp'].includes(file.type)){problems.push(`${file.name}: PNG, JPG, WebP만 올릴 수 있어요.`);continue;}
-    if(file.size>20*1024*1024){problems.push(`${file.name}: 20MB 이하 이미지만 올릴 수 있어요.`);continue;}
-    try{const data=await shrinkImage(file);blocks.push({type:'image',data,src:data,caption:''});}catch{problems.push(`${file.name}: 이미지를 처리하지 못했어요.`);}
-  }
-  renderBlocks();contentError(problems.join(' '));
-});
+let draftSubmit=false;
+$('#save-draft').addEventListener('click',()=>{draftSubmit=true;$('#upload-form').requestSubmit();});
 // Downscale + re-encode in the browser so any normal photo or illustration fits the upload budget.
 async function shrinkImage(file){
   const url=URL.createObjectURL(file);
@@ -361,30 +350,17 @@ function updateDescriptionCount(){$('#description-count').textContent=$('#upload
 $('#upload-description').addEventListener('input',updateDescriptionCount);
 $('#cover-pick').addEventListener('click',()=>$('#cover-file').click());
 $('#cover-clear').addEventListener('click',()=>{coverError('');setCover('remove','');});
-$('#cover-file').addEventListener('change',event=>{
-  const file=event.target.files[0];if(!file)return;coverError('');
-  const reject=message=>{coverError(message);event.target.value='';};
-  if(!COVER.types.includes(file.type))return reject('PNG, JPG, WebP 형식의 이미지만 올릴 수 있어요.');
-  if(file.size>COVER.maxBytes)return reject(`파일이 너무 커요. (${(file.size/1024).toFixed(0)}KB) ${COVER.maxBytes/1024}KB 이하로 줄여주세요.`);
-  const reader=new FileReader();
-  reader.onerror=()=>reject('이미지를 읽을 수 없어요. 다른 파일을 선택해주세요.');
-  reader.onload=()=>{
-    const probe=new Image();
-    probe.onerror=()=>reject('이미지를 열 수 없어요. 손상된 파일일 수 있어요.');
-    probe.onload=()=>{
-      if(probe.naturalWidth!==COVER.width||probe.naturalHeight!==COVER.height)return reject(`이미지 크기가 맞지 않아요. (현재 ${probe.naturalWidth} × ${probe.naturalHeight}px) ${COVER.width} × ${COVER.height}px로 맞춰서 다시 올려주세요.`);
-      setCover('new',reader.result);
-    };
-    probe.src=reader.result;
-  };
-  reader.readAsDataURL(file);
+$('#cover-file').addEventListener('change',async event=>{
+  const file=event.target.files[0];event.target.value='';if(!file)return;coverError('');
+  if(!COVER.types.includes(file.type))return coverError('PNG, JPG, WebP 형식의 이미지만 올릴 수 있어요.');
+  try{setCover('new',await BlockEditor.prepareCover(file));}catch{coverError('이미지를 처리하지 못했어요. 다른 이미지를 골라주세요.');}
 });
 $('#upload-open').addEventListener('click',openUpload);$('#banner-upload').addEventListener('click',openUpload);
 $('#upload-form').addEventListener('submit',async event=>{
   event.preventDefault();if(submitting)return;const form=event.target;const data=new FormData(form);const payload=Object.fromEntries(data);$('#form-error').hidden=true;
-  for(const key of Object.keys(payload))if(key.startsWith('d_'))delete payload[key];payload.details=gatherDetails(form);
+  for(const key of Object.keys(payload))if(key.startsWith('d_')||key.startsWith('m_'))delete payload[key];payload.details=gatherDetails(form);
   const urlField=form.elements.namedItem('url');payload.url=payload.url.trim()?normalizeUrl(payload.url):'';const urlProblem=payload.url||urlField.required?publicUrlError(payload.url):'';if(urlProblem){urlField.setCustomValidity(urlProblem);urlField.reportValidity();urlField.addEventListener('input',()=>urlField.setCustomValidity(''),{once:true});return;}
-  payload.content=blocks.map(b=>b.type==='image'?(b.id?{type:'image',id:b.id,caption:b.caption||''}:{type:'image',data:b.data,caption:b.caption||''}):{type:b.type,text:b.text||''});
+  const content=bodyEditor.get();if(!content){draftSubmit=false;return;}payload.content=content;payload.draft=draftSubmit;draftSubmit=false;
   if(cover.mode==='new')payload.image=cover.data;else if(cover.mode==='remove')payload.image='';
   payload.genres=[...uploadGenres];
   for(const name of ['title','creator','description']){const field=form.elements.namedItem(name);if(!String(data.get(name)).trim()){field.setCustomValidity('공백 이외의 내용을 입력해주세요.');field.reportValidity();field.addEventListener('input',()=>field.setCustomValidity(''),{once:true});return;}}
@@ -392,7 +368,7 @@ $('#upload-form').addEventListener('submit',async event=>{
   try{
     const response=await fetch(editingProjectId?`/api/projects/${encodeURIComponent(editingProjectId)}`:'/api/projects',{method:editingProjectId?'PATCH':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const result=await response.json().catch(()=>({}));
     if(!response.ok){if(response.status===401){user=null;$('#upload-form').hidden=true;$('#upload-auth').hidden=false;}throw Error(result.error||'등록에 실패했어요. 잠시 후 다시 시도해주세요.');}
-    const edited=!!editingProjectId;editingProjectId=null;form.reset();uploadGenres.clear();renderUploadGenres();setCover('keep','');setBlocks([]);renderUploadDetails(form.elements.namedItem('type').value);updateDescriptionCount();delete form.dataset.editing;$('#upload-dialog').close();query='';$('#search').value='';sort='newest';$('#sort').value='newest';await loadCatalog();setFilter('all',true);toast(edited?'작품 소개를 수정했어요.':'작품이 공개되었어요. 이제 다른 방문자도 볼 수 있어요.');
+    const edited=!!editingProjectId;editingProjectId=null;form.reset();uploadGenres.clear();renderUploadGenres();setCover('keep','');setBlocks([]);renderUploadDetails(form.elements.namedItem('type').value);updateDescriptionCount();delete form.dataset.editing;$('#upload-dialog').close();query='';$('#search').value='';sort='newest';$('#sort').value='newest';await loadCatalog();setFilter('all',true);toast(payload.draft?'임시 저장했어요. 내 프로필 → 내 작품에서 이어서 쓸 수 있어요.':edited?'작품 소개를 수정했어요.':'작품이 공개되었어요. 이제 다른 방문자도 볼 수 있어요.');
   }catch(error){$('#form-error').textContent=error.message||'네트워크 연결을 확인하고 다시 시도해주세요.';$('#form-error').hidden=false;}
   finally{submitting=false;button.disabled=false;button.innerHTML='공개 등록하기 <span>↗</span>';}
 });
@@ -409,13 +385,40 @@ function applySite(site){
 }
 async function loadCatalog(){
   let message='';
-  try{const response=await fetch('/api/projects');const result=await response.json();if(!Array.isArray(result.projects))throw Error('잘못된 응답');projects=result.projects;message=result.error||'';applySite(result.site);if(result.genres){genreMap=result.genres;renderUploadGenres();}if(Array.isArray(result.banners)&&result.banners.length)homeBanners=result.banners;heroKey='';}
+  try{const response=await fetch('/api/projects');const result=await response.json();if(!Array.isArray(result.projects))throw Error('잘못된 응답');myDrafts=result.projects.filter(p=>p.draft);projects=result.projects.filter(p=>!p.draft);message=result.error||'';applySite(result.site);if(result.genres){genreMap=result.genres;renderUploadGenres();}if(Array.isArray(result.banners)&&result.banners.length)homeBanners=result.banners;heroKey='';}
   catch{try{const response=await fetch('/catalog.json');if(!response.ok)throw Error();projects=await response.json();message='커뮤니티 작품을 불러오지 못했습니다. 기본 서비스는 계속 이용할 수 있어요.';}catch{message='작품을 불러올 수 없습니다. 연결을 확인한 뒤 새로고침해주세요.';}}
   $('#catalog-status').hidden=!message;$('#catalog-status').textContent=message;render();
   // /#work=ID (from a work page's 별점 · 댓글 button) opens that work's panel
-  const linked=decodeURIComponent((location.hash.match(/^#work=(.+)$/)||[])[1]||'');if(linked&&findProject(linked)){history.replaceState(null,'',location.pathname+location.search);openDetail(linked);}
+  const [,hashKind,hashId]=location.hash.match(/^#(work|edit)=(.+)$/)||[];const linked=decodeURIComponent(hashId||'');
+  if(linked&&findProject(linked)){history.replaceState(null,'',location.pathname+location.search);if(hashKind==='edit')openUpload(linked);else openDetail(linked);}
+  if(location.hash==='#profile'){history.replaceState(null,'',location.pathname+location.search);sessionReady.then(()=>user?window.VibeCommunity?.openProfile():window.VibeCommunity?.login());}
   document.dispatchEvent(new CustomEvent('vibe:catalog'));
 }
 loadCatalog();
 if(new URL(location.href).searchParams.get('upload')==='1')openUpload();
 window.Vibe={getUser:()=>user,getProjects:()=>projects,getSaved:()=>[...saved],setSaved:ids=>{saved=new Set(ids);render();},refreshAuth:loadSession,reload:loadCatalog,openDetail,openUpload,render,artMarkup,toast,escapeHtml,setFilter,setCommunityView,patchProject:(id,patch)=>{const p=findProject(id);if(p)Object.assign(p,patch);render();}};
+
+// Signing in from a work or creator page: /?login=1&next=/works/… returns there once the session exists.
+{
+  const params=new URLSearchParams(location.search);const next=params.get('next')||'';
+  const safeNext=/^\/(works|creators)\/[^/]/.test(next)?next:'';
+  if(params.get('login')==='1'){
+    sessionReady.then(()=>{if(user){if(safeNext)location.href=safeNext;}else window.VibeCommunity?.login();});
+    document.addEventListener('vibe:auth',event=>{if(event.detail&&safeNext)location.href=safeNext;});
+  }
+}
+// Creator stats: a panel opened counts as a view, an outbound link from the panel or the hero as a click.
+const counted=new Set();
+function hit(id,kind){if(!id||findProject(id)?.draft)return;if(kind==='view'){if(counted.has(id))return;counted.add(id);}fetch(`/api/projects/${encodeURIComponent(id)}/hit?kind=${kind}`,{method:'POST',keepalive:true}).catch(()=>{});}
+document.addEventListener('click',event=>{
+  const link=event.target.closest('#detail-content .detail-actions a[target="_blank"]');if(link)hit(detailId,'click');
+  if(event.target.closest('#hero-play[target="_blank"]'))hit(currentFeatured,'click');
+});
+
+// Website page: browse by tech stack (chips search the catalog for that technology)
+function stackChips(){
+  const counts=new Map();for(const p of projects)if(p.type==='website')for(const t of p.details?.stack||[])counts.set(t,(counts.get(t)||0)+1);
+  const top=[...counts].sort((a,b)=>b[1]-a[1]).slice(0,12);
+  return top.length?`<nav class="nf-cat-chips nf-stack-chips" aria-label="사용 기술로 찾기"><span>사용 기술</span>${top.map(([t,n])=>`<button data-stack="${escapeHtml(t)}">${escapeHtml(t)}<span>${n}</span></button>`).join('')}</nav>`:'';
+}
+document.addEventListener('click',event=>{const chip=event.target.closest('[data-stack]');if(!chip)return;openSearch();const input=$('#search');input.value=chip.dataset.stack;input.dispatchEvent(new Event('input'));});

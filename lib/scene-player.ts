@@ -1,0 +1,30 @@
+import type { Scene } from './sample-content';
+import { esc } from './page-shell';
+
+// The 30-second scene player used by sample videos (gradients, simple animated shapes and captions).
+const shapes: Record<Scene['shape'], string> = {
+  sun: '<circle class="sun" cx="960" cy="230" r="120" fill="#fff" opacity=".85"/>',
+  waves: [0, 1, 2].map(i => `<path class="wave w${i}" d="M-200 ${430 + i * 60} q 160 -50 320 0 t 320 0 t 320 0 t 320 0 t 320 0 t 320 0" stroke="#fff" stroke-width="14" fill="none" opacity="${0.5 - i * 0.12}" stroke-linecap="round"/>`).join(''),
+  road: '<path d="M640 720 L600 360 L680 360 Z" fill="#000" opacity=".25"/>' + [0, 1, 2, 3].map(i => `<rect class="dash d${i}" x="634" y="380" width="12" height="60" rx="6" fill="#fff" opacity=".8"/>`).join(''),
+  plane: '<g class="plane"><path d="M0 0 L140 40 L0 80 L30 40 Z" fill="#fff" opacity=".95"/><path d="M30 40 L140 40" stroke="#00000033" stroke-width="3"/></g>',
+  stars: Array.from({ length: 36 }, (_, i) => `<circle class="star s${i % 4}" cx="${(i * 131) % 1280}" cy="${(i * 71) % 520}" r="${(i % 3) + 2}" fill="#fff"/>`).join(''),
+};
+export const scenePlayer = (scenes: Scene[]) => `<div class="player" id="player" data-scenes='${esc(JSON.stringify(scenes))}'><div class="screen" id="screen"><svg viewBox="0 0 1280 720" preserveAspectRatio="xMidYMid slice" id="shape" aria-hidden="true"></svg><div class="caption"><strong id="caption"></strong><span id="sub"></span></div><button class="big-play" id="big-play" aria-label="재생">▶</button></div><div class="controls"><button id="toggle" aria-label="재생">▶</button><div class="bar" id="bar"><span id="fill"></span></div><time id="time">0:00 / 0:30</time></div></div><template id="shapes">${Object.entries(shapes).map(([k, v]) => `<g data-shape="${k}">${v}</g>`).join('')}</template>`;
+export const playerScript = `(()=>{const p=document.getElementById('player');if(!p)return;const scenes=JSON.parse(p.dataset.scenes),total=30000,per=total/scenes.length;
+const $=id=>document.getElementById(id),screen=$('screen'),shape=$('shape'),tpl=$('shapes').content;let t=0,last=0,playing=false,shown=-1;
+const fmt=ms=>{const s=Math.floor(ms/1000);return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');};
+function show(i){if(i===shown)return;shown=i;const s=scenes[i];screen.style.background='linear-gradient(135deg,'+s.from+','+s.to+')';shape.innerHTML=tpl.querySelector('[data-shape="'+s.shape+'"]').innerHTML;$('caption').textContent=s.caption;$('sub').textContent=s.sub||'';screen.classList.remove('in');void screen.offsetWidth;screen.classList.add('in');}
+function draw(){show(Math.min(scenes.length-1,Math.floor(t/per)));$('fill').style.width=(t/total*100)+'%';$('time').textContent=fmt(t)+' / '+fmt(total);}
+function frame(now){if(!playing)return;t+=now-last;last=now;if(t>=total){t=total;draw();setPlaying(false);return;}draw();requestAnimationFrame(frame);}
+function setPlaying(on){if(on&&t>=total)t=0;playing=on;p.classList.toggle('playing',on);$('toggle').textContent=on?'❚❚':'▶';$('toggle').setAttribute('aria-label',on?'일시정지':'재생');$('big-play').hidden=on;if(on){last=performance.now();requestAnimationFrame(frame);}}
+$('toggle').onclick=$('big-play').onclick=()=>setPlaying(!playing);screen.onclick=e=>{if(e.target===screen||e.target.closest('svg'))setPlaying(!playing);};
+$('bar').onclick=e=>{const r=e.currentTarget.getBoundingClientRect();t=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width))*total;draw();};
+document.addEventListener('keydown',e=>{if(e.code==='Space'&&!/input|textarea/i.test(e.target.tagName)){e.preventDefault();setPlaying(!playing);}});draw();})();`;
+export const SCENE_CSS = `.player{border-radius:16px;overflow:hidden;background:#111;box-shadow:0 30px 80px #000}.screen{position:relative;aspect-ratio:16/9;display:grid;place-items:center;transition:background .8s;cursor:pointer;overflow:hidden}.screen svg{position:absolute;inset:0;width:100%;height:100%}
+.caption{position:relative;text-align:center;padding:0 24px;pointer-events:none}.caption strong{display:block;font-size:clamp(24px,4.2vw,52px);font-weight:800;letter-spacing:-1px;color:#fff;text-shadow:0 4px 30px #0006}.caption span{display:block;margin-top:8px;font-size:clamp(12px,1.4vw,16px);color:#ffffffcc;letter-spacing:2px}
+.screen.in .caption{animation:rise .9s ease both}@keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.big-play{position:absolute;width:76px;height:76px;border-radius:50%;background:#000000a0;font-size:26px;color:#fff;display:grid;place-items:center;padding-left:5px}.big-play[hidden]{display:none}
+.controls{display:flex;align-items:center;gap:14px;padding:12px 16px;background:#141414}.controls button{width:34px;height:34px;border-radius:50%;background:#ffffff14;font-size:13px}.bar{flex:1;height:6px;border-radius:3px;background:#ffffff26;cursor:pointer;position:relative}.bar span{position:absolute;left:0;top:0;bottom:0;width:0;border-radius:3px;background:var(--lime)}.controls time{font:500 12.5px 'DM Sans',sans-serif;color:#bdbdbd;font-variant-numeric:tabular-nums;min-width:82px;text-align:right}
+.playing .sun{animation:bob 6s ease-in-out infinite}.playing .wave{animation:drift 4s linear infinite}.playing .w1{animation-duration:5s}.playing .w2{animation-duration:6.5s}.playing .dash{animation:dash 1.2s linear infinite}.playing .d1{animation-delay:-.3s}.playing .d2{animation-delay:-.6s}.playing .d3{animation-delay:-.9s}.plane{transform:translate(200px,300px)}.playing .plane{animation:fly 6s ease-in-out infinite}.playing .star{animation:twinkle 2s ease-in-out infinite}.playing .s1{animation-delay:-.5s}.playing .s2{animation-delay:-1s}.playing .s3{animation-delay:-1.5s}
+@keyframes bob{50%{transform:translateY(-24px)}}@keyframes drift{to{transform:translateX(-320px)}}@keyframes dash{from{transform:translateY(0) scaleY(.4)}to{transform:translateY(320px) scaleY(2.4)}}@keyframes fly{0%{transform:translate(120px,420px) rotate(-12deg)}50%{transform:translate(620px,220px) rotate(4deg)}100%{transform:translate(1180px,320px) rotate(-6deg)}}@keyframes twinkle{50%{opacity:.25}}
+@media(prefers-reduced-motion:reduce){.playing *{animation:none!important}}`;

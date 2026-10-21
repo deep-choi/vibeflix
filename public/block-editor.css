@@ -1,0 +1,18 @@
+/* Shared body block editor (upload form + episode/update editor) */
+.block-editor .be-hint{margin:0 0 8px;font-size:12.5px;color:#8d8d8d}
+.block-editor .be-blocks{display:flex;flex-direction:column;gap:10px;margin:10px 0}
+.block-editor .cblock{border-radius:10px;border:1px solid #ffffff1a;background:#0e0e0e;padding:8px 10px 10px}
+.block-editor .cblock-bar{display:flex;align-items:center;gap:4px;margin-bottom:6px}
+.block-editor .cblock-bar span{margin-right:auto;font-size:11.5px;font-weight:700;letter-spacing:.5px;color:#c3f568}
+.block-editor .cblock-bar button{width:28px;height:28px;border-radius:7px;background:#ffffff0d;border:0;color:#cfcfcf;font-size:12px;line-height:1;cursor:pointer}
+.block-editor .cblock-bar button:hover:not(:disabled){background:#ffffff1f}
+.block-editor .cblock-bar button:disabled{opacity:.3;cursor:default}
+.block-editor .cblock input,.block-editor .cblock textarea{display:block;width:100%;margin:0;padding:10px 12px;border-radius:8px;background:#000;border:1px solid #ffffff24;color:#eee;font:inherit;font-size:14px;resize:vertical}
+.block-editor .cblock-heading input{font-weight:700;font-size:15px}
+.block-editor .cblock-image img{display:block;width:100%;max-height:320px;object-fit:contain;border-radius:8px;background:#000;margin-bottom:8px}
+.block-editor .be-add{display:flex;flex-wrap:wrap;gap:8px}
+.block-editor .be-add button{min-height:36px;padding:0 14px;border-radius:999px;background:#ffffff10;border:1px solid #ffffff24;color:#e6e6e6;font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+.block-editor .be-add button:hover:not(:disabled){background:#ffffff1c}
+.block-editor .be-add button:disabled{opacity:.45;cursor:default}
+.block-editor .be-error{margin:8px 0 0;color:#ff8a7a;font-size:12.5px}
+.block-editor [hidden],.block-editor input[type=file]{display:none!important}

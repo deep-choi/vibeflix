@@ -147,8 +147,8 @@ async function dispatch(request:Request,context:Context){
   if(resource==='users'){
     if(method==='GET'){
       const {offset,take}=pageParams(url,50);
-      const rows=await db().prepare(`SELECT u.public_id,u.id,u.name,u.role,u.suspended,u.created,(SELECT COUNT(*) FROM projects WHERE owner_id=u.id AND deleted_at IS NULL) AS projects,(SELECT COUNT(*) FROM posts WHERE owner_id=u.id AND deleted_at IS NULL) AS posts,(SELECT COUNT(*) FROM comments WHERE owner_id=u.id AND deleted_at IS NULL) AS comments FROM profiles u ${q?'WHERE u.name LIKE ?':''} ORDER BY u.created DESC LIMIT ? OFFSET ?`).bind(...(q?[like(q)]:[]),take,offset).all();
-      return json({users:rows.results.map(r=>({id:r.public_id,name:r.name,provider:String(r.id).startsWith('google:')?'google':'chatgpt',role:r.role,suspended:!!r.suspended,created:r.created,projects:r.projects,posts:r.posts,comments:r.comments,self:r.id===admin.id}))});
+      const rows=await db().prepare(`SELECT u.public_id,u.id,u.name,u.role,u.suspended,u.created,EXISTS(SELECT 1 FROM deletion_requests d WHERE d.user_id=u.id) AS deletion_requested,(SELECT COUNT(*) FROM projects WHERE owner_id=u.id AND deleted_at IS NULL) AS projects,(SELECT COUNT(*) FROM posts WHERE owner_id=u.id AND deleted_at IS NULL) AS posts,(SELECT COUNT(*) FROM comments WHERE owner_id=u.id AND deleted_at IS NULL) AS comments FROM profiles u ${q?'WHERE u.name LIKE ?':''} ORDER BY u.created DESC LIMIT ? OFFSET ?`).bind(...(q?[like(q)]:[]),take,offset).all();
+      return json({users:rows.results.map(r=>({id:r.public_id,name:r.name,provider:String(r.id).startsWith('google:')?'google':'chatgpt',role:r.role,suspended:!!r.suspended,deletionRequested:!!r.deletion_requested,created:r.created,projects:r.projects,posts:r.posts,comments:r.comments,self:r.id===admin.id}))});
     }
     if(a&&(method==='PATCH'||method==='DELETE')){
       const b=await body(request);
@@ -189,13 +189,13 @@ async function dispatch(request:Request,context:Context){
   if(resource==='reports'){
     if(method==='GET'){
       const pending=url.searchParams.get('status')!=='all';
-      const rows=await db().prepare(`SELECT r.id,r.target_kind,r.target_id,r.reason,r.status,r.created,u.name AS reporter_name,CASE WHEN r.target_kind='comment' THEN (SELECT body FROM comments WHERE id=r.target_id) WHEN r.target_kind='post' THEN (SELECT title || char(10) || body FROM posts WHERE id=r.target_id) ELSE (SELECT title || char(10) || description FROM projects WHERE id=r.target_id) END AS content FROM reports r JOIN profiles u ON u.id=r.reporter_id ${pending?"WHERE r.status='pending'":''} ORDER BY r.created DESC LIMIT 100`).all();
+      const rows=await db().prepare(`SELECT r.id,r.target_kind,r.target_id,r.reason,r.status,r.created,u.name AS reporter_name,CASE WHEN r.target_kind='user' THEN (SELECT name || char(10) || bio FROM profiles WHERE public_id=r.target_id) WHEN r.target_kind='comment' THEN (SELECT body FROM comments WHERE id=r.target_id) WHEN r.target_kind='post' THEN (SELECT title || char(10) || body FROM posts WHERE id=r.target_id) ELSE (SELECT title || char(10) || description FROM projects WHERE id=r.target_id) END AS content FROM reports r JOIN profiles u ON u.id=r.reporter_id ${pending?"WHERE r.status='pending'":''} ORDER BY r.created DESC LIMIT 100`).all();
       return json({reports:rows.results.map(r=>({...r,content:r.content??'(삭제된 콘텐츠)'}))});
     }
     if(method==='PATCH'&&a){
       const b=await body(request);const action=String(b.action);if(action!=='hide'&&action!=='dismiss')throw new ApiError(400,'처리 방식을 확인해주세요.');
       const report=await db().prepare("SELECT * FROM reports WHERE id=? AND status='pending'").bind(a).first();if(!report)throw new ApiError(404,'처리할 신고를 찾을 수 없습니다.');
-      if(action==='hide')await setHidden(String(report.target_kind),String(report.target_id),true);
+      if(action==='hide'){if(report.target_kind==='user'){const target=await db().prepare('SELECT id,role FROM profiles WHERE public_id=?').bind(report.target_id).first();if(!target||target.id===admin.id||target.role==='admin')throw new ApiError(400,'이용자 관리에서 확인해주세요.');await db().batch([db().prepare('UPDATE profiles SET suspended=1 WHERE id=?').bind(target.id),db().prepare('DELETE FROM sessions WHERE user_id=?').bind(target.id)]);}else await setHidden(String(report.target_kind),String(report.target_id),true);}
       await db().prepare('UPDATE reports SET status=?,resolved_at=? WHERE id=?').bind(action==='hide'?'resolved':'dismissed',Date.now(),a).run();
       await logAction(admin.id,`report.${action}`,String(report.target_kind),String(report.target_id),note(b));return json({ok:true});
     }

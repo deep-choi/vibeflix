@@ -81,7 +81,10 @@ export async function purgeProjects(ids:string[]){
     run("DELETE FROM notifications WHERE target_kind='project' AND target_id IN (??)",part),
     run('UPDATE posts SET project_id=NULL WHERE project_id IN (??)',part),
     run('UPDATE banners SET project_id=NULL WHERE project_id IN (??)',part),
+    run('DELETE FROM entries WHERE project_id IN (??)',part),
+    run('DELETE FROM work_stats WHERE project_id IN (??)',part),
     run('DELETE FROM projects WHERE id IN (??)',part),
+    ...part.map(id=>db().prepare("DELETE FROM notifications WHERE target_kind='entry' AND substr(target_id,1,?)=?").bind(id.length+1,`${id}/`)),
   ]);
   const s=await getSettings();if(s.pinned.some(id=>ids.includes(id)))await saveSettings({pinned:s.pinned.filter(id=>!ids.includes(id))});
 }
@@ -98,7 +101,11 @@ export async function purgeUser(userId:string){
     db().prepare('DELETE FROM reports WHERE reporter_id=?').bind(userId),
     db().prepare('DELETE FROM notifications WHERE recipient_id=? OR actor_id=?').bind(userId,userId),
     db().prepare('DELETE FROM sessions WHERE user_id=?').bind(userId),
+    db().prepare('DELETE FROM follows WHERE follower_id=? OR creator_id=?').bind(userId,userId),
     db().prepare('DELETE FROM limits WHERE substr(id,1,?)=?').bind(userId.length+1,userId+':'),
+    db().prepare('DELETE FROM member_blocks WHERE owner_id=? OR target_id=?').bind(userId,userId),
+    db().prepare('DELETE FROM policy_acceptances WHERE user_id=?').bind(userId),
+    db().prepare('DELETE FROM deletion_requests WHERE user_id=?').bind(userId),
     db().prepare('DELETE FROM profiles WHERE id=?').bind(userId),
   ]);
 }

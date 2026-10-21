@@ -25,6 +25,7 @@ export const projects = sqliteTable('projects', {
   content: text('content').notNull().default('[]'),
   // Category-specific fields (website features, app stores, game controls, video duration, novel status…)
   details: text('details').notNull().default('{}'),
+  visibility: text('visibility').notNull().default('public'), // 'draft' = saved but only the owner can see it
 
   featured: integer('featured').notNull().default(0),
   sort: integer('sort').notNull().default(0),
@@ -35,6 +36,7 @@ export const projectImages = sqliteTable('project_images', {
   projectId: text('project_id').notNull(),
   position: integer('position').notNull(),
   data: text('data').notNull(),
+  entryId: text('entry_id'), // set when the image belongs to an episode/update rather than the work body
   created: integer('created').notNull(),
 }, table => [index('project_images_project_idx').on(table.projectId, table.position)]);
 
@@ -54,7 +56,7 @@ export const posts = sqliteTable('posts', {
 }, t=>[index('posts_created_idx').on(t.created),index('posts_owner_idx').on(t.ownerId)]);
 export const comments = sqliteTable('comments', {
   id:text('id').primaryKey(), ownerId:text('owner_id').notNull(), targetKind:text('target_kind').notNull(), targetId:text('target_id').notNull(),
-  parentId:text('parent_id'), body:text('body').notNull(), created:integer('created').notNull(), updated:integer('updated').notNull(), deletedAt:integer('deleted_at'), hiddenAt:integer('hidden_at'),
+  parentId:text('parent_id'), body:text('body').notNull(), label:text('label').notNull().default(''), created:integer('created').notNull(), updated:integer('updated').notNull(), deletedAt:integer('deleted_at'), hiddenAt:integer('hidden_at'),
 }, t=>[index('comments_target_idx').on(t.targetKind,t.targetId,t.created),index('comments_owner_idx').on(t.ownerId)]);
 export const reactions = sqliteTable('reactions', {
   userId:text('user_id').notNull(), targetKind:text('target_kind').notNull(), targetId:text('target_id').notNull(), created:integer('created').notNull(),
@@ -97,3 +99,22 @@ export const banners = sqliteTable('banners', {
   theme:text('theme').notNull().default('custom'), image:text('image').notNull().default(''),
   sort:integer('sort').notNull().default(0), enabled:integer('enabled').notNull().default(1), created:integer('created').notNull(), updated:integer('updated').notNull(),
 },t=>[index('banners_sort_idx').on(t.sort)]);
+// Episodes (novel/webtoon/video series) and update notes (app/game/website)
+export const entries = sqliteTable('entries', {
+  id:text('id').primaryKey(), projectId:text('project_id').notNull(), kind:text('kind').notNull(), // 'episode' | 'update'
+  number:integer('number'), version:text('version').notNull().default(''), title:text('title').notNull(), note:text('note').notNull().default(''),
+  content:text('content').notNull().default('[]'), status:text('status').notNull().default('published'), // 'published' | 'draft'
+  publishedAt:integer('published_at').notNull(), notifiedAt:integer('notified_at'), created:integer('created').notNull(), updated:integer('updated').notNull(),
+},t=>[index('entries_project_idx').on(t.projectId,t.publishedAt)]);
+export const follows = sqliteTable('follows', {
+  followerId:text('follower_id').notNull(), creatorId:text('creator_id').notNull(), created:integer('created').notNull(),
+},t=>[primaryKey({columns:[t.followerId,t.creatorId]}),index('follows_creator_idx').on(t.creatorId)]);
+// Per-work daily counters for creators: detail views and outbound link clicks
+export const workStats = sqliteTable('work_stats', {
+  projectId:text('project_id').notNull(), day:text('day').notNull(), views:integer('views').notNull().default(0), clicks:integer('clicks').notNull().default(0),
+},t=>[primaryKey({columns:[t.projectId,t.day]})]);
+
+// Android release: member controls and explicit content policy consent.
+export const memberBlocks=sqliteTable('member_blocks',{ownerId:text('owner_id').notNull(),targetId:text('target_id').notNull(),created:integer('created').notNull()},t=>[primaryKey({columns:[t.ownerId,t.targetId]})]);
+export const policyAcceptances=sqliteTable('policy_acceptances',{userId:text('user_id').primaryKey(),version:text('version').notNull(),accepted:integer('accepted').notNull()});
+export const deletionRequests=sqliteTable('deletion_requests',{userId:text('user_id').primaryKey(),requested:integer('requested').notNull()});

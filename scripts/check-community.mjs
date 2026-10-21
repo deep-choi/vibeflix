@@ -8,13 +8,13 @@ assert.ok(['127.0.0.1','localhost'].includes(new URL(origin).hostname),'Disposab
 const tag=randomUUID();const a='google:qa-admin-'+tag,b='google:qa-member-'+tag;
 const actors=[{id:a,name:'Local Admin',role:'admin',token:randomBytes(32).toString('hex')},{id:b,name:'Local Member',role:'member',token:randomBytes(32).toString('hex')}];
 const fixture=path.resolve('.sites-runtime/community-check.sql');mkdirSync(path.dirname(fixture),{recursive:true});
-function sql(statements){writeFileSync(fixture,statements);const p=spawnSync(process.execPath,['--import','./scripts/sites-env.mjs','./node_modules/wrangler/bin/wrangler.js','d1','execute','DB','--local','--config','dist/server/wrangler.json','--persist-to','.wrangler/state','--file',fixture],{encoding:'utf8'});if(p.status!==0)throw Error('Local fixture SQL failed: '+p.stderr);}
+function sql(statements){writeFileSync(fixture,statements);const p=spawnSync(process.execPath,['--import','./scripts/sites-env.mjs','./node_modules/wrangler/bin/wrangler.js','d1','execute','DB','--local','--config','dist/server/wrangler.json','--persist-to',process.env.VIBEFLIX_QA_PERSIST||'.wrangler/state','--file',fixture],{encoding:'utf8'});if(p.status!==0)throw Error('Local fixture SQL failed: '+p.stderr);}
 const quote=value=>"'"+String(value).replaceAll("'","''")+"'";
 const setup=actors.map(u=>`INSERT INTO profiles(id,public_id,name,role,created,updated) VALUES(${quote(u.id)},${quote(randomUUID())},${quote(u.name)},${quote(u.role)},${Date.now()},${Date.now()}); INSERT INTO sessions(hash,user_id,expires) VALUES(${quote(createHash('sha256').update(u.token).digest('hex'))},${quote(u.id)},${Date.now()+3600000});`).join('\n');
 const request=async(actor,url,method='GET',body,extra={})=>{const headers={...(actor?{Cookie:'vibeflix_session='+actor.token}:{}),...(method!=='GET'?{Origin:origin}:{}),...(body!==undefined?{'Content-Type':'application/json'}:{}),...extra};const response=await fetch(origin+url,{method,headers,...(body!==undefined?{body:JSON.stringify(body)}:{})});let data;try{data=await response.json();}catch{data={};}return{status:response.status,data};};
 const expect=async(promise,status)=>{const result=await promise;assert.equal(result.status,status,JSON.stringify(result.data));return result.data;};
 const community=(actor,url,method,body,extra)=>request(actor,'/api/community/'+url,method,body,extra);
-sql(setup);
+sql(setup+actors.map(u=>`INSERT INTO policy_acceptances(user_id,version,accepted) VALUES(${quote(u.id)},'2026-10-21',${Date.now()});`).join('\n'));
 try{
   const [A,B]=actors;
   assert.equal((await expect(request(null,'/api/session'),200)).user,null);
@@ -49,11 +49,44 @@ try{
   await expect(request(A,'/api/projects/'+projectId,'DELETE'),200);await expect(request(A,'/api/projects/'+projectId,'PATCH',{restore:true}),200);
   await expect(community(B,'reports','POST',{kind:'project',targetId:projectId,reason:'A local-only project hide test'}),201);const projectReport=(await expect(community(A,'moderation'),200)).reports.find(r=>r.target_id===projectId);await expect(community(A,'moderation','PATCH',{id:projectReport.id,action:'hide'}),200);await expect(request(A,'/api/projects/'+projectId,'PATCH',{restore:true}),403);
   await expect(community(B,'profile','PATCH',{name:'Member updated',bio:'A saved profile'}),200);assert.equal((await expect(community(B,'profile'),200)).user.name,'Member updated');
+  // Android release regressions use disposable local members only.
+  sql(`DELETE FROM policy_acceptances WHERE user_id=${quote(B.id)};`);
+  await expect(community(B,'posts','POST',{title:'Consent required',body:'Must not publish before acceptance'}),428);
+  await expect(request(null,'/api/safety','POST',{action:'accept',accepted:true}),401);
+  await expect(request(B,'/api/safety','POST',{action:'accept',accepted:true},{Origin:'https://other.example'}),403);
+  await expect(request(B,'/api/safety','POST',{action:'accept',accepted:false}),400);
+  await expect(request(B,'/api/safety','POST',{action:'accept',accepted:true}),200);
+  const visiblePost=await expect(community(A,'posts','POST',{title:`Safety ${tag}`,body:'A disposable post used for member blocking.'}),201);
+  const visibleProject=await expect(request(A,'/api/projects','POST',{title:'Blockable project',creator:'Local Admin',type:'website',description:'A disposable project to verify blocked creators.',url:`https://example.com/safety-${tag}`}),201);
+  await expect(community(A,'comments','POST',{kind:'project',targetId:'koiworld',body:'A comment hidden after blocking its author.'}),201);
+  await expect(request(B,'/api/safety','POST',{action:'report-user',kind:'post',targetId:visiblePost.id,reason:'Local test of reporting an author.'}),200);
+  const reported=(await expect(request(A,'/api/admin/reports'),200)).reports.find(r=>r.target_kind==='user');
+  assert.ok(reported?.content.includes('Local Admin'));
+  await expect(request(B,'/api/safety','POST',{action:'block',kind:'post',targetId:visiblePost.id}),200);
+  assert.ok(!(await expect(community(B,'posts'),200)).posts.some(p=>p.id===visiblePost.id));
+  await expect(community(B,'posts/'+visiblePost.id),404);
+  assert.ok(!(await expect(request(B,'/api/projects'),200)).projects.some(p=>p.id===visibleProject.project.id));
+  const blockedPublicId=(await expect(request(B,'/api/safety'),200)).blocks[0].id;
+  assert.ok(!(await expect(community(B,'comments?kind=project&id=koiworld'),200)).comments.some(c=>c.author_id===blockedPublicId));
+  assert.ok(!(await expect(community(B,'ratings/koiworld'),200)).reviews.some(r=>r.author_id===blockedPublicId));
+  await expect(request(B,'/works/'+visibleProject.project.id),404);
+  await expect(request(B,'/creators/'+blockedPublicId),404);
+  await expect(request(B,'/api/safety','POST',{action:'unblock',publicId:blockedPublicId}),200);
+  await expect(community(B,'posts/'+visiblePost.id),200);
+  await expect(request(B,'/api/safety','POST',{action:'deletion',confirm:'wrong'}),400);
+  await expect(request(B,'/api/safety','POST',{action:'deletion',confirm:'삭제 요청'}),200);
+  await expect(request(B,'/api/safety','POST',{action:'deletion',confirm:'삭제 요청'}),200);
+  const pendingUser=(await expect(request(A,'/api/admin/users'),200)).users.find(u=>u.name==='Member updated');
+  assert.equal(pendingUser.deletionRequested,true);
+  assert.equal((await expect(request(B,'/api/safety'),200)).deletionRequested,true);
+  await expect(request(A,'/api/admin/users/'+pendingUser.id,'DELETE',{confirm:'Member updated'}),200);
+  assert.equal((await expect(request(B,'/api/session'),200)).user,null);
+  console.log('PASS: content consent, user reporting, blocked creator/feed/comments/reviews, unblock, idempotent deletion requests, operator visibility and account-data cleanup.');
   await expect(request(B,'/api/auth/google','POST',{idToken:'forged.token.value'}),401);
   await expect(request(B,'/api/auth/logout','POST',{}),200);assert.equal((await expect(request(B,'/api/session'),200)).user,null);assert.ok((await expect(request(A,'/api/session'),200)).user);
   console.log('PASS: public reading, two-user ownership, posts/search/edit, nested comment rules, reply notifications, soft removal, idempotent recommendations, 1–5 ratings/update, bookmarks, profiles, private reports, admin moderation, restoration protection, forged login rejection and session logout.');
 }finally{
   const list=actors.map(u=>quote(u.id)).join(',');
-  sql(`DELETE FROM notifications WHERE recipient_id IN (${list}) OR actor_id IN (${list}); DELETE FROM reports WHERE reporter_id IN (${list}); DELETE FROM comments WHERE owner_id IN (${list}); DELETE FROM posts WHERE owner_id IN (${list}); DELETE FROM projects WHERE owner_id IN (${list}); DELETE FROM reactions WHERE user_id IN (${list}); DELETE FROM ratings WHERE user_id IN (${list}); DELETE FROM bookmarks WHERE user_id IN (${list}); DELETE FROM sessions WHERE user_id IN (${list}); DELETE FROM limits WHERE ${actors.map(u=>'instr(id,'+quote(u.id+':')+')=1').join(' OR ')}; DELETE FROM profiles WHERE id IN (${list});`);
+  sql(`DELETE FROM notifications WHERE recipient_id IN (${list}) OR actor_id IN (${list}); DELETE FROM reports WHERE reporter_id IN (${list}); DELETE FROM comments WHERE owner_id IN (${list}); DELETE FROM posts WHERE owner_id IN (${list}); DELETE FROM projects WHERE owner_id IN (${list}); DELETE FROM reactions WHERE user_id IN (${list}); DELETE FROM ratings WHERE user_id IN (${list}); DELETE FROM bookmarks WHERE user_id IN (${list}); DELETE FROM sessions WHERE user_id IN (${list}); DELETE FROM limits WHERE ${actors.map(u=>'instr(id,'+quote(u.id+':')+')=1').join(' OR ')}; DELETE FROM member_blocks WHERE owner_id IN (${list}) OR target_id IN (${list}); DELETE FROM deletion_requests WHERE user_id IN (${list}); DELETE FROM policy_acceptances WHERE user_id IN (${list}); DELETE FROM profiles WHERE id IN (${list});`);
   try{unlinkSync(fixture);}catch{}
 }
