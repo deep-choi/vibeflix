@@ -2,7 +2,7 @@ import seedCatalog from '../../../public-catalog';
 import { ApiError, body, db, failure, json, origin, pageParams } from '../../../../lib/api';
 import { requireAdmin, type Member } from '../../../../lib/auth';
 import { getSettings, kstDay, logAction, purgeComments, purgePosts, purgeProjects, purgeUser, saveSettings } from '../../../../lib/admin';
-import { COVER, normalizeUrl, parseCover, projectTypes, publicUrl } from '../../../../lib/project-input';
+import { COVER, genreTaxonomy, normalizeUrl, parseCover, parseGenres, projectTypes, publicUrl } from '../../../../lib/project-input';
 import { PROJECT_COLUMNS, isCuratedOrigin, listBanners, parseBannerImage, publicProject } from '../../../../lib/projects';
 
 export const dynamic='force-dynamic';
@@ -47,11 +47,12 @@ async function editProject(id:string,existing:Record<string,unknown>,b:Record<st
   if(rawUrl&&!url)throw new ApiError(400,'작품 링크는 공개된 http(s) 주소여야 해요.');
   if(!url&&status==='live')throw new ApiError(400,'공개 중인 작품에는 링크가 필요해요. 링크가 없으면 상태를 ‘공개 예정’으로 바꿔주세요.');
   if(url&&existing.source!=='catalog'&&await isCuratedOrigin(url,id))throw new ApiError(409,'기본 작품과 같은 사이트의 링크예요.');
+  const genres=b.genres===undefined?JSON.parse(String(existing.genres||'[]')):parseGenres(type,b.genres);
   const tags=Array.isArray(b.tags)?b.tags.map(t=>String(t).trim()).filter(Boolean).slice(0,6).map(t=>t.slice(0,20)):JSON.parse(String(existing.tags||'[]'));
   // image omitted = keep, '' = remove, data URL = replace (a new thumbnail replaces the built-in card design)
   let image=String(existing.image||''),art=String(existing.art||'custom');
   if(typeof b.image==='string'){if(b.image&&!parseCover(b.image))throw new ApiError(400,`썸네일은 ${COVER.width}×${COVER.height}px의 PNG·JPG·WebP, ${COVER.maxBytes/1024}KB 이하여야 해요.`);image=b.image;if(b.image)art='custom';}
-  try{await db().prepare('UPDATE projects SET title=?,creator=?,description=?,subtitle=?,type=?,status=?,url=?,tags=?,image=?,art=? WHERE id=? AND deleted_at IS NULL').bind(title,creator,description,subtitle,type,status,url||null,JSON.stringify(tags),image,art,id).run();}
+  try{await db().prepare('UPDATE projects SET title=?,creator=?,description=?,subtitle=?,type=?,status=?,url=?,tags=?,genres=?,image=?,art=? WHERE id=? AND deleted_at IS NULL').bind(title,creator,description,subtitle,type,status,url||null,JSON.stringify(tags),JSON.stringify(genres),image,art,id).run();}
   catch(error){if(error instanceof Error&&error.message.includes('UNIQUE'))throw new ApiError(409,'같은 링크의 작품이 이미 있어요.');throw error;}
 }
 
@@ -94,7 +95,7 @@ async function dispatch(request:Request,context:Context){
     if(method==='GET'){
       const s=await getSettings();
       const rows=await db().prepare(`SELECT ${PROJECT_COLUMNS},(SELECT name FROM profiles WHERE profiles.id=projects.owner_id) AS owner_name FROM projects WHERE deleted_at IS NULL ${q?'AND (title LIKE ? OR creator LIKE ?)':''} ORDER BY CASE source WHEN 'catalog' THEN 0 ELSE 1 END, sort, created DESC LIMIT 300`).bind(...(q?[like(q),like(q)]:[])).all();
-      return json({pinned:s.pinned,projects:rows.results.map(r=>({...publicProject(r),subtitleRaw:r.subtitle||'',source:r.source==='catalog'?'catalog':'community',hidden:!!r.hidden_at,ownerName:r.owner_name,pinned:s.pinned.indexOf(String(r.id)),canRestoreDesign:r.source==='catalog'&&seedCatalog.some(seed=>seed.id===r.id&&(seed.art!==r.art||seed.image!==r.image))}))});
+      return json({pinned:s.pinned,genres:genreTaxonomy,projects:rows.results.map(r=>({...publicProject(r),subtitleRaw:r.subtitle||'',source:r.source==='catalog'?'catalog':'community',hidden:!!r.hidden_at,ownerName:r.owner_name,pinned:s.pinned.indexOf(String(r.id)),canRestoreDesign:r.source==='catalog'&&seedCatalog.some(seed=>seed.id===r.id&&(seed.art!==r.art||seed.image!==r.image))}))});
     }
     if(a){
       const existing=await db().prepare('SELECT * FROM projects WHERE id=? AND deleted_at IS NULL').bind(a).first();

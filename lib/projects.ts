@@ -1,7 +1,7 @@
 import { db } from './api';
 import { parseGalleryImage } from './project-input';
 
-export const PROJECT_COLUMNS="id, owner_id, title, creator, type, description, url, CASE WHEN image LIKE 'data:%' THEN '/api/projects/' || id || '/cover?v=' || length(image) ELSE image END AS image, created, source, subtitle, art, badge, status, tags, featured, sort, hidden_at";
+export const PROJECT_COLUMNS="id, owner_id, title, creator, type, description, url, CASE WHEN image LIKE 'data:%' THEN '/api/projects/' || id || '/cover?v=' || length(image) ELSE image END AS image, created, source, subtitle, art, badge, status, tags, genres, featured, sort, hidden_at";
 const parseTags=(value:unknown)=>{try{const v=JSON.parse(String(value||'[]'));return Array.isArray(v)?v.map(String):[];}catch{return [];}};
 
 // Shape a projects row the way the site expects (curated and community works look the same to the client).
@@ -11,7 +11,7 @@ export function publicProject(row:Record<string,unknown>,userId=''){
   return {
     id:String(row.id),title:row.title,creator:row.creator,type:row.type,description:row.description,
     subtitle:row.subtitle||row.description,url:row.url||'',image:row.image||'',created:row.created,
-    art:row.art||'custom',tags:tags.length?tags:community?['커뮤니티']:[],badge:row.badge||(community?'COMMUNITY':''),
+    art:row.art||'custom',tags:tags.length?tags:community?['커뮤니티']:[],genres:parseTags(row.genres),badge:row.badge||(community?'COMMUNITY':''),
     status:row.status||'live',featured:!!row.featured,owned:!!userId&&community&&row.owner_id===userId,
   };
 }

@@ -133,7 +133,7 @@ async function viewProjects(){
   bindSearch(loadProjects);await loadProjects();
 }
 async function loadProjects(){
-  const d=await api('projects?q='+encodeURIComponent(state.q));const byId=new Map(d.projects.map(p=>[p.id,p]));state.projects=byId;
+  const d=await api('projects?q='+encodeURIComponent(state.q));const byId=new Map(d.projects.map(p=>[p.id,p]));state.projects=byId;state.genres=d.genres||{};
   const pinned=d.pinned.map(id=>byId.get(id)||{id,title:id,missing:true});
   $('#ad-pinned').innerHTML=pinned.length&&!state.q?`<section class="ad-section" style="margin-top:0;margin-bottom:24px"><h2>주목 작품 순서</h2>${table(['순서','작품',''],pinned.map((p,i)=>`<tr><td class="num">${i+1}</td><td><span class="title">${esc(p.title)}</span>${p.hidden?` ${badge('숨김 상태','off')}`:''}</td><td><div class="ad-actions"><button class="ad-btn icon" data-move="${esc(p.id)}" data-offset="-1" aria-label="위로" ${i===0?'disabled':''}>↑</button><button class="ad-btn icon" data-move="${esc(p.id)}" data-offset="1" aria-label="아래로" ${i===pinned.length-1?'disabled':''}>↓</button><button class="ad-btn" data-project="${esc(p.id)}" data-action="unpin">해제</button></div></td></tr>`))}</section>`:'';
   $('#ad-list').innerHTML=table(['작품','카테고리','출처','등록일','상태',''],d.projects.map(p=>`<tr>
@@ -156,14 +156,20 @@ function editProject(id){
   ${field('작품 링크',`<input name="url" maxlength="2000" value="${esc(p.url)}" placeholder="https://">`,'공개 예정이면 비워둘 수 있어요')}
   ${field('한 줄 소개',`<input name="subtitle" maxlength="120" value="${esc(p.subtitleRaw)}" placeholder="비우면 작품 소개 앞부분이 보여요">`,'카드에 보이는 문구')}
   ${field('작품 소개',`<textarea name="description" maxlength="1000" rows="5" required>${esc(p.description)}</textarea>`)}
+  <div class="ad-field"><span>장르 <small>최대 3개 · 카테고리 페이지에서 이 장르 줄에 나와요</small></span><div class="ad-chips" id="ad-genres"></div></div>
   ${field('태그',`<input name="tags" value="${esc((p.tags||[]).filter(t=>t!=='커뮤니티').join(', '))}" placeholder="쉼표로 구분, 최대 6개">`)}
   ${imagePicker({current:p.image,ratio:'16/9',prepare:prepareCover,hint:'아무 이미지나 고르면 16:9로 잘라 1280×720으로 맞춰요'+(p.art!=='custom'?' · 바꾸면 기본 카드 디자인 대신 이 이미지가 보여요':'')})}`;
   const extra=`<button type="button" class="ad-btn danger" data-delete-project="${esc(p.id)}">영구 삭제</button>${p.canRestoreDesign?`<button type="button" class="ad-btn" data-project="${esc(p.id)}" data-action="restore-design">기본 디자인으로</button>`:''}`;
   openEditor({title:`작품 수정 · ${p.title}`,body,extra,save:async form=>{
-    const payload={action:'edit',...Object.fromEntries(form),tags:String(form.get('tags')||'').split(',').map(t=>t.trim()).filter(Boolean)};
+    const payload={action:'edit',...Object.fromEntries(form),tags:String(form.get('tags')||'').split(',').map(t=>t.trim()).filter(Boolean),genres:[...picked]};
     if(pickedImage!==undefined)payload.image=pickedImage;
     await api('projects/'+encodeURIComponent(id),'PATCH',payload);toast('작품을 수정했어요.');
   }});
+  // genre chips follow the category select
+  const picked=new Set(p.genres||[]);const box=$('#ad-genres'),typeSelect=$('#ad-edit-form').type;
+  const drawGenres=()=>{const list=state.genres[typeSelect.value]||[];for(const g of picked)if(!list.includes(g))picked.delete(g);box.innerHTML=list.map(g=>`<button type="button" class="ad-chip${picked.has(g)?' on':''}" data-genre="${esc(g)}" aria-pressed="${picked.has(g)}">${esc(g)}</button>`).join('')||'<span class="meta">이 카테고리에는 장르가 없어요.</span>';};
+  box.addEventListener('click',event=>{const chip=event.target.closest('[data-genre]');if(!chip)return;const g=chip.dataset.genre;if(picked.has(g))picked.delete(g);else if(picked.size>=3){toast('장르는 3개까지 고를 수 있어요.');return;}else picked.add(g);drawGenres();});
+  typeSelect.addEventListener('change',drawGenres);drawGenres();
 }
 
 /* ───── 배너 ───── */

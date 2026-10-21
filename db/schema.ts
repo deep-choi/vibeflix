@@ -20,6 +20,8 @@ export const projects = sqliteTable('projects', {
   badge: text('badge').notNull().default(''),
   status: text('status').notNull().default('live'),
   tags: text('tags').notNull().default('[]'),
+  genres: text('genres').notNull().default('[]'), // JSON list from public/genres.json for this type; drives category rows
+
   featured: integer('featured').notNull().default(0),
   sort: integer('sort').notNull().default(0),
 }, table => [index('projects_owner_idx').on(table.ownerId),index('projects_created_idx').on(table.created)]);

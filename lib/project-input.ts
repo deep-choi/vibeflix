@@ -1,4 +1,14 @@
+import genreTaxonomy from '../public/genres.json';
+
 export const projectTypes = ['website', 'game', 'app', 'art', 'video', 'novel'] as const;
+export { genreTaxonomy };
+export const MAX_GENRES = 3;
+/** Keeps only genres that exist for this category, in taxonomy order, at most MAX_GENRES. */
+export function parseGenres(type: string, value: unknown): string[] {
+  const allowed: string[] = (genreTaxonomy as Record<string, string[]>)[type] || [];
+  const picked = new Set(Array.isArray(value) ? value.map(String) : []);
+  return allowed.filter(g => picked.has(g)).slice(0, MAX_GENRES);
+}
 
 export function publicUrl(value: unknown): string {
   if (typeof value !== 'string' || value.length > 2000) return '';
@@ -78,7 +88,7 @@ export function parseProject(body: unknown) {
   const type = typeof b.type === 'string' && projectTypes.includes(b.type as typeof projectTypes[number]) ? b.type : '';
   const url = publicUrl(normalizeUrl(b.url));
   if (!title || !creator || !description || !type || !url) return null;
-  return { title, creator, description, type, url };
+  return { title, creator, description, type, url, genres: parseGenres(type, b.genres) };
 }
 
 export function sameOrigin(request: Request): boolean {

@@ -3,7 +3,7 @@ import catalog from '../../public-catalog';
 import { currentUser } from '../../../lib/auth';
 import { getSettings } from '../../../lib/admin';
 import { PROJECT_COLUMNS, isCuratedOrigin, listBanners, publicProject } from '../../../lib/projects';
-import { parseProject, parseCover, parseGalleryImage, sameOrigin, boundedBody, COVER, GALLERY, PROJECT_BODY_LIMIT } from '../../../lib/project-input';
+import { parseProject, parseCover, parseGalleryImage, sameOrigin, boundedBody, genreTaxonomy, COVER, GALLERY, PROJECT_BODY_LIMIT } from '../../../lib/project-input';
 
 export const dynamic = 'force-dynamic';
 const json = (data: unknown, status = 200) => Response.json(data, { status, headers: { 'Cache-Control':'no-store', 'X-Content-Type-Options':'nosniff' } });
@@ -25,7 +25,7 @@ export async function GET() {
     const galleryRows=await env.DB!.prepare('SELECT i.id, i.project_id FROM project_images i JOIN projects p ON p.id = i.project_id WHERE p.deleted_at IS NULL AND p.hidden_at IS NULL ORDER BY i.project_id, i.position').all().catch(()=>({results:[] as Record<string,unknown>[]}));
     const galleries=new Map<string,string[]>();for(const r of galleryRows.results)galleries.set(String(r.project_id),[...(galleries.get(String(r.project_id))||[]),`/api/project-images/${r.id}`]);
     const reactions=new Map(batches[0].results.map(r=>[r.target_id,r]));const ratings=new Map(batches[1].results.map(r=>[r.project_id,r]));const comments=new Map(batches[2].results.map(r=>[r.target_id,r]));
-    return json({ site:{notice:site.notice,noticeUrl:site.noticeUrl,pinned:site.pinned}, banners, projects:list.map(p=>({...p,recommendations:Number(reactions.get(p.id)?.total||0),recommended:!!reactions.get(p.id)?.mine,rating:Number(ratings.get(p.id)?.average||0),ratingCount:Number(ratings.get(p.id)?.total||0),myRating:Number(ratings.get(p.id)?.mine||0),commentCount:Number(comments.get(p.id)?.total||0),gallery:galleries.get(p.id)||[]})) });
+    return json({ site:{notice:site.notice,noticeUrl:site.noticeUrl,pinned:site.pinned}, genres:genreTaxonomy, banners, projects:list.map(p=>({...p,recommendations:Number(reactions.get(p.id)?.total||0),recommended:!!reactions.get(p.id)?.mine,rating:Number(ratings.get(p.id)?.average||0),ratingCount:Number(ratings.get(p.id)?.total||0),myRating:Number(ratings.get(p.id)?.mine||0),commentCount:Number(comments.get(p.id)?.total||0),gallery:galleries.get(p.id)||[]})) });
   } catch (error) {
     console.error('Project list unavailable', error instanceof Error ? error.message : 'unknown');
     return json({ projects:catalog, error:'커뮤니티 작품을 불러오지 못했습니다. 잠시 후 새로고침해주세요.' }, 503);
@@ -54,7 +54,7 @@ export async function POST(request: Request) {
   try {
     const created = Date.now();
     const id = `community-${crypto.randomUUID()}`;
-    const result = await env.DB!.prepare('INSERT INTO projects (id, owner_id, title, creator, type, description, url, image, created) SELECT ?, ?, ?, ?, ?, ?, ?, ?, ? WHERE (SELECT COUNT(*) FROM projects WHERE owner_id = ? AND created > ?) < 10 RETURNING id').bind(id,user.id,project.title,user.name,project.type,project.description,project.url,image,created,user.id,created-86400000).all();
+    const result = await env.DB!.prepare('INSERT INTO projects (id, owner_id, title, creator, type, description, url, image, created, genres) SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ? WHERE (SELECT COUNT(*) FROM projects WHERE owner_id = ? AND created > ?) < 10 RETURNING id').bind(id,user.id,project.title,user.name,project.type,project.description,project.url,image,created,JSON.stringify(project.genres),user.id,created-86400000).all();
     if (!result.results.length) return json({error:'하루에 최대 10개까지 등록할 수 있습니다. 내일 다시 소개해주세요.'},429);
     const galleryIds = gallery.map(() => `img-${crypto.randomUUID()}`);
     if (gallery.length) await env.DB!.batch(gallery.map((data, position) => env.DB!.prepare('INSERT INTO project_images (id, project_id, position, data, created) VALUES (?, ?, ?, ?, ?)').bind(galleryIds[position], id, position, data, created)));

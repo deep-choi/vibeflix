@@ -34,6 +34,6 @@ export async function PATCH(request:Request,context:{params:Promise<{id:string}>
       galleryOps=[...existingIds.filter(x=>!keep.includes(x)).map(x=>db().prepare('DELETE FROM project_images WHERE id=? AND project_id=?').bind(x,id)),
         ...items.map((item,position)=>item.startsWith('data:')?db().prepare('INSERT INTO project_images (id,project_id,position,data,created) VALUES (?,?,?,?,?)').bind(`img-${crypto.randomUUID()}`,id,position,item,now):db().prepare('UPDATE project_images SET position=? WHERE id=? AND project_id=?').bind(position,item,id))];
     }
-    await db().prepare('UPDATE projects SET title=?,description=?,creator=?,type=?,url=?,image=? WHERE id=? AND owner_id=? AND deleted_at IS NULL').bind(parsed.title,parsed.description,user.name,parsed.type,parsed.url,image,id,user.id).run();if(galleryOps.length)await db().batch(galleryOps);return json({ok:true});
+    await db().prepare('UPDATE projects SET title=?,description=?,creator=?,type=?,url=?,image=?,genres=? WHERE id=? AND owner_id=? AND deleted_at IS NULL').bind(parsed.title,parsed.description,user.name,parsed.type,parsed.url,image,JSON.stringify(parsed.genres),id,user.id).run();if(galleryOps.length)await db().batch(galleryOps);return json({ok:true});
   }catch(error){if(error instanceof Error&&error.message.includes('UNIQUE'))return json({error:'이미 등록된 링크입니다.'},409);return failure(error);}
 }
