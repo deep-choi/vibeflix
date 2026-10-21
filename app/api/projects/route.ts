@@ -2,6 +2,7 @@ import { env } from 'cloudflare:workers';
 import catalog from '../../public-catalog';
 import { currentUser } from '../../../lib/auth';
 import { getSettings } from '../../../lib/admin';
+import { PROJECT_COLUMNS, isCuratedOrigin, listBanners, publicProject } from '../../../lib/projects';
 import { parseProject, parseCover, parseGalleryImage, sameOrigin, boundedBody, COVER, GALLERY, PROJECT_BODY_LIMIT } from '../../../lib/project-input';
 
 export const dynamic = 'force-dynamic';
@@ -11,11 +12,10 @@ export async function GET() {
   try {
     const user = await currentUser();
     const site = await getSettings();
-    const rows = await env.DB!.prepare(`SELECT id, title, creator, type, description, url, CASE WHEN image LIKE 'data:%' THEN '/api/projects/' || id || '/cover?v=' || length(image) ELSE image END AS image, created, owner_id FROM projects WHERE deleted_at IS NULL AND hidden_at IS NULL ORDER BY created DESC LIMIT 200`).all();
-    const community = rows.results.map(row => {
-      const { owner_id, ...project } = row;
-      return { ...project, id:String(row.id), owned: !!user && owner_id === user.id, subtitle: row.description, art:'custom', tags:['커뮤니티'], badge:'COMMUNITY', status:'live' };
-    });
+    // Curated works first in their set order, then community works newest first
+    const rows = await env.DB!.prepare(`SELECT ${PROJECT_COLUMNS} FROM projects WHERE deleted_at IS NULL AND hidden_at IS NULL ORDER BY CASE source WHEN 'catalog' THEN 0 ELSE 1 END, sort, created DESC LIMIT 300`).all();
+    const list = rows.results.map(row => publicProject(row, user?.id));
+    const banners = await listBanners().catch(() => []);
     const batches=await env.DB!.batch<Record<string,unknown>>([
       env.DB!.prepare("SELECT target_id,COUNT(*) AS total,MAX(user_id=?) AS mine FROM reactions WHERE target_kind='project' GROUP BY target_id").bind(user?.id||''),
       env.DB!.prepare('SELECT project_id,AVG(score) AS average,COUNT(*) AS total,MAX(CASE WHEN user_id=? THEN score ELSE 0 END) AS mine FROM ratings GROUP BY project_id').bind(user?.id||''),
@@ -25,7 +25,7 @@ export async function GET() {
     const galleryRows=await env.DB!.prepare('SELECT i.id, i.project_id FROM project_images i JOIN projects p ON p.id = i.project_id WHERE p.deleted_at IS NULL AND p.hidden_at IS NULL ORDER BY i.project_id, i.position').all().catch(()=>({results:[] as Record<string,unknown>[]}));
     const galleries=new Map<string,string[]>();for(const r of galleryRows.results)galleries.set(String(r.project_id),[...(galleries.get(String(r.project_id))||[]),`/api/project-images/${r.id}`]);
     const reactions=new Map(batches[0].results.map(r=>[r.target_id,r]));const ratings=new Map(batches[1].results.map(r=>[r.project_id,r]));const comments=new Map(batches[2].results.map(r=>[r.target_id,r]));
-    return json({ site:{notice:site.notice,noticeUrl:site.noticeUrl,pinned:site.pinned}, projects:[...catalog.filter(p=>!site.hiddenCatalog.includes(p.id)),...community].map(p=>({...p,recommendations:Number(reactions.get(p.id)?.total||0),recommended:!!reactions.get(p.id)?.mine,rating:Number(ratings.get(p.id)?.average||0),ratingCount:Number(ratings.get(p.id)?.total||0),myRating:Number(ratings.get(p.id)?.mine||0),commentCount:Number(comments.get(p.id)?.total||0),gallery:galleries.get(p.id)||[]})) });
+    return json({ site:{notice:site.notice,noticeUrl:site.noticeUrl,pinned:site.pinned}, banners, projects:list.map(p=>({...p,recommendations:Number(reactions.get(p.id)?.total||0),recommended:!!reactions.get(p.id)?.mine,rating:Number(ratings.get(p.id)?.average||0),ratingCount:Number(ratings.get(p.id)?.total||0),myRating:Number(ratings.get(p.id)?.mine||0),commentCount:Number(comments.get(p.id)?.total||0),gallery:galleries.get(p.id)||[]})) });
   } catch (error) {
     console.error('Project list unavailable', error instanceof Error ? error.message : 'unknown');
     return json({ projects:catalog, error:'커뮤니티 작품을 불러오지 못했습니다. 잠시 후 새로고침해주세요.' }, 503);
@@ -50,7 +50,7 @@ export async function POST(request: Request) {
   const rawGallery = (body as Record<string, unknown>).gallery;
   if (rawGallery !== undefined && (!Array.isArray(rawGallery) || rawGallery.length > GALLERY.max || !rawGallery.every(parseGalleryImage))) return json({error:`소개 이미지는 PNG·JPG·WebP, 장당 ${GALLERY.maxBytes/1024}KB 이하로 최대 ${GALLERY.max}장까지 올릴 수 있어요.`},400);
   const gallery = (rawGallery as string[] | undefined) ?? [];
-  if (catalog.some(p=>p.url && new URL(p.url).origin === new URL(project.url).origin)) return json({error:'이미 소개 중인 서비스입니다.'},409);
+  try { if (await isCuratedOrigin(project.url)) return json({error:'이미 소개 중인 서비스입니다.'},409); } catch { return json({error:'지금은 등록할 수 없습니다. 잠시 후 다시 시도해주세요.'},503); }
   try {
     const created = Date.now();
     const id = `community-${crypto.randomUUID()}`;

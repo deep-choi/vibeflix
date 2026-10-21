@@ -5,7 +5,8 @@ const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const typeNames={website:'웹사이트',game:'게임',app:'앱',art:'그림·만화',video:'영상',novel:'소설'};
 const postLabels={general:'자유 이야기',showcase:'작품 소개',buildlog:'개발 일지',question:'질문',feedback:'피드백',project:'작품 댓글',post:'게시글 댓글'};
 const kindNames={post:'게시글',comment:'댓글',project:'작품',user:'회원',site:'사이트'};
-const actionNames={'project.hide':'작품 숨김','project.show':'작품 다시 공개','project.pin':'주목 작품 고정','project.unpin':'주목 작품 해제','project.move':'주목 순서 변경','user.suspend':'회원 정지','user.unsuspend':'회원 정지 해제','user.make-admin':'운영자 지정','user.make-member':'운영자 해제','post.hide':'게시글 숨김','post.show':'게시글 다시 공개','comment.hide':'댓글 숨김','comment.show':'댓글 다시 공개','report.hide':'신고 처리 (콘텐츠 숨김)','report.dismiss':'신고 기각','settings':'사이트 설정 변경'};
+const actionNames={'project.hide':'작품 숨김','project.show':'작품 다시 공개','project.pin':'주목 작품 고정','project.unpin':'주목 작품 해제','project.move':'주목 순서 변경','user.suspend':'회원 정지','user.unsuspend':'회원 정지 해제','user.make-admin':'운영자 지정','user.make-member':'운영자 해제','post.hide':'게시글 숨김','post.show':'게시글 다시 공개','comment.hide':'댓글 숨김','comment.show':'댓글 다시 공개','report.hide':'신고 처리 (콘텐츠 숨김)','report.dismiss':'신고 기각','settings':'사이트 설정 변경','project.edit':'작품 수정','project.restore-design':'기본 디자인 복원','project.delete':'작품 영구 삭제','post.delete':'게시글 영구 삭제','comment.delete':'댓글 영구 삭제','user.delete':'회원 영구 삭제','banner.create':'배너 추가','banner.edit':'배너 수정','banner.delete':'배너 삭제','banner.move':'배너 순서 변경','banner.enable':'배너 켜기','banner.disable':'배너 끄기'};
+kindNames.banner='배너';
 const fmtDate=t=>t?new Date(Number(t)).toLocaleDateString('ko-KR',{year:'numeric',month:'2-digit',day:'2-digit'}):'-';
 const fmtTime=t=>t?new Date(Number(t)).toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}):'-';
 const main=$('#ad-main');
@@ -19,11 +20,15 @@ async function api(path,method='GET',payload){
 }
 let toastTimer;
 function toast(message){const t=$('#ad-toast');t.textContent=message;t.hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>{t.hidden=true;},2600);}
-function confirmAction({title,copy,ok='확인',danger=false}){
+// requireText: permanent actions only enable once the operator types the exact name
+function confirmAction({title,copy,ok='확인',danger=false,requireText=''}){
   const d=$('#ad-confirm');$('#ad-confirm-title').textContent=title;$('#ad-confirm-copy').textContent=copy;$('#ad-confirm-note').value='';
   const okButton=$('#ad-confirm-ok');okButton.textContent=ok;okButton.className=`ad-btn ${danger?'danger':'primary'}`;
-  d.returnValue='';d.showModal();
-  return new Promise(resolve=>d.addEventListener('close',()=>resolve(d.returnValue==='ok'?{note:$('#ad-confirm-note').value.trim()}:null),{once:true}));
+  const typed=$('#ad-confirm-type');$('#ad-confirm-type-wrap').hidden=!requireText;typed.value='';
+  $('#ad-confirm-type-label').textContent=`확인을 위해 ‘${requireText}’을(를) 그대로 입력하세요`;
+  okButton.disabled=!!requireText;typed.oninput=()=>{okButton.disabled=typed.value.trim()!==requireText.trim();};
+  d.returnValue='';d.showModal();if(requireText)typed.focus();
+  return new Promise(resolve=>d.addEventListener('close',()=>resolve(d.returnValue==='ok'?{note:$('#ad-confirm-note').value.trim(),typed:typed.value.trim()}:null),{once:true}));
 }
 const badge=(label,kind='')=>`<span class="ad-badge ${kind}">${esc(label)}</span>`;
 const empty=(copy)=>`<div class="ad-empty">${esc(copy)}</div>`;
@@ -31,12 +36,51 @@ const table=(head,rows)=>rows.length?`<div class="ad-table-wrap"><table class="a
 const errorBox=error=>`<div class="ad-empty">${esc(error.message)} <button class="ad-btn" data-reload>다시 불러오기</button></div>`;
 
 // Runs an action button: optional confirm (with note), API call, toast, refresh.
-async function act(button,{path,payload,confirm,done}){
-  let note='';
-  if(confirm){const answer=await confirmAction(confirm);if(!answer)return;note=answer.note;}
+async function act(button,{path,payload={},confirm,done,method='PATCH'}){
+  let note='',typed='';
+  if(confirm){const answer=await confirmAction(confirm);if(!answer)return;({note,typed}=answer);}
   button.disabled=true;
-  try{await api(path,'PATCH',{...payload,note});toast(done);await refresh();refreshReportCount();}
+  try{await api(path,method,{...payload,note,...(typed?{confirm:typed}:{})});toast(done);await refresh();refreshReportCount();}
   catch(error){toast(error.message);button.disabled=false;}
+}
+const deleteConfirm=(name,what)=>({title:`‘${name}’ ${what}을(를) 영구 삭제할까요?`,copy:'되돌릴 수 없어요. 연결된 댓글·추천·별점·신고도 함께 지워져요. 일시적으로 감추려면 ‘숨기기’를 쓰세요.',ok:'영구 삭제',danger:true,requireText:name});
+
+/* ───── Edit dialog + image preparation ───── */
+let editSubmit=null;
+function openEditor({title,body,save,extra=''}){
+  $('#ad-edit-title').textContent=title;$('#ad-edit-body').innerHTML=body;$('#ad-edit-extra').innerHTML=extra;$('#ad-edit-error').hidden=true;
+  editSubmit=save;$('#ad-edit').showModal();$('#ad-edit-body input,#ad-edit-body textarea')?.focus();
+}
+$('#ad-edit-form').addEventListener('submit',async event=>{
+  event.preventDefault();const button=$('#ad-edit-save');button.disabled=true;$('#ad-edit-error').hidden=true;
+  try{await editSubmit(new FormData(event.target));$('#ad-edit').close();await refresh();}
+  catch(error){$('#ad-edit-error').textContent=error.message;$('#ad-edit-error').hidden=false;}
+  finally{button.disabled=false;}
+});
+$('[data-edit-cancel]').addEventListener('click',()=>$('#ad-edit').close());
+const field=(label,input,hint='')=>`<label class="ad-field">${label}${hint?` <small>${hint}</small>`:''}${input}</label>`;
+const options=(list,value)=>list.map(([v,l])=>`<option value="${esc(v)}" ${String(v)===String(value)?'selected':''}>${esc(l)}</option>`).join('');
+function loadImage(file){return new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>{URL.revokeObjectURL(img.src);resolve(img);};img.onerror=()=>reject(Error('이미지를 읽을 수 없어요.'));img.src=URL.createObjectURL(file);});}
+// Encode under a byte budget: WebP when the browser supports it, otherwise JPEG; quality steps down until it fits.
+function encode(canvas,maxBytes){
+  const webp=canvas.toDataURL('image/webp',.9).startsWith('data:image/webp');
+  for(const q of [.9,.84,.78,.7,.62,.54,.46]){const url=canvas.toDataURL(webp?'image/webp':'image/jpeg',q);if(url.length*.75<=maxBytes)return url;}
+  throw Error('이미지가 너무 복잡해서 용량을 줄이지 못했어요. 다른 이미지를 골라주세요.');
+}
+/** Thumbnail: center-crop to 16:9 and scale to exactly 1280×720 (the site's cover rule). */
+async function prepareCover(file){const img=await loadImage(file);const c=document.createElement('canvas');c.width=1280;c.height=720;const r=Math.max(1280/img.width,720/img.height),w=1280/r,h=720/r;c.getContext('2d').drawImage(img,(img.width-w)/2,(img.height-h)/2,w,h,0,0,1280,720);return encode(c,780*1024);}
+/** Banner image: keep its shape, at most 1920px wide. */
+async function prepareBanner(file){const img=await loadImage(file);const s=Math.min(1,1920/img.width,1920/img.height);const c=document.createElement('canvas');c.width=Math.round(img.width*s);c.height=Math.round(img.height*s);c.getContext('2d').drawImage(img,0,0,c.width,c.height);return encode(c,680*1024);}
+// One image picker inside the edit dialog; value '' = remove, data URL = replace, undefined = keep.
+let pickedImage;
+function imagePicker({current,ratio,prepare,removable=true,hint}){
+  pickedImage=undefined;
+  setTimeout(()=>{
+    const input=$('#ad-image-file'),preview=$('#ad-image-preview');
+    input.addEventListener('change',async()=>{const file=input.files[0];if(!file)return;try{preview.classList.add('busy');pickedImage=await prepare(file);preview.style.backgroundImage=`url("${pickedImage}")`;preview.classList.remove('empty');}catch(error){toast(error.message);}finally{preview.classList.remove('busy');input.value='';}});
+    $('#ad-image-clear')?.addEventListener('click',()=>{pickedImage='';preview.style.backgroundImage='';preview.classList.add('empty');});
+  });
+  return `<div class="ad-field"><span>이미지 <small>${hint}</small></span><div class="ad-image"><div class="ad-image-preview ${current?'':'empty'}" id="ad-image-preview" style="aspect-ratio:${ratio};${current?`background-image:url('${esc(current)}')`:''}"><span>이미지 없음</span></div><div class="ad-image-actions"><label class="ad-btn">이미지 고르기<input type="file" id="ad-image-file" accept="image/png,image/jpeg,image/webp" hidden></label>${removable?'<button type="button" class="ad-btn" id="ad-image-clear">없애기</button>':''}</div></div></div>`;
 }
 
 /* ───── 현황 ───── */
@@ -89,7 +133,7 @@ async function viewProjects(){
   bindSearch(loadProjects);await loadProjects();
 }
 async function loadProjects(){
-  const d=await api('projects?q='+encodeURIComponent(state.q));const byId=new Map(d.projects.map(p=>[p.id,p]));
+  const d=await api('projects?q='+encodeURIComponent(state.q));const byId=new Map(d.projects.map(p=>[p.id,p]));state.projects=byId;
   const pinned=d.pinned.map(id=>byId.get(id)||{id,title:id,missing:true});
   $('#ad-pinned').innerHTML=pinned.length&&!state.q?`<section class="ad-section" style="margin-top:0;margin-bottom:24px"><h2>주목 작품 순서</h2>${table(['순서','작품',''],pinned.map((p,i)=>`<tr><td class="num">${i+1}</td><td><span class="title">${esc(p.title)}</span>${p.hidden?` ${badge('숨김 상태','off')}`:''}</td><td><div class="ad-actions"><button class="ad-btn icon" data-move="${esc(p.id)}" data-offset="-1" aria-label="위로" ${i===0?'disabled':''}>↑</button><button class="ad-btn icon" data-move="${esc(p.id)}" data-offset="1" aria-label="아래로" ${i===pinned.length-1?'disabled':''}>↓</button><button class="ad-btn" data-project="${esc(p.id)}" data-action="unpin">해제</button></div></td></tr>`))}</section>`:'';
   $('#ad-list').innerHTML=table(['작품','카테고리','출처','등록일','상태',''],d.projects.map(p=>`<tr>
@@ -98,7 +142,67 @@ async function loadProjects(){
     <td>${p.source==='catalog'?badge('기본 작품','plain'):badge(`커뮤니티 · ${p.ownerName||'알 수 없음'}`,'plain')}</td>
     <td class="num">${p.source==='catalog'?'-':fmtDate(p.created)}</td>
     <td>${p.hidden?badge('숨김','off'):p.status==='upcoming'?badge('공개 예정'):badge('공개','ok')} ${p.pinned>=0?badge(`주목 ${p.pinned+1}`,'pin'):''}</td>
-    <td><div class="ad-actions">${p.pinned>=0?`<button class="ad-btn" data-project="${esc(p.id)}" data-action="unpin">주목 해제</button>`:`<button class="ad-btn" data-project="${esc(p.id)}" data-action="pin" ${p.hidden?'disabled':''}>주목 고정</button>`}${p.hidden?`<button class="ad-btn" data-project="${esc(p.id)}" data-action="show">다시 공개</button>`:`<button class="ad-btn danger" data-project="${esc(p.id)}" data-action="hide" data-title="${esc(p.title)}">숨기기</button>`}</div></td></tr>`))||empty(state.q?'검색 결과가 없어요.':'작품이 없어요.');
+    <td><div class="ad-actions"><button class="ad-btn" data-edit-project="${esc(p.id)}">수정</button>${p.pinned>=0?`<button class="ad-btn" data-project="${esc(p.id)}" data-action="unpin">주목 해제</button>`:`<button class="ad-btn" data-project="${esc(p.id)}" data-action="pin" ${p.hidden?'disabled':''}>주목 고정</button>`}${p.hidden?`<button class="ad-btn" data-project="${esc(p.id)}" data-action="show">다시 공개</button>`:`<button class="ad-btn danger" data-project="${esc(p.id)}" data-action="hide" data-title="${esc(p.title)}">숨기기</button>`}</div></td></tr>`))||empty(state.q?'검색 결과가 없어요.':'작품이 없어요.');
+}
+
+function editProject(id){
+  const p=state.projects?.get(id);if(!p)return;
+  const body=`<div class="ad-form-grid">
+    ${field('작품 이름',`<input name="title" maxlength="60" required value="${esc(p.title)}">`)}
+    ${field('크리에이터',`<input name="creator" maxlength="40" required value="${esc(p.creator)}">`)}
+    ${field('카테고리',`<select name="type">${options(Object.entries(typeNames),p.type)}</select>`)}
+    ${field('상태',`<select name="status">${options([['live','공개'],['upcoming','공개 예정']],p.status)}</select>`)}
+  </div>
+  ${field('작품 링크',`<input name="url" maxlength="2000" value="${esc(p.url)}" placeholder="https://">`,'공개 예정이면 비워둘 수 있어요')}
+  ${field('한 줄 소개',`<input name="subtitle" maxlength="120" value="${esc(p.subtitleRaw)}" placeholder="비우면 작품 소개 앞부분이 보여요">`,'카드에 보이는 문구')}
+  ${field('작품 소개',`<textarea name="description" maxlength="1000" rows="5" required>${esc(p.description)}</textarea>`)}
+  ${field('태그',`<input name="tags" value="${esc((p.tags||[]).filter(t=>t!=='커뮤니티').join(', '))}" placeholder="쉼표로 구분, 최대 6개">`)}
+  ${imagePicker({current:p.image,ratio:'16/9',prepare:prepareCover,hint:'아무 이미지나 고르면 16:9로 잘라 1280×720으로 맞춰요'+(p.art!=='custom'?' · 바꾸면 기본 카드 디자인 대신 이 이미지가 보여요':'')})}`;
+  const extra=`<button type="button" class="ad-btn danger" data-delete-project="${esc(p.id)}">영구 삭제</button>${p.canRestoreDesign?`<button type="button" class="ad-btn" data-project="${esc(p.id)}" data-action="restore-design">기본 디자인으로</button>`:''}`;
+  openEditor({title:`작품 수정 · ${p.title}`,body,extra,save:async form=>{
+    const payload={action:'edit',...Object.fromEntries(form),tags:String(form.get('tags')||'').split(',').map(t=>t.trim()).filter(Boolean)};
+    if(pickedImage!==undefined)payload.image=pickedImage;
+    await api('projects/'+encodeURIComponent(id),'PATCH',payload);toast('작품을 수정했어요.');
+  }});
+}
+
+/* ───── 배너 ───── */
+const themeNames={koi:'코이월드 테마 (청록 배경 + 오른쪽 이미지)',fishing:'네모낚시 테마 (호수 사진 배경)',dayflow:'Dayflow 테마 (파란 배경 + 오른쪽 화면)',custom:'직접 꾸미기 (올린 이미지를 배경 전체에)'};
+async function viewBanners(){
+  main.innerHTML=`<h1>배너</h1><p class="ad-sub">홈 맨 위 큰 배너예요. 켜진 배너가 순서대로 넘어가요. 최대 10개까지 만들 수 있어요.</p>
+  <div class="ad-toolbar"><button class="ad-btn primary" data-new-banner>＋ 새 배너</button></div><div id="ad-list"></div>`;
+  try{const d=await api('projects');state.projects=new Map(d.projects.map(p=>[p.id,p]));}catch{}
+  await loadBanners();
+}
+async function loadBanners(){
+  const d=await api('banners');state.banners=new Map(d.banners.map(b=>[b.id,b]));
+  $('#ad-list').innerHTML=table(['순서','배너','연결 작품','디자인','상태',''],d.banners.map((b,i)=>`<tr>
+    <td><div class="ad-actions" style="justify-content:flex-start"><button class="ad-btn icon" data-banner="${esc(b.id)}" data-action="move" data-offset="-1" aria-label="위로" ${i===0?'disabled':''}>↑</button><button class="ad-btn icon" data-banner="${esc(b.id)}" data-action="move" data-offset="1" aria-label="아래로" ${i===d.banners.length-1?'disabled':''}>↓</button></div></td>
+    <td><div class="ad-banner-cell"><span class="ad-thumb" style="${b.image?`background-image:url('${esc(b.image)}')`:''}"></span><span><span class="title">${esc(b.title)}</span><span class="meta">${esc(b.description.split('\n')[0]||'')}</span></span></div></td>
+    <td>${b.projectTitle?esc(b.projectTitle):'<span class="meta">없음</span>'}</td><td>${esc(themeNames[b.theme]?.split(' (')[0]||b.theme)}</td>
+    <td>${b.enabled?badge('켜짐','ok'):badge('꺼짐','plain')}</td>
+    <td><div class="ad-actions"><button class="ad-btn" data-edit-banner="${esc(b.id)}">수정</button>${b.enabled?`<button class="ad-btn" data-banner="${esc(b.id)}" data-action="disable">끄기</button>`:`<button class="ad-btn" data-banner="${esc(b.id)}" data-action="enable">켜기</button>`}<button class="ad-btn danger" data-delete-banner="${esc(b.id)}">삭제</button></div></td></tr>`))||empty('배너가 없어요. 새 배너를 만들어주세요.');
+}
+function editBanner(id){
+  const b=id?state.banners.get(id):{title:'',description:'',buttonLabel:'바로가기',buttonIcon:'none',url:'',theme:'custom',image:'',projectId:''};
+  const projectOptions=[['','연결하지 않음'],...[...(state.projects?.values()||[])].map(p=>[p.id,p.title])];
+  const body=`${field('연결 작품',`<select name="projectId" id="ad-banner-project">${options(projectOptions,b.projectId)}</select>`,'‘자세히 보기’와 찜 버튼이 이 작품으로 연결돼요')}
+  ${field('배너 제목',`<input name="title" maxlength="40" required value="${esc(b.title)}">`)}
+  ${field('설명',`<textarea name="description" maxlength="200" rows="3">${esc(b.description)}</textarea>`,'세 줄까지 · 줄바꿈 그대로 보여요')}
+  <div class="ad-form-grid">
+    ${field('버튼 문구',`<input name="buttonLabel" maxlength="20" value="${esc(b.buttonLabel)}">`)}
+    ${field('버튼 아이콘',`<select name="buttonIcon">${options([['none','없음'],['play','▶ 재생']],b.buttonIcon)}</select>`)}
+  </div>
+  ${field('버튼 링크',`<input name="url" maxlength="500" id="ad-banner-url" value="${esc(b.url)}" placeholder="https:// 또는 /로 시작">`,'비우면 버튼이 숨겨져요')}
+  ${field('디자인',`<select name="theme">${options(Object.entries(themeNames),b.theme)}</select>`)}
+  ${imagePicker({current:b.image,ratio:'2.9/1',prepare:prepareBanner,hint:'직접 꾸미기는 가로로 긴 사진(약 2.9:1)이 잘 어울려요 · 테마는 오른쪽에 띄울 이미지'})}`;
+  openEditor({title:id?`배너 수정 · ${b.title}`:'새 배너',body,save:async form=>{
+    const payload={...Object.fromEntries(form)};if(pickedImage!==undefined)payload.image=pickedImage;
+    if(id)await api('banners/'+encodeURIComponent(id),'PATCH',{action:'edit',...payload});else await api('banners','POST',payload);
+    toast(id?'배너를 수정했어요.':'배너를 만들었어요.');
+  }});
+  // picking a work pre-fills empty title and link
+  $('#ad-banner-project').addEventListener('change',event=>{const p=state.projects?.get(event.target.value);if(!p)return;const form=$('#ad-edit-form');if(!form.title.value)form.title.value=p.title;if(!form.url.value&&p.url)form.url.value=p.url;});
 }
 
 /* ───── 회원 ───── */
@@ -116,7 +220,7 @@ async function loadUsers(){
     <td>${u.suspended?badge('정지','off'):badge('정상','ok')}</td>
     <td class="num">${fmtDate(u.created)}</td>
     <td class="num">${u.projects} · ${u.posts} · ${u.comments}</td>
-    <td><div class="ad-actions">${u.self?'':`${u.role==='admin'?`<button class="ad-btn" data-user="${esc(u.id)}" data-action="make-member" data-name="${esc(u.name)}">운영자 해제</button>`:`<button class="ad-btn" data-user="${esc(u.id)}" data-action="make-admin" data-name="${esc(u.name)}">운영자 지정</button>`}${u.suspended?`<button class="ad-btn" data-user="${esc(u.id)}" data-action="unsuspend" data-name="${esc(u.name)}">정지 해제</button>`:`<button class="ad-btn danger" data-user="${esc(u.id)}" data-action="suspend" data-name="${esc(u.name)}" ${u.role==='admin'?'disabled title="운영자는 먼저 해제하세요"':''}>정지</button>`}`}</div></td></tr>`))||empty(state.q?'검색 결과가 없어요.':'아직 회원이 없어요.');
+    <td><div class="ad-actions">${u.self?'':`${u.role==='admin'?`<button class="ad-btn" data-user="${esc(u.id)}" data-action="make-member" data-name="${esc(u.name)}">운영자 해제</button>`:`<button class="ad-btn" data-user="${esc(u.id)}" data-action="make-admin" data-name="${esc(u.name)}">운영자 지정</button>`}${u.suspended?`<button class="ad-btn" data-user="${esc(u.id)}" data-action="unsuspend" data-name="${esc(u.name)}">정지 해제</button>`:`<button class="ad-btn danger" data-user="${esc(u.id)}" data-action="suspend" data-name="${esc(u.name)}" ${u.role==='admin'?'disabled title="운영자는 먼저 해제하세요"':''}>정지</button>`}<button class="ad-btn danger" data-delete-user="${esc(u.id)}" data-name="${esc(u.name)}" ${u.role==='admin'?'disabled title="운영자는 먼저 해제하세요"':''}>삭제</button>`}</div></td></tr>`))||empty(state.q?'검색 결과가 없어요.':'아직 회원이 없어요.');
 }
 
 /* ───── 게시글 · 댓글 ───── */
@@ -131,7 +235,7 @@ async function loadContent(){
     <td>${c.title?`<span class="title">${esc(c.title)}</span>`:''}<span class="excerpt">${esc(c.body)}</span></td>
     <td>${esc(c.author)}</td><td>${esc(postLabels[c.category]||c.category)}</td><td class="num">${fmtTime(c.created)}</td>
     <td>${c.hidden?badge('숨김','off'):badge('공개','ok')}</td>
-    <td><div class="ad-actions">${c.hidden?`<button class="ad-btn" data-content="${esc(c.id)}" data-kind="${kind}" data-action="show">다시 공개</button>`:`<button class="ad-btn danger" data-content="${esc(c.id)}" data-kind="${kind}" data-action="hide">숨기기</button>`}</div></td></tr>`))||empty('표시할 콘텐츠가 없어요.');
+    <td><div class="ad-actions">${c.hidden?`<button class="ad-btn" data-content="${esc(c.id)}" data-kind="${kind}" data-action="show">다시 공개</button>`:`<button class="ad-btn danger" data-content="${esc(c.id)}" data-kind="${kind}" data-action="hide">숨기기</button>`}<button class="ad-btn danger" data-delete-content="${esc(c.id)}" data-kind="${kind}">영구 삭제</button></div></td></tr>`))||empty('표시할 콘텐츠가 없어요.');
 }
 
 /* ───── 신고 ───── */
@@ -173,8 +277,8 @@ async function viewLog(){
 }
 
 /* ───── Routing ───── */
-const views={overview:viewOverview,projects:viewProjects,users:viewUsers,content:viewContent,reports:viewReports,settings:viewSettings,log:viewLog};
-const loaders={projects:loadProjects,users:loadUsers,content:loadContent,reports:loadReports};
+const views={overview:viewOverview,projects:viewProjects,banners:viewBanners,users:viewUsers,content:viewContent,reports:viewReports,settings:viewSettings,log:viewLog};
+const loaders={projects:loadProjects,banners:loadBanners,users:loadUsers,content:loadContent,reports:loadReports};
 let searchTimer;
 function bindSearch(load){$('#ad-q')?.addEventListener('input',event=>{clearTimeout(searchTimer);searchTimer=setTimeout(async()=>{state.q=event.target.value.trim();try{await load();}catch(error){$('#ad-list').innerHTML=errorBox(error);}},250);});}
 async function show(view){
@@ -191,13 +295,22 @@ async function refreshReportCount(){try{const d=await api('reports');const n=d.r
 document.addEventListener('click',event=>{
   const t=event.target.closest('button');if(!t)return;
   if(t.dataset.view){show(t.dataset.view);return;}
+  if(t.dataset.editProject){editProject(t.dataset.editProject);return;}
+  if(t.dataset.deleteProject){const p=state.projects.get(t.dataset.deleteProject);$('#ad-edit').close();act(t,{method:'DELETE',path:'projects/'+encodeURIComponent(p.id),confirm:deleteConfirm(p.title,'작품'),done:'작품을 영구 삭제했어요.'});return;}
+  if(t.hasAttribute('data-new-banner')){editBanner('');return;}
+  if(t.dataset.editBanner){editBanner(t.dataset.editBanner);return;}
+  if(t.dataset.deleteBanner){const b=state.banners.get(t.dataset.deleteBanner);act(t,{method:'DELETE',path:'banners/'+encodeURIComponent(b.id),confirm:{title:`‘${b.title}’ 배너를 삭제할까요?`,copy:'홈에서 바로 빠져요. 연결된 작품은 그대로 남아요.',ok:'삭제',danger:true},done:'배너를 삭제했어요.'});return;}
+  if(t.dataset.banner){const a=t.dataset.action;act(t,{path:'banners/'+encodeURIComponent(t.dataset.banner),payload:{action:a,offset:Number(t.dataset.offset)},done:{move:'순서를 바꿨어요.',enable:'배너를 켰어요.',disable:'배너를 껐어요.'}[a]});return;}
+  if(t.dataset.deleteUser){act(t,{method:'DELETE',path:'users/'+encodeURIComponent(t.dataset.deleteUser),confirm:{...deleteConfirm(t.dataset.name,'회원'),copy:'탈퇴 요청 처리용이에요. 이 회원의 작품·글·댓글·추천·별점·찜·알림이 모두 지워지고 되돌릴 수 없어요.'},done:'회원과 활동 기록을 삭제했어요.'});return;}
+  if(t.dataset.deleteContent){const kind=t.dataset.kind;act(t,{method:'DELETE',path:`content/${kind}s/${encodeURIComponent(t.dataset.deleteContent)}`,confirm:{...deleteConfirm('삭제',kind==='post'?'게시글':'댓글'),title:`이 ${kind==='post'?'게시글':'댓글'}을 영구 삭제할까요?`},done:'영구 삭제했어요.'});return;}
+  if(t.dataset.action==='restore-design'){$('#ad-edit').close();}
   if(t.dataset.go){show(t.dataset.go);return;}
   if(t.hasAttribute('data-reload')){show(state.view);return;}
   if(t.dataset.kind&&!t.dataset.content){state.contentKind=t.dataset.kind;viewContent();return;}
   if(t.dataset.status){state.contentStatus=t.dataset.status;viewContent();return;}
   if(t.dataset.reportStatus){state.reportStatus=t.dataset.reportStatus;viewReports();return;}
   if(t.dataset.move){act(t,{path:'projects/'+encodeURIComponent(t.dataset.move),payload:{action:'move',offset:Number(t.dataset.offset)},done:'순서를 바꿨어요.'});return;}
-  if(t.dataset.project){const a=t.dataset.action;act(t,{path:'projects/'+encodeURIComponent(t.dataset.project),payload:{action:a},done:{hide:'작품을 숨겼어요.',show:'작품을 다시 공개했어요.',pin:'주목 작품으로 고정했어요.',unpin:'주목 작품에서 뺐어요.'}[a],confirm:a==='hide'?{title:`‘${t.dataset.title}’ 작품을 숨길까요?`,copy:'사이트에서 바로 사라져요. 나중에 다시 공개할 수 있어요.',ok:'숨기기',danger:true}:null});return;}
+  if(t.dataset.project){const a=t.dataset.action;act(t,{path:'projects/'+encodeURIComponent(t.dataset.project),payload:{action:a},done:{hide:'작품을 숨겼어요.',show:'작품을 다시 공개했어요.',pin:'주목 작품으로 고정했어요.',unpin:'주목 작품에서 뺐어요.','restore-design':'기본 디자인으로 되돌렸어요.'}[a],confirm:a==='hide'?{title:`‘${t.dataset.title}’ 작품을 숨길까요?`,copy:'사이트에서 바로 사라져요. 나중에 다시 공개할 수 있어요.',ok:'숨기기',danger:true}:null});return;}
   if(t.dataset.user){const a=t.dataset.action,name=t.dataset.name;const copy={suspend:['정지할까요?','즉시 로그아웃되고, 해제할 때까지 로그인할 수 없어요.','정지',true],unsuspend:['정지를 해제할까요?','다시 로그인하고 활동할 수 있어요.','해제',false],'make-admin':['운영자로 지정할까요?','이 대시보드에 들어와 모든 운영 작업을 할 수 있게 돼요.','지정',false],'make-member':['운영자에서 해제할까요?','일반 회원으로 바뀌어요.','해제',true]}[a];act(t,{path:'users/'+encodeURIComponent(t.dataset.user),payload:{action:a},done:'처리했어요.',confirm:{title:`‘${name}’ 님을 ${copy[0]}`,copy:copy[1],ok:copy[2],danger:copy[3]}});return;}
   if(t.dataset.content){const a=t.dataset.action;act(t,{path:`content/${t.dataset.kind}s/${encodeURIComponent(t.dataset.content)}`,payload:{action:a},done:a==='hide'?'숨겼어요.':'다시 공개했어요.',confirm:a==='hide'?{title:'이 콘텐츠를 숨길까요?',copy:'작성자를 포함해 누구에게도 보이지 않게 돼요.',ok:'숨기기',danger:true}:null});return;}
   if(t.dataset.report){const a=t.dataset.action;act(t,{path:'reports/'+encodeURIComponent(t.dataset.report),payload:{action:a},done:a==='hide'?'콘텐츠를 숨기고 신고를 처리했어요.':'신고를 기각했어요.',confirm:a==='hide'?{title:'신고된 콘텐츠를 숨길까요?',copy:'대상을 숨기고 신고를 처리 완료로 바꿔요.',ok:'숨기기',danger:true}:null});}

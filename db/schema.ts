@@ -8,11 +8,20 @@ export const projects = sqliteTable('projects', {
   creator: text('creator').notNull(),
   type: text('type').notNull(),
   description: text('description').notNull(),
-  url: text('url').notNull().unique(),
+  url: text('url').unique(), // null for works that are not public yet
   image: text('image').notNull().default(''),
   created: integer('created').notNull(),
   deletedAt: integer('deleted_at'),
   hiddenAt: integer('hidden_at'),
+  // 'catalog' = curated works seeded from public/catalog.json, 'community' = uploaded by members
+  source: text('source').notNull().default('community'),
+  subtitle: text('subtitle').notNull().default(''),
+  art: text('art').notNull().default('custom'),
+  badge: text('badge').notNull().default(''),
+  status: text('status').notNull().default('live'),
+  tags: text('tags').notNull().default('[]'),
+  featured: integer('featured').notNull().default(0),
+  sort: integer('sort').notNull().default(0),
 }, table => [index('projects_owner_idx').on(table.ownerId),index('projects_created_idx').on(table.created)]);
 
 export const projectImages = sqliteTable('project_images', {
@@ -75,3 +84,10 @@ export const dailyViews = sqliteTable('daily_views', {
 export const dailyVisitors = sqliteTable('daily_visitors', {
   day:text('day').notNull(), visitor:text('visitor').notNull(),
 },t=>[primaryKey({columns:[t.day,t.visitor]})]);
+// Home hero slides, managed from /admin. theme picks a built-in background; 'custom' uses image as the backdrop.
+export const banners = sqliteTable('banners', {
+  id:text('id').primaryKey(), projectId:text('project_id'), title:text('title').notNull(), description:text('description').notNull().default(''),
+  buttonLabel:text('button_label').notNull().default(''), buttonIcon:text('button_icon').notNull().default('none'), url:text('url').notNull().default(''),
+  theme:text('theme').notNull().default('custom'), image:text('image').notNull().default(''),
+  sort:integer('sort').notNull().default(0), enabled:integer('enabled').notNull().default(1), created:integer('created').notNull(), updated:integer('updated').notNull(),
+},t=>[index('banners_sort_idx').on(t.sort)]);

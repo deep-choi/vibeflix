@@ -1,14 +1,11 @@
-import catalog from '../public/catalog.json';
 import { ApiError, db } from './api';
 import type { Member } from './auth';
 
 export async function entity(kind:string,id:string){
   if(!['project','post','comment'].includes(kind)||!id||id.length>100)throw new ApiError(400,'대상을 확인해주세요.');
   if(kind==='project'){
-    const seed=catalog.find(p=>p.id===id);
-    if(seed)return {id,ownerId:null,title:seed.title,status:seed.status,kind};
-    const p=await db().prepare('SELECT id, owner_id, title FROM projects WHERE id = ? AND deleted_at IS NULL AND hidden_at IS NULL').bind(id).first();
-    if(p)return{id,ownerId:String(p.owner_id),title:String(p.title),status:'live',kind};
+    const p=await db().prepare('SELECT id, owner_id, title, source, status FROM projects WHERE id = ? AND deleted_at IS NULL AND hidden_at IS NULL').bind(id).first();
+    if(p)return{id,ownerId:p.source==='catalog'?null:String(p.owner_id),title:String(p.title),status:String(p.status||'live'),kind};
   }
   if(kind==='post'){
     const p=await db().prepare('SELECT id, owner_id, title FROM posts WHERE id = ? AND deleted_at IS NULL AND hidden_at IS NULL').bind(id).first();

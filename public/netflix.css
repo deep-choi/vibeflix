@@ -320,3 +320,7 @@ body.has-notice main{padding-top:36px}
 .footer-legal{font-size:12px;color:#8b8b8b;white-space:nowrap}
 .footer-legal b{font-weight:600;color:#b5b5b5}
 .footer-legal:hover,.footer-legal:hover b{color:#fff}
+
+/* Operator-made banner: the uploaded image is the full backdrop (no floating art) */
+.hero[data-feature="custom"] .hero-image{background-color:#111;background-position:center;background-size:cover;background-repeat:no-repeat}
+.hero[data-feature="custom"] .hero-art{display:none}

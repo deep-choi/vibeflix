@@ -22,6 +22,7 @@
     <nav class="ad-nav" aria-label="운영 메뉴">
       <button data-view="overview">현황</button>
       <button data-view="projects">작품</button>
+      <button data-view="banners">배너</button>
       <button data-view="users">회원</button>
       <button data-view="content">게시글 · 댓글</button>
       <button data-view="reports">신고 <span class="ad-count" id="ad-report-count" hidden></span></button>
@@ -34,10 +35,12 @@
     <form method="dialog">
       <h2 id="ad-confirm-title"></h2>
       <p id="ad-confirm-copy"></p>
+      <label class="ad-field" id="ad-confirm-type-wrap" hidden><span id="ad-confirm-type-label"></span><input id="ad-confirm-type" autocomplete="off"></label>
       <label class="ad-field">처리 사유 <small>선택 · 처리 기록에 남아요</small><input id="ad-confirm-note" maxlength="300" placeholder="예: 스팸 신고 3건 확인"></label>
       <div class="ad-dialog-actions"><button class="ad-btn" value="cancel">취소</button><button class="ad-btn primary" id="ad-confirm-ok" value="ok">확인</button></div>
     </form>
   </dialog>
+  <dialog class="ad-dialog ad-edit" id="ad-edit"><form id="ad-edit-form" novalidate><h2 id="ad-edit-title"></h2><div id="ad-edit-body"></div><p class="ad-form-error" id="ad-edit-error" role="alert" hidden></p><div class="ad-dialog-actions"><span id="ad-edit-extra"></span><button type="button" class="ad-btn" data-edit-cancel>취소</button><button class="ad-btn primary" id="ad-edit-save">저장</button></div></form></dialog>
   <div class="ad-toast" id="ad-toast" role="status" hidden></div>
   <script src="/admin.js" defer></script>
 </body>

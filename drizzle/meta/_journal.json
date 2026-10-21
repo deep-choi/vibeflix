@@ -36,6 +36,20 @@
       "when": 1792583161745,
       "tag": "0004_operator_tools",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1792584679456,
+      "tag": "0005_catalog_and_banners",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1792584711694,
+      "tag": "0006_seed_catalog_banners",
+      "breakpoints": true
     }
   ]
 }

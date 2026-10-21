@@ -2,7 +2,7 @@ import { env } from 'cloudflare:workers';
 import { currentUser, requireUser } from '../../../../lib/auth';
 import { parseProject, parseCover, parseGalleryImage, sameOrigin, COVER, GALLERY, PROJECT_BODY_LIMIT } from '../../../../lib/project-input';
 import { body, db, failure, json, limit, origin, ApiError } from '../../../../lib/api';
-import catalog from '../../../../public/catalog.json';
+import { isCuratedOrigin } from '../../../../lib/projects';
 
 export const dynamic = 'force-dynamic';
 export async function DELETE(request: Request, context: { params: Promise<{id:string}> }) {
@@ -21,7 +21,7 @@ export async function PATCH(request:Request,context:{params:Promise<{id:string}>
   try{origin(request);const user=await requireUser();await limit(user.id,'edit-project',20);const {id}=await context.params;const existing=await db().prepare('SELECT * FROM projects WHERE id=? AND owner_id=?').bind(id,user.id).first();if(!existing)throw new ApiError(404,'수정할 작품을 찾을 수 없습니다.');const b=await body(request,PROJECT_BODY_LIMIT);
     if(existing.hidden_at)throw new ApiError(403,'운영자가 확인 중인 작품은 직접 다시 공개할 수 없습니다.');
     if(b.restore===true){await db().prepare('UPDATE projects SET deleted_at=NULL WHERE id=? AND owner_id=? AND hidden_at IS NULL').bind(id,user.id).run();return json({ok:true});}
-    const parsed=parseProject({...b,creator:user.name});if(!parsed)throw new ApiError(400,'작품 정보를 확인해주세요.');if(catalog.some(p=>p.url&&new URL(p.url).origin===new URL(parsed.url).origin))throw new ApiError(409,'이미 소개 중인 서비스입니다.');
+    const parsed=parseProject({...b,creator:user.name});if(!parsed)throw new ApiError(400,'작품 정보를 확인해주세요.');if(await isCuratedOrigin(parsed.url))throw new ApiError(409,'이미 소개 중인 서비스입니다.');
     // image omitted = keep the current cover, '' = remove it, data URL = replace it
     let image=String(existing.image||'');if(typeof b.image==='string'){if(b.image&&!parseCover(b.image))throw new ApiError(400,`커버 이미지는 ${COVER.width}×${COVER.height}px의 PNG·JPG·WebP, ${COVER.maxBytes/1024}KB 이하만 등록할 수 있어요.`);image=b.image;}
     // gallery omitted = keep, otherwise an ordered list of existing image ids and/or new data URLs

@@ -140,26 +140,38 @@ $('#search').addEventListener('input',event=>{query=event.target.value.trim().to
 $('#search-close').addEventListener('click',()=>{$('#search-wrap').hidden=true;$('#search').value='';query='';render();$('#search-toggle').setAttribute('aria-expanded','false');$('#search-toggle').focus();});
 $('#reset-filters').addEventListener('click',()=>{$('#search').value='';query='';setFilter('all');});
 $('#profile-button').addEventListener('click',()=>window.VibeCommunity?.openProfile());$('#hero-info').addEventListener('click',()=>openDetail(currentFeatured));$('#hero-save').addEventListener('click',()=>toggleSave(currentFeatured));
-const featured=[
-  {id:'koiworld',title:'코이월드',sub:'KOIWORLD — YOUR LITTLE POND',kicker:'바쁜 하루 끝, 나만의 연못으로',description:'어떤 무늬의 코이가 태어날까요?<br>키우고, 교배하고, 수집하는 나만의 작은 힐링.',genre:'힐링 · 수집 · 육성',bg:'koi',image:'/assets/koi-icon.png',url:'https://koigarden.shop/'},
-  {id:'fishing',title:'네모낚시',sub:'CAST A LINE. TAKE A BREATH.',kicker:'오늘은, 잠깐 물가에 앉아볼까요',description:'블록으로 만든 저수지에서 즐기는 좌대 낚시.<br>채비를 고르고, 찌를 바라보고, 대물을 만나보세요.',genre:'3D 복셀 · 낚시 시뮬레이션',bg:'fishing',image:'/assets/fishing-lake.jpg',url:'https://voxel-fishing-choi.web.app/'},
-  {id:'dayflow',title:'Dayflow',sub:'A LITTLE MORE FLOW IN YOUR DAY',kicker:'흩어진 하루가, 하나의 흐름으로',description:'일정, 할 일, 메모, 그리고 AI와의 대화.<br>복잡한 하루를 나만의 속도로 정리하는 공간.',genre:'AI · 일정 · 생산성',bg:'dayflow',image:'/assets/dayflow-screen.jpg',url:'https://dayflow.web.app/'}
+// Hero slides are managed in /admin (banners). These built-in slides show until the catalog loads, or if it fails.
+let featured=[
+  {id:'banner-koiworld',projectId:'koiworld',title:'코이월드',description:'어떤 무늬의 코이가 태어날까요?\n키우고, 교배하고, 수집하는 나만의 작은 힐링.',buttonLabel:'지금 플레이',buttonIcon:'play',url:'https://koigarden.shop/',theme:'koi',image:'/assets/koi-icon.png'},
+  {id:'banner-fishing',projectId:'fishing',title:'네모낚시',description:'블록으로 만든 저수지에서 즐기는 좌대 낚시.\n채비를 고르고, 찌를 바라보고, 대물을 만나보세요.',buttonLabel:'지금 플레이',buttonIcon:'play',url:'https://voxel-fishing-choi.web.app/',theme:'fishing',image:'/assets/fishing-lake.jpg'},
+  {id:'banner-dayflow',projectId:'dayflow',title:'Dayflow',description:'일정, 할 일, 메모, 그리고 AI와의 대화.\n복잡한 하루를 나만의 속도로 정리하는 공간.',buttonLabel:'서비스 바로가기 ↗',buttonIcon:'none',url:'https://dayflow.web.app/',theme:'dayflow',image:'/assets/dayflow-screen.jpg'}
 ];
 let featuredIndex=0;
+// Side peeks show the linked work's cover; custom banners show their own backdrop
+const peekImage=f=>f.theme==='custom'?f.image:(findProject(f.projectId)?.image||f.image);
 function selectFeatured(value){
-  const index=(value+featured.length)%featured.length;const f=featured[index];featuredIndex=index;currentFeatured=f.id;
-  $('.hero h1').innerHTML=`${f.title}<span>${f.sub}</span>`;$('.hero-kicker').textContent=f.kicker;$('.hero-description').innerHTML=f.description;
-  $('.hero-meta').innerHTML=`<span class="type-label">${f.id==='dayflow'?'앱':'게임'}</span><span>${f.genre}</span><span class="meta-dot">·</span><span>by deepchoi</span><span class="live-label">지금 이용 가능</span>`;
-  $('.hero').dataset.feature=f.bg;$('#hero-art-image').src=f.image;$('#hero-play').href=f.url;$('#hero-play').innerHTML=f.id==='dayflow'?'서비스 바로가기 ↗':'<span class="play-icon">▶</span> 지금 플레이';$('.hero-side>span').innerHTML=`0${index+1} <i>/ 03</i>`;
-  $('.hero').setAttribute('aria-label',`추천 작품 ${f.title}`);
+  const index=(value+featured.length)%featured.length;const f=featured[index];featuredIndex=index;
+  // before the catalog arrives, trust the slide's link so the buttons don't flicker
+  const project=f.projectId?(findProject(f.projectId)||(projects.length?null:{id:f.projectId})):null;currentFeatured=project?project.id:'';
+  const hero=$('.hero');hero.dataset.feature=f.theme;hero.setAttribute('aria-label',`추천 작품 ${f.title}`);
+  $('.hero h1').textContent=f.title;$('.hero-description').innerHTML=escapeHtml(f.description).replace(/\n/g,'<br>');
+  $('.hero-image').style.backgroundImage=f.theme==='custom'&&f.image?`url("${f.image}")`:'';
+  if(f.theme==='custom'||!f.image)$('#hero-art-image').removeAttribute('src');else $('#hero-art-image').src=f.image;
+  const play=$('#hero-play'),external=/^https?:/.test(f.url||'');play.hidden=!f.url;play.href=f.url||'#';
+  if(external){play.target='_blank';play.rel='noopener noreferrer';}else{play.removeAttribute('target');play.removeAttribute('rel');}
+  play.innerHTML=(f.buttonIcon==='play'?'<span class="play-icon">▶</span> ':'')+escapeHtml(f.buttonLabel||'바로가기');
+  $('#hero-info').hidden=$('#hero-save').hidden=!project;
+  const many=featured.length>1;
   for(const [selector,offset] of [['.hero-peek-prev',-1],['.hero-peek-next',1]]){
-    const adjacent=featured[(index+offset+featured.length)%featured.length];const peek=$(selector);
-    peek.style.backgroundImage=`linear-gradient(#0003,#0006),url("${adjacent.id==='koiworld'?'/assets/koiworld-cover.png':adjacent.id==='dayflow'?'/assets/dayflow-cover.png':adjacent.image}")`;
+    const adjacent=featured[(index+offset+featured.length)%featured.length];const peek=$(selector);peek.hidden=!many;
+    peek.style.backgroundImage=`linear-gradient(#0003,#0006),url("${peekImage(adjacent)}")`;
     peek.setAttribute('aria-label',`${offset<0?'이전':'다음'} 추천 작품: ${adjacent.title}`);
   }
-  $$('[data-slide]').forEach((b,i)=>{b.classList.toggle('selected',i===index);b.setAttribute('aria-pressed',String(i===index));});updateHeroSave();
+  $('.slide-lines').hidden=!many;
+  $('.slide-lines').innerHTML=featured.map((b,i)=>`<button class="${i===index?'selected':''}" data-slide="${i}" aria-label="추천 작품 ${escapeHtml(b.title)}" aria-pressed="${i===index}"></button>`).join('');
+  updateHeroSave();
 }
-$$('[data-slide]').forEach(button=>button.addEventListener('click',()=>selectFeatured(Number(button.dataset.slide))));
+$('.slide-lines').addEventListener('click',event=>{const dot=event.target.closest('[data-slide]');if(dot)selectFeatured(Number(dot.dataset.slide));});
 $('.hero-peek-prev').addEventListener('click',()=>selectFeatured(featuredIndex-1));
 $('.hero-peek-next').addEventListener('click',()=>selectFeatured(featuredIndex+1));
 $('.hero-carousel').addEventListener('keydown',event=>{
@@ -281,7 +293,7 @@ function applySite(site){
 }
 async function loadCatalog(){
   let message='';
-  try{const response=await fetch('/api/projects');const result=await response.json();if(!Array.isArray(result.projects))throw Error('잘못된 응답');projects=result.projects;message=result.error||'';applySite(result.site);}
+  try{const response=await fetch('/api/projects');const result=await response.json();if(!Array.isArray(result.projects))throw Error('잘못된 응답');projects=result.projects;message=result.error||'';applySite(result.site);if(Array.isArray(result.banners)&&result.banners.length){const keep=featured[featuredIndex]?.id;featured=result.banners;featuredIndex=Math.max(0,featured.findIndex(b=>b.id===keep));}selectFeatured(featuredIndex);}
   catch{try{const response=await fetch('/catalog.json');if(!response.ok)throw Error();projects=await response.json();message='커뮤니티 작품을 불러오지 못했습니다. 기본 서비스는 계속 이용할 수 있어요.';}catch{message='작품을 불러올 수 없습니다. 연결을 확인한 뒤 새로고침해주세요.';}}
   $('#catalog-status').hidden=!message;$('#catalog-status').textContent=message;render();
   document.dispatchEvent(new CustomEvent('vibe:catalog'));
