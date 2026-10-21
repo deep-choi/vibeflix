@@ -2,10 +2,7 @@
 (() => {
   const $ = selector => document.querySelector(selector);
   const esc = value => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const consent = document.createElement('label');
-  consent.className = 'quiet-note';
-  consent.innerHTML = '<input type="checkbox" id="auth-consent"> <a href="/terms" target="_blank" rel="noopener">이용약관</a>과 <a href="/privacy" target="_blank" rel="noopener">개인정보처리방침</a>에 동의합니다.';
-  $('#google-sign-in')?.before(consent);
+  // Terms consent is asked at sign-up / first login (see community.js), not on every sign-in.
   const dialog = document.createElement('dialog');
   dialog.setAttribute('aria-label', '계정 및 이용자 관리');
   dialog.className = 'community-dialog';

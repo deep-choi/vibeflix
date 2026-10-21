@@ -31,7 +31,25 @@
     const app=appSDK.getApps().length?appSDK.getApps()[0]:appSDK.initializeApp(config);const auth=authSDK.getAuth(app);auth.languageCode='ko';await authSDK.setPersistence(auth,authSDK.inMemoryPersistence);
     return {authSDK,auth};
   }
-  const consentGiven=()=>{if($('#auth-consent')?.checked)return true;$('#auth-error').textContent='이용약관과 개인정보처리방침에 동의해주세요.';$('#auth-error').hidden=false;return false;};
+  // Terms consent: given in the sign-up form, or asked once on a first Google login / after the terms change.
+  const signupConsentKey=email=>'vibeflix.signup-consent.'+email.toLowerCase();
+  function askConsent(message,first){
+    const step=$('#auth-consent-step'),dialog=$('#auth-dialog');$('#consent-title').textContent=first?'처음 오셨네요!':'이용약관이 바뀌었어요';$('#consent-copy').textContent=message;$('#consent-check').checked=false;
+    step.hidden=false;dialog.classList.add('consenting');
+    return new Promise(resolve=>{
+      const done=ok=>{step.hidden=true;dialog.classList.remove('consenting');$('#consent-accept').onclick=$('#consent-cancel').onclick=null;resolve(ok);};
+      $('#consent-accept').onclick=()=>{if(!$('#consent-check').checked){$('#consent-copy').textContent='동의 항목에 체크해야 시작할 수 있어요.';return;}done(true);};
+      $('#consent-cancel').onclick=()=>done(false);
+    });
+  }
+  /** Exchanges a Firebase ID token for our session; returns false if the visitor declined the terms. */
+  async function sessionLogin(endpoint,idToken,accepted=false){
+    const response=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({idToken,acceptTerms:accepted})});
+    const data=await response.json().catch(()=>({}));
+    if(response.status===428&&!accepted){if(!await askConsent(data.error||'',!/바뀌었/.test(data.error||'')))return false;return sessionLogin(endpoint,idToken,true);}
+    if(!response.ok)throw Error(data.error||'로그인을 완료하지 못했습니다.');
+    return true;
+  }
   async function afterLogin(){
     await V.refreshAuth();await V.reload();close($('#auth-dialog'));if($('#upload-dialog').open){$('#upload-auth').hidden=true;$('#upload-form').hidden=false;$('#upload-form [name="creator"]').value=user().name;$('#upload-form [name="creator"]').readOnly=true;}
     V.toast('환영해요. 당신의 바이브를 들려주세요.');const action=pendingLogin;pendingLogin=null;if(typeof action==='function')await action();else if(action==='write')openCompose();else if(action==='upload'&&!$('#upload-dialog').open)V.openUpload();
@@ -41,12 +59,12 @@
     'auth/invalid-credential':'이메일 또는 비밀번호가 맞지 않아요.','auth/wrong-password':'이메일 또는 비밀번호가 맞지 않아요.','auth/user-not-found':'이메일 또는 비밀번호가 맞지 않아요.','auth/user-disabled':'이용이 제한된 계정이에요.','auth/too-many-requests':'시도가 너무 많아요. 잠시 후 다시 시도해주세요.','auth/operation-not-allowed':'이메일 로그인이 아직 준비되지 않았어요. 운영자에게 알려주세요.','auth/network-request-failed':'네트워크 연결을 확인해주세요.'};
   const authError=error=>authMessages[error?.code]||error?.message||'로그인을 완료하지 못했습니다.';
   $('#google-sign-in').addEventListener('click',async()=>{
-    const button=$('#google-sign-in');if(!consentGiven())return;button.disabled=true;$('#auth-error').hidden=true;
+    const button=$('#google-sign-in');button.disabled=true;$('#auth-error').hidden=true;
     try{
       const {authSDK,auth}=await firebaseAuth();
       const provider=new authSDK.GoogleAuthProvider();provider.setCustomParameters({prompt:'select_account'});
-      const result=await authSDK.signInWithPopup(auth,provider);const token=await result.user.getIdToken();await api('/api/auth/google','POST',{idToken:token,acceptTerms:true});await authSDK.signOut(auth);
-      await afterLogin();
+      const result=await authSDK.signInWithPopup(auth,provider);const token=await result.user.getIdToken();const ok=await sessionLogin('/api/auth/google',token);await authSDK.signOut(auth);
+      if(ok)await afterLogin();else V.toast('동의하지 않으면 가입할 수 없어요. 둘러보기는 그대로 할 수 있어요.');
     }catch(error){$('#auth-error').textContent=authError(error);$('#auth-error').hidden=false;}
     finally{button.disabled=false;}
   });
@@ -71,7 +89,7 @@
     if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){emailNote('이메일 주소를 확인해주세요.');return;}
     if(mode!=='reset'&&password.length<8){emailNote('비밀번호는 8자 이상이에요.');return;}
     if(mode==='signup'){if(!f.name.value.trim()){emailNote('닉네임을 입력해주세요.');return;}if(password!==f.confirm.value){emailNote('비밀번호 확인이 일치하지 않아요.');return;}}
-    if(mode!=='reset'&&!consentGiven())return;
+    if(mode==='signup'&&!f.terms.checked){emailNote('이용약관과 개인정보처리방침에 동의해주세요.');return;}
     const button=$('#email-submit');button.disabled=true;
     try{
       const {authSDK,auth}=await firebaseAuth();
@@ -80,12 +98,14 @@
         const result=await authSDK.createUserWithEmailAndPassword(auth,email,password);
         await authSDK.updateProfile(result.user,{displayName:f.name.value.trim().slice(0,40)});
         await authSDK.sendEmailVerification(result.user,{url:`${location.origin}/?verified=1`});await authSDK.signOut(auth);
+        try{localStorage.setItem(signupConsentKey(email),'1');}catch{} // consent given in this form is sent with the first login
         emailMode('login');f.password.value='';f.confirm.value='';emailNote(`${email}로 인증 메일을 보냈어요. 메일의 링크를 누른 뒤 여기서 로그인해주세요.`);return;
       }
       const result=await authSDK.signInWithEmailAndPassword(auth,email,password);await result.user.reload();
       if(!result.user.emailVerified){unverified={authSDK,user:result.user};emailNote('아직 이메일 인증을 하지 않았어요. 메일의 링크를 누른 뒤 다시 로그인해주세요.','인증 메일 다시 보내기');return;}
-      unverified=null;const token=await result.user.getIdToken(true);await api('/api/auth/email','POST',{idToken:token,acceptTerms:true});await authSDK.signOut(auth);
-      f.reset();await afterLogin();
+      unverified=null;const token=await result.user.getIdToken(true);let agreed=false;try{agreed=localStorage.getItem(signupConsentKey(email))==='1';}catch{}
+      const ok=await sessionLogin('/api/auth/email',token,agreed);await authSDK.signOut(auth);if(!ok){V.toast('동의하지 않으면 로그인할 수 없어요.');return;}
+      try{localStorage.removeItem(signupConsentKey(email));}catch{}f.reset();await afterLogin();
     }catch(error){emailNote(authError(error));}
     finally{button.disabled=false;}
   });

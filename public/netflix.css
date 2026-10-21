@@ -426,3 +426,18 @@ body.community-view .community-discovery{margin-top:0;padding-top:92px}
 .email-auth .email-auth-tabs button,.email-auth .email-auth-links button{background:transparent;border:0;min-height:0;box-shadow:none;width:auto}
 .email-auth .email-auth-tabs button{width:100%}
 .email-auth .email-auth-tabs button[aria-selected=true]{background:#ffffff1f}
+
+/* Terms consent: one line in the sign-up form, and a one-time step for first logins */
+.email-auth .consent-line{display:none;font-weight:400;font-size:12.5px;line-height:1.6;color:#bdbdbd}
+.email-auth[data-mode=signup] .consent-line{display:flex;gap:8px;align-items:flex-start}
+.consent-line input{flex:0 0 auto;width:16px;height:16px;margin:3px 0 0;accent-color:var(--lime)}
+.consent-line a{color:var(--lime);text-decoration:underline;text-underline-offset:3px}.consent-line small{color:#8d8d8d}
+.auth-modal.consenting>:not(.modal-close):not(.modal-badge):not(#auth-consent-step){display:none!important}
+.auth-consent-step{display:flex;flex-direction:column;gap:12px;text-align:left}
+.auth-consent-step h3{margin:0;font-size:20px;color:#fff;text-align:center}
+.auth-consent-step p{margin:0;color:#bdbdbd;font-size:14px;text-align:center}
+.auth-consent-step .consent-line{display:flex;gap:8px;align-items:flex-start;font-size:13.5px;color:#e6e6e6;padding:12px 14px;border-radius:10px;background:#ffffff08;border:1px solid #ffffff1a}
+.auth-consent-step .primary-button{width:100%;min-height:50px;border-radius:10px;font-size:15px}
+.auth-consent-step .text-button{align-self:center;color:#9a9a9a;background:transparent}
+.email-auth[data-mode=signup] .consent-line,.auth-consent-step .consent-line{display:block}
+.consent-line input{display:inline-block;vertical-align:-3px;margin:0 6px 0 0}
