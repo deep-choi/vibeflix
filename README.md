@@ -72,6 +72,15 @@ npm run deploy:workers -- --dry   # 실행할 명령만 확인
 - 로그: Cloudflare 대시보드 → Workers → vibeflix → Logs, 또는 `npx wrangler tail vibeflix`.
 - 백업·복구: D1은 최근 30일 안의 시점으로 되돌릴 수 있습니다. `npx wrangler d1 time-travel info vibeflix-db`로 확인하고 `npx wrangler d1 time-travel restore vibeflix-db --timestamp=<ISO 시각>`으로 복구합니다. 따로 보관하려면 `npx wrangler d1 export vibeflix-db --remote --output backup.sql`.
 
+## 작품 상세 페이지와 에디터
+
+모든 작품은 `/works/:id` 상세 페이지를 가집니다. 영상은 맨 위에 YouTube·Vimeo 플레이어가 나오고, 나머지는 커버 → 제목·카테고리 정보 → 소개 → 본문 순서로 세로로 이어서 봅니다. 카드를 누르면 지금처럼 미리보기 창이 뜨고, 창의 ‘상세 페이지’나 페이지의 ‘별점 · 댓글’(`/#work=ID`)로 오갈 수 있습니다.
+
+- 본문(`projects.content`): 소제목·글·이미지 블록을 순서대로 쌓습니다. 블록 60개, 이미지 8장(장당 700KB, 자동 최적화), 글 50,000자까지. 이미지는 `project_images`에 저장됩니다.
+- 카테고리 전용 항목(`projects.details`): 웹사이트 주요 기능·사용 기술 / 앱 플랫폼·App Store·Google Play / 게임 플레이 방식·시간·조작법·트레일러 / 그림·만화 형식(웹툰·만화는 이미지가 간격 없이 이어짐) / 영상 길이 / 소설 연재 상태.
+- 링크 규칙: 웹사이트·게임은 링크 필수, 앱은 웹 링크나 스토어 링크 중 하나, 영상은 YouTube·Vimeo 링크 필수, 그림·만화·소설은 선택.
+- 예시 작품도 같은 페이지를 씁니다(`/samples/:id`는 `/works/:id`로 이동). 예시 본문은 `lib/sample-content.ts`에 있습니다.
+
 ## 운영자 대시보드
 
 운영자 계정으로 로그인하면 헤더에 ‘운영’ 버튼이 보이고 `/admin`으로 들어갑니다. 모든 작업은 `/api/admin`을 거치며 운영자 세션이 필요합니다.

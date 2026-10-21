@@ -2,8 +2,8 @@ import { env } from 'cloudflare:workers';
 import catalog from '../../public-catalog';
 import { currentUser } from '../../../lib/auth';
 import { getSettings } from '../../../lib/admin';
-import { PROJECT_COLUMNS, SOURCE_ORDER, isCuratedOrigin, listBanners, publicProject } from '../../../lib/projects';
-import { parseProject, parseCover, parseGalleryImage, sameOrigin, boundedBody, genreTaxonomy, COVER, GALLERY, PROJECT_BODY_LIMIT } from '../../../lib/project-input';
+import { PROJECT_COLUMNS, SOURCE_ORDER, contentStatements, isCuratedOrigin, listBanners, publicProject } from '../../../lib/projects';
+import { parseProject, parseCover, parseContent, projectProblem, sameOrigin, boundedBody, genreTaxonomy, CONTENT, COVER, GALLERY, PROJECT_BODY_LIMIT } from '../../../lib/project-input';
 
 export const dynamic = 'force-dynamic';
 const json = (data: unknown, status = 200) => Response.json(data, { status, headers: { 'Cache-Control':'no-store', 'X-Content-Type-Options':'nosniff' } });
@@ -43,24 +43,27 @@ export async function POST(request: Request) {
   let body: unknown;
   try { body = JSON.parse(text); } catch { return json({error:'작품 정보를 확인해주세요.'},400); }
   const project = parseProject(body);
-  if (!project) return json({error:'이름, 소개, 카테고리와 공개 웹사이트 링크를 확인해주세요.'},400);
-  const rawImage = (body as Record<string, unknown>).image;
+  if (!project) return json({error:projectProblem(body)},400);
+  const b = body as Record<string, unknown>;
+  const rawImage = b.image;
   if (rawImage && !parseCover(rawImage)) return json({error:`커버 이미지는 ${COVER.width}×${COVER.height}px의 PNG·JPG·WebP, ${COVER.maxBytes/1024}KB 이하만 등록할 수 있어요.`},400);
   const image = rawImage ? String(rawImage) : '';
-  const rawGallery = (body as Record<string, unknown>).gallery;
-  if (rawGallery !== undefined && (!Array.isArray(rawGallery) || rawGallery.length > GALLERY.max || !rawGallery.every(parseGalleryImage))) return json({error:`소개 이미지는 PNG·JPG·WebP, 장당 ${GALLERY.maxBytes/1024}KB 이하로 최대 ${GALLERY.max}장까지 올릴 수 있어요.`},400);
-  const gallery = (rawGallery as string[] | undefined) ?? [];
-  try { if (await isCuratedOrigin(project.url)) return json({error:'이미 소개 중인 서비스입니다.'},409); } catch { return json({error:'지금은 등록할 수 없습니다. 잠시 후 다시 시도해주세요.'},503); }
+  // Body blocks; older clients still send a plain image list as `gallery`
+  const blocks = parseContent(b.content !== undefined ? b.content : Array.isArray(b.gallery) ? b.gallery.map(data => ({ type:'image', data })) : []);
+  if (!blocks) return json({error:`본문은 블록 ${CONTENT.maxBlocks}개, 이미지 ${CONTENT.maxImages}장(장당 ${GALLERY.maxBytes/1024}KB 이하), 글 ${CONTENT.maxTotalText.toLocaleString('ko-KR')}자까지 쓸 수 있어요.`},400);
+  try { if (project.url && await isCuratedOrigin(project.url)) return json({error:'이미 소개 중인 서비스입니다.'},409); } catch { return json({error:'지금은 등록할 수 없습니다. 잠시 후 다시 시도해주세요.'},503); }
   try {
     const created = Date.now();
     const id = `community-${crypto.randomUUID()}`;
-    const result = await env.DB!.prepare('INSERT INTO projects (id, owner_id, title, creator, type, description, url, image, created, genres) SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ? WHERE (SELECT COUNT(*) FROM projects WHERE owner_id = ? AND created > ?) < 10 RETURNING id').bind(id,user.id,project.title,user.name,project.type,project.description,project.url,image,created,JSON.stringify(project.genres),user.id,created-86400000).all();
+    const { ops, json:content } = await contentStatements(id, blocks, created);
+    const result = await env.DB!.prepare('INSERT INTO projects (id, owner_id, title, creator, type, description, url, image, created, genres, details, content) SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? WHERE (SELECT COUNT(*) FROM projects WHERE owner_id = ? AND created > ?) < 10 RETURNING id').bind(id,user.id,project.title,user.name,project.type,project.description,project.url||null,image,created,JSON.stringify(project.genres),JSON.stringify(project.details),content,user.id,created-86400000).all();
     if (!result.results.length) return json({error:'하루에 최대 10개까지 등록할 수 있습니다. 내일 다시 소개해주세요.'},429);
-    const galleryIds = gallery.map(() => `img-${crypto.randomUUID()}`);
-    if (gallery.length) await env.DB!.batch(gallery.map((data, position) => env.DB!.prepare('INSERT INTO project_images (id, project_id, position, data, created) VALUES (?, ?, ?, ?, ?)').bind(galleryIds[position], id, position, data, created)));
-    return json({ project:{...project,image:image?`/api/projects/${id}/cover?v=${image.length}`:'',creator:user.name,id,created,subtitle:project.description,owned:true,art:'custom',tags:['커뮤니티'],badge:'COMMUNITY',status:'live',rating:0,ratingCount:0,recommendations:0,commentCount:0,gallery:galleryIds.map(g=>`/api/project-images/${g}`)} },201);
+    if (ops.length) await env.DB!.batch(ops);
+    const gallery = JSON.parse(content).filter((x:{type:string})=>x.type==='image').map((x:{id:string})=>`/api/project-images/${x.id}`);
+    return json({ project:{...project,image:image?`/api/projects/${id}/cover?v=${image.length}`:'',creator:user.name,id,created,subtitle:project.description,owned:true,art:'custom',tags:['커뮤니티'],badge:'COMMUNITY',status:'live',rating:0,ratingCount:0,recommendations:0,commentCount:0,gallery} },201);
   } catch (error) {
     if (error instanceof Error && error.message.includes('UNIQUE')) return json({error:'같은 링크의 작품이 이미 등록되어 있습니다.'},409);
+    if (error instanceof Error && 'status' in error) return json({error:error.message},Number((error as {status:number}).status));
     console.error('Project creation unavailable',error instanceof Error?error.message:'unknown');
     return json({error:'지금은 등록할 수 없습니다. 잠시 후 다시 시도해주세요.'},503);
   }

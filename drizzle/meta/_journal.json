@@ -71,6 +71,13 @@
       "when": 1792587632261,
       "tag": "0009_sample_viewer_links",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1792590582471,
+      "tag": "0010_work_pages",
+      "breakpoints": true
     }
   ]
 }

@@ -70,12 +70,74 @@ export function parseCover(value: unknown): { type: string; bytes: Uint8Array } 
 
 export const GALLERY = { max: 4, maxBytes: 700 * 1024, maxDimension: 4096 } as const;
 /** Request body ceiling for a project write: cover + full gallery as base64 + the text fields. */
-export const PROJECT_BODY_LIMIT = Math.ceil((COVER.maxBytes + GALLERY.max * GALLERY.maxBytes) / 3) * 4 + 16000;
+export const PROJECT_BODY_LIMIT = Math.ceil((COVER.maxBytes + 8 * GALLERY.maxBytes) / 3) * 4 + 120000; // cover + 8 body images + text
 
 /** Decodes a description image: real PNG/JPEG/WebP, within the byte and pixel limits. */
 export function parseGalleryImage(value: unknown): { type: string; bytes: Uint8Array } | null {
   const image = decodeImage(value, GALLERY.maxBytes);
   return image && image.width > 0 && image.height > 0 && image.width <= GALLERY.maxDimension && image.height <= GALLERY.maxDimension ? image : null;
+}
+
+/** YouTube / Vimeo link → embeddable id, or null. */
+export function parseVideoUrl(value: unknown): { provider: 'youtube' | 'vimeo'; id: string } | null {
+  const href = publicUrl(normalizeUrl(value));
+  if (!href) return null;
+  const url = new URL(href); const host = url.hostname.replace(/^(www|m)\./, '');
+  const yt = host === 'youtu.be' ? url.pathname.slice(1) : host === 'youtube.com' || host === 'youtube-nocookie.com' ? (url.searchParams.get('v') || url.pathname.match(/^\/(?:embed|shorts|live)\/([\w-]+)/)?.[1] || '') : '';
+  if (/^[\w-]{11}$/.test(yt)) return { provider: 'youtube', id: yt };
+  const vm = host === 'vimeo.com' || host === 'player.vimeo.com' ? url.pathname.match(/(\d{6,12})/)?.[1] : null;
+  return vm ? { provider: 'vimeo', id: vm } : null;
+}
+
+const str = (v: unknown, max: number) => typeof v === 'string' ? v.trim().slice(0, max) : '';
+const list = (v: unknown, count: number, max: number) => (Array.isArray(v) ? v : typeof v === 'string' ? v.split(/\n|,/) : []).map(x => str(x, max)).filter(Boolean).slice(0, count);
+/** Category-specific fields; unknown keys are dropped. */
+export function parseDetails(type: string, value: unknown): Record<string, unknown> {
+  const d = value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  const pick = <T extends string>(v: unknown, options: readonly T[]) => options.includes(v as T) ? v as T : undefined;
+  const out: Record<string, unknown> = {
+    website: { features: list(d.features, 5, 80), stack: list(d.stack, 8, 30) },
+    app: { platforms: list(d.platforms, 3, 10).filter(p => ['ios', 'android', 'web'].includes(p)), appStore: publicUrl(normalizeUrl(str(d.appStore, 2000))), playStore: publicUrl(normalizeUrl(str(d.playStore, 2000))) },
+    game: { playMode: pick(d.playMode, ['browser', 'download', 'mobile'] as const), controls: str(d.controls, 500), playtime: str(d.playtime, 30), trailer: parseVideoUrl(d.trailer) ? publicUrl(normalizeUrl(d.trailer)) : '' },
+    art: { format: pick(d.format, ['illustration', 'webtoon', 'comic'] as const) },
+    video: { duration: str(d.duration, 20) },
+    novel: { status: pick(d.status, ['ongoing', 'complete'] as const) },
+  }[type] as Record<string, unknown> || {};
+  // drop empty values so the stored JSON stays small
+  return Object.fromEntries(Object.entries(out).filter(([, v]) => v !== undefined && v !== '' && !(Array.isArray(v) && !v.length)));
+}
+
+export const CONTENT = { maxBlocks: 60, maxImages: 8, maxText: 5000, maxTotalText: 50000, maxHeading: 100, maxCaption: 200 } as const;
+export type ContentBlock = { type: 'heading' | 'text'; text: string } | { type: 'image'; id?: string; data?: string; caption?: string };
+/** Validates the vertical body. Image blocks carry an existing image id or a new data URL. Returns null when invalid. */
+export function parseContent(value: unknown): ContentBlock[] | null {
+  if (!Array.isArray(value) || value.length > CONTENT.maxBlocks) return null;
+  let images = 0, total = 0; const out: ContentBlock[] = [];
+  for (const raw of value) {
+    if (!raw || typeof raw !== 'object') return null;
+    const b = raw as Record<string, unknown>;
+    if (b.type === 'heading' || b.type === 'text') {
+      const text = typeof b.text === 'string' ? b.text.replace(/\r\n/g, '\n').trim() : '';
+      if (!text) continue;
+      if (text.length > (b.type === 'heading' ? CONTENT.maxHeading : CONTENT.maxText)) return null;
+      total += text.length; out.push({ type: b.type, text });
+    } else if (b.type === 'image') {
+      if (++images > CONTENT.maxImages) return null;
+      const caption = str(b.caption, CONTENT.maxCaption);
+      if (typeof b.id === 'string' && /^img-[\w-]{1,80}$/.test(b.id)) out.push({ type: 'image', id: b.id, caption });
+      else if (parseGalleryImage(b.data)) out.push({ type: 'image', data: String(b.data), caption });
+      else return null;
+    } else return null;
+  }
+  return total > CONTENT.maxTotalText ? null : out;
+}
+
+/** Where the main link is required: sites and games need one, apps need a link or a store link, videos need YouTube/Vimeo. */
+function linkProblem(type: string, url: string, details: Record<string, unknown>) {
+  if (type === 'video') return parseVideoUrl(url) ? '' : 'video';
+  if (type === 'app') return url || details.appStore || details.playStore ? '' : 'app';
+  if (type === 'website' || type === 'game') return url ? '' : 'link';
+  return '';
 }
 
 export function parseProject(body: unknown) {
@@ -86,9 +148,20 @@ export function parseProject(body: unknown) {
   const creator = clean(b.creator, 1, 40);
   const description = clean(b.description, 1, 1000);
   const type = typeof b.type === 'string' && projectTypes.includes(b.type as typeof projectTypes[number]) ? b.type : '';
-  const url = publicUrl(normalizeUrl(b.url));
-  if (!title || !creator || !description || !type || !url) return null;
-  return { title, creator, description, type, url, genres: parseGenres(type, b.genres) };
+  const rawUrl = typeof b.url === 'string' ? b.url.trim() : '';
+  const url = rawUrl ? publicUrl(normalizeUrl(rawUrl)) : '';
+  if (!title || !creator || !description || !type || (rawUrl && !url)) return null;
+  const details = parseDetails(type, b.details);
+  if (linkProblem(type, url, details)) return null;
+  return { title, creator, description, type, url, genres: parseGenres(type, b.genres), details };
+}
+/** Human-readable reason parseProject rejected a body (for the error message). */
+export function projectProblem(body: unknown) {
+  const b = (body && typeof body === 'object' ? body : {}) as Record<string, unknown>;
+  const type = String(b.type || '');const rawUrl = typeof b.url === 'string' ? b.url.trim() : '';const url = rawUrl ? publicUrl(normalizeUrl(rawUrl)) : '';
+  if (rawUrl && !url) return '작품 링크는 공개된 http(s) 주소여야 해요.';
+  const problem = linkProblem(type, url, parseDetails(type, b.details));
+  return problem === 'video' ? '영상 링크는 YouTube 또는 Vimeo 주소여야 해요.' : problem === 'app' ? '앱은 작품 링크나 스토어 링크 중 하나가 필요해요.' : problem === 'link' ? '작품 링크를 입력해주세요.' : '이름, 소개, 카테고리를 확인해주세요.';
 }
 
 export function sameOrigin(request: Request): boolean {

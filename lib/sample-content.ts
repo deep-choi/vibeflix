@@ -1,11 +1,10 @@
-// What a visitor actually sees when opening a sample work (/samples/:id).
+// What a visitor sees on a sample work's page (/works/:id): body blocks, plus a scene player for videos.
 // Samples are placeholders an operator added (migration 0008); this is the "inside" of each one.
 
 export type Scene = { caption: string; sub?: string; from: string; to: string; shape: 'sun' | 'waves' | 'road' | 'plane' | 'stars' };
-export type Panel = { bg: string; lines: { who: string; text: string }[]; note?: string };
 export type SampleContent =
   | { kind: 'novel'; chapter: string; paragraphs: string[] }
-  | { kind: 'art'; note: string; panels?: Panel[] }
+  | { kind: 'art'; note: string; images?: string[] }
   | { kind: 'video'; scenes: Scene[] };
 
 export const sampleContent: Record<string, SampleContent> = {
@@ -36,12 +35,7 @@ export const sampleContent: Record<string, SampleContent> = {
     '영수증에는 오늘 저녁 7시 42분, 역 앞 편의점이 찍혀 있었다. 한결은 코트를 집어 들었다. 새벽 3시까지는 아직 네 시간이 남아 있었다.',
   ]},
   'sample-art-1': { kind: 'art', note: '첫차를 기다리는 정류장의 새벽빛을 분홍과 보라 두 가지 색으로만 표현했어요. 시리즈의 첫 장면으로, 아직 아무도 도착하지 않은 시간이에요.' },
-  'sample-art-2': { kind: 'art', note: '24시 편의점의 야간 근무를 그린 짧은 웹툰이에요. 아래로 넘기며 읽어보세요.', panels: [
-    { bg: 'linear-gradient(160deg,#ffd166,#f78c6b)', lines: [{ who: '알바생', text: '점장님, 손님 오셨어요.' }], note: '새벽 2시, 편의점' },
-    { bg: 'linear-gradient(160deg,#f78c6b,#ef476f)', lines: [{ who: '점장 고양이', text: '…냐.' }, { who: '알바생', text: '그 손님도 고양이네요.' }] },
-    { bg: 'linear-gradient(160deg,#ef476f,#8338ec)', lines: [{ who: '손님 고양이', text: '츄르 두 개 주세요.' }, { who: '점장 고양이', text: '…냐아.' }], note: '결제는 꾹꾹이로' },
-    { bg: 'linear-gradient(160deg,#8338ec,#3a0ca3)', lines: [{ who: '알바생', text: '오늘도 매출은 츄르가 1등이네요.' }], note: '다음 화에 계속' },
-  ]},
+  'sample-art-2': { kind: 'art', note: '24시 편의점의 야간 근무를 그린 짧은 웹툰이에요. 아래로 넘기며 읽어보세요.', images: [1, 2, 3, 4].map(n => `/assets/samples/art-2-panel-${n}.svg`) },
   'sample-art-3': { kind: 'art', note: '16색 팔레트만 사용한 픽셀 아트예요. 한 칸 한 칸 찍어서 바닷가 항구 마을의 저녁을 표현했어요.' },
   'sample-art-4': { kind: 'art', note: '버려진 온실을 돌보는 로봇의 컨셉 아트예요. 둥근 형태와 초록빛으로 다시 살아나는 온실의 분위기를 잡았어요.' },
   'sample-video-1': { kind: 'video', scenes: [
@@ -74,3 +68,13 @@ export const sampleContent: Record<string, SampleContent> = {
     { caption: '프롬프트 12: 해가 지는 바다', sub: 'AI로 그린 바다 · 끝', from: '#f8961e', to: '#03045e', shape: 'waves' },
   ]},
 };
+
+export type ViewBlock = { type: 'heading' | 'text'; text: string } | { type: 'image'; src: string; caption?: string };
+/** Sample content as the same vertical blocks real works use. The cover image stands in for single artworks. */
+export function sampleBlocks(id: string, cover: string): ViewBlock[] {
+  const c = sampleContent[id];
+  if (!c) return [];
+  if (c.kind === 'novel') return [{ type: 'heading', text: c.chapter }, ...c.paragraphs.map(text => ({ type: 'text' as const, text }))];
+  if (c.kind === 'art') return [...(c.images?.length ? c.images : [cover]).map(src => ({ type: 'image' as const, src })), { type: 'text', text: c.note }];
+  return [];
+}

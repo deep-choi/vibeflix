@@ -21,6 +21,10 @@ export const projects = sqliteTable('projects', {
   status: text('status').notNull().default('live'),
   tags: text('tags').notNull().default('[]'),
   genres: text('genres').notNull().default('[]'), // JSON list from public/genres.json for this type; drives category rows
+  // Detail page: vertical blocks [{type:'heading'|'text',text}|{type:'image',id,caption}] (images live in project_images)
+  content: text('content').notNull().default('[]'),
+  // Category-specific fields (website features, app stores, game controls, video duration, novel status…)
+  details: text('details').notNull().default('{}'),
 
   featured: integer('featured').notNull().default(0),
   sort: integer('sort').notNull().default(0),
