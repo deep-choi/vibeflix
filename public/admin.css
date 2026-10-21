@@ -162,3 +162,7 @@ button.ad-tile:hover{background:var(--panel-2)}
 .ad-chip{height:30px;padding:0 12px;border-radius:999px;background:#ffffff0d;border:1px solid var(--line-2);color:#d4d4d4;font-size:12.5px;font-weight:600}
 .ad-chip:hover{border-color:#ffffff4d}
 .ad-chip.on{background:#c3f5681f;border-color:var(--lime);color:var(--lime)}
+
+/* Dialogs scroll without a visible scrollbar, like the site's modals */
+.ad-dialog{scrollbar-width:none}
+.ad-dialog::-webkit-scrollbar{display:none}

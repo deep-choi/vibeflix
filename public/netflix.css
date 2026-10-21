@@ -370,3 +370,7 @@ body.community-view .community-discovery{margin-top:0;padding-top:92px}
    (a floated button used to narrow the cover and leave an empty strip on the right) */
 .detail-modal .modal-close{display:block;float:none;position:sticky;top:16px;z-index:5;margin:16px 16px -50px auto;transform:none}
 .detail-cover{overflow:hidden}
+
+/* Modals still scroll (wheel, touch, keyboard) but don't show a scrollbar */
+.modal{scrollbar-width:none;-ms-overflow-style:none}
+.modal::-webkit-scrollbar{display:none}
