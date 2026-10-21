@@ -18,6 +18,8 @@ let toastTimeout;
 let submitting = false;
 let editingProjectId = null;
 let homePosts = [];
+let pinnedIds = [];
+const pinRank = p => { const i = pinnedIds.indexOf(p.id); return i < 0 ? 1e9 : i; };
 let saved;
 try {const value=JSON.parse(localStorage.getItem('vibeflix.saved.v2') || '[]');saved=new Set(Array.isArray(value)?value.filter(id=>typeof id==='string'):[]);} catch {saved=new Set();}
 function validUrl(value) {try{const url=new URL(value);return ['http:','https:'].includes(url.protocol)&&!url.username&&!url.password?url.href:'';}catch{return '';}}
@@ -79,7 +81,7 @@ function renderRows(home){
   // Category rows follow the header nav order and stay visible even when empty
   const typeRow=type=>({title:typeNames[type],type,items:live.filter(p=>p.type===type),always:true});
   const rows=[
-    {title:'지금, 주목할 바이브',items:live},
+    {title:'지금, 주목할 바이브',items:[...live].sort((a,b)=>pinRank(a)-pinRank(b))},
     typeRow('website'),typeRow('game'),typeRow('app'),typeRow('art'),typeRow('video'),typeRow('novel'),
     {title:'커뮤니티',community:true,items:homePosts,always:true},
     {title:'내가 찜한 작품',items:projects.filter(p=>saved.has(p.id))},
@@ -174,7 +176,7 @@ fetch('/signin-with-chatgpt',{method:'HEAD',redirect:'manual'}).then(r=>r.status
 $('#upload-login').addEventListener('click',()=>{$('#upload-dialog').close();window.VibeCommunity?.login('upload');});
 async function loadSession(){
   try{const response=await fetch('/api/session');if(!response.ok)throw Error('로그인 확인 실패');const data=await response.json();user=data.user;}catch{user=null;}
-  $('#sign-in').hidden=!!user;$('#profile-button').hidden=!user;$('#sign-out').hidden=!user;
+  $('#sign-in').hidden=!!user;$('#profile-button').hidden=!user;$('#sign-out').hidden=!user;$('#admin-link').hidden=!user?.isAdmin;
   if(user){$('#profile-button').textContent=user.name[0].toUpperCase();$('#profile-button').title=`${user.name} · 찜한 작품`;}
   document.dispatchEvent(new CustomEvent('vibe:auth',{detail:user}));
 }
@@ -270,9 +272,16 @@ $$('[data-close]').forEach(b=>b.addEventListener('click',()=>b.closest('dialog')
 $$('dialog').forEach(dialog=>dialog.addEventListener('click',event=>{if(event.target===dialog){const r=dialog.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)dialog.close();}}));
 $('#about-button').addEventListener('click',()=>$('#about-dialog').showModal());
 document.addEventListener('keydown',event=>{if(event.key==='/'&&!$('dialog[open]')&&!['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName)){event.preventDefault();openSearch();}});
+// Operator settings from /admin: a notice strip and the pinned order of the highlight row
+function applySite(site){
+  pinnedIds=Array.isArray(site?.pinned)?site.pinned:[];
+  const notice=$('#site-notice');const text=site?.notice||'';notice.hidden=!text;
+  notice.innerHTML=text?(site.noticeUrl?`<a href="${escapeHtml(site.noticeUrl)}"${/^https?:/.test(site.noticeUrl)?' target="_blank" rel="noopener noreferrer"':''}>${escapeHtml(text)} <span aria-hidden="true">→</span></a>`:`<span>${escapeHtml(text)}</span>`):'';
+  document.body.classList.toggle('has-notice',!!text);
+}
 async function loadCatalog(){
   let message='';
-  try{const response=await fetch('/api/projects');const result=await response.json();if(!Array.isArray(result.projects))throw Error('잘못된 응답');projects=result.projects;message=result.error||'';}
+  try{const response=await fetch('/api/projects');const result=await response.json();if(!Array.isArray(result.projects))throw Error('잘못된 응답');projects=result.projects;message=result.error||'';applySite(result.site);}
   catch{try{const response=await fetch('/catalog.json');if(!response.ok)throw Error();projects=await response.json();message='커뮤니티 작품을 불러오지 못했습니다. 기본 서비스는 계속 이용할 수 있어요.';}catch{message='작품을 불러올 수 없습니다. 연결을 확인한 뒤 새로고침해주세요.';}}
   $('#catalog-status').hidden=!message;$('#catalog-status').textContent=message;render();
   document.dispatchEvent(new CustomEvent('vibe:catalog'));

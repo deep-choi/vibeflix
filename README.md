@@ -52,16 +52,36 @@ Google 공개 설정은 `public/firebase-config.json`에 있습니다. Firebase 
 
 ## 배포
 
-프로젝트 ID와 D1 바인딩은 `.openai/hosting.json`에 있습니다. Sites workflow로 소스를 동기화한 뒤 빌드 아카이브를 저장·배포합니다. 비밀값과 로컬 세션은 소스에 포함하지 않습니다.
+운영은 아래 Cloudflare Workers 배포로 합니다. ChatGPT Sites(`vibeflix-discover.loftytitan16.chatgpt.site`)는 이전 배포처이며 DB가 따로입니다. Sites 프로젝트 ID와 D1 바인딩은 `.openai/hosting.json`에 있고, Sites workflow로 소스를 동기화한 뒤 빌드 아카이브를 저장·배포합니다. 비밀값과 로컬 세션은 소스에 포함하지 않습니다.
 
 배경 산 사진: Unsplash photo `1464822759023-fed622ff2c3b`. 나머지 서비스 이미지는 사용자의 기존 `app-release/store-assets`와 `deepchoi/public`에서 가져왔습니다.
 
-## Cloudflare Workers 배포
+## Cloudflare Workers 배포 (운영 사이트)
 
-Sites와 별개로 Cloudflare 계정(`wrangler login`)에 직접 배포할 수 있습니다. 현재 Worker 이름은 `vibeflix`, D1 데이터베이스 이름은 `vibeflix-db`입니다.
+운영 주소는 **https://vibeflix.cryingonion77.workers.dev** 입니다. Worker 이름은 `vibeflix`, D1 데이터베이스는 `vibeflix-db`입니다. Cloudflare 계정에 로그인(`wrangler login`)한 상태에서:
 
-1. `npm run build`
-2. 새 마이그레이션이 있으면 `npx wrangler d1 execute vibeflix-db --remote --file drizzle/<파일>.sql`
-3. 빌드가 만드는 `dist/server/wrangler.json`의 `name`을 `vibeflix`, `d1_databases`를 `vibeflix-db`의 실제 `database_id`로 바꾼 뒤 `npx wrangler deploy` (`dist/`는 Git에 포함되지 않으며 빌드할 때마다 다시 만들어집니다.)
+```
+npm run deploy:workers            # 빌드 → 새 마이그레이션 적용 → 배포
+npm run deploy:workers -- --dry   # 실행할 명령만 확인
+```
 
-주의: ChatGPT 로그인(`/signin-with-chatgpt`)은 Sites 전용이라 Cloudflare 직접 배포에서는 동작하지 않습니다. Google 로그인은 Firebase 콘솔 → Authentication → 승인된 도메인에 배포 도메인을 추가해야 합니다. 운영자 권한이 필요하면 `npx wrangler secret put ADMIN_EMAILS`로 설정합니다.
+`scripts/deploy-workers.mjs`가 `dist/server/wrangler.json`의 Worker 이름·D1 연결을 실제 값으로 바꾸고 Workers 로그(observability)를 켭니다. 적용한 마이그레이션은 원격 D1의 `_vibeflix_migrations` 테이블에 기록해 다시 실행하지 않습니다. 스키마를 바꿨다면 먼저 `npm run db:generate`로 마이그레이션을 만듭니다.
+
+- 운영자 권한: `npx wrangler secret put ADMIN_EMAILS --name vibeflix` (쉼표로 여러 개). 설정 후 그 이메일로 **다시 로그인**하면 운영자가 됩니다.
+- ChatGPT 로그인은 Sites 전용이라 Workers에서는 버튼이 자동으로 숨겨집니다. Google 로그인은 Firebase 승인 도메인에 `vibeflix.cryingonion77.workers.dev`가 등록되어 있습니다.
+- 로그: Cloudflare 대시보드 → Workers → vibeflix → Logs, 또는 `npx wrangler tail vibeflix`.
+- 백업·복구: D1은 최근 30일 안의 시점으로 되돌릴 수 있습니다. `npx wrangler d1 time-travel info vibeflix-db`로 확인하고 `npx wrangler d1 time-travel restore vibeflix-db --timestamp=<ISO 시각>`으로 복구합니다. 따로 보관하려면 `npx wrangler d1 export vibeflix-db --remote --output backup.sql`.
+
+## 운영자 대시보드
+
+운영자 계정으로 로그인하면 헤더에 ‘운영’ 버튼이 보이고 `/admin`으로 들어갑니다. 모든 작업은 `/api/admin`을 거치며 운영자 세션이 필요합니다.
+
+- 현황: 회원·작품·글·댓글 수, 오늘 늘어난 수, 처리 대기 신고, 최근 14일 방문자. 방문자는 IP를 저장하지 않고 하루 단위 해시로만 셉니다(90일 뒤 삭제).
+- 작품: 숨기기/다시 공개(기본 작품 포함), ‘지금, 주목할 바이브’ 맨 앞 고정과 순서 변경(최대 10개).
+- 회원: 정지(즉시 로그아웃)/해제, 운영자 지정/해제. 내 계정과 운영자는 정지할 수 없습니다.
+- 게시글·댓글: 검색, 숨김만 보기, 숨기기/다시 공개.
+- 신고: 콘텐츠 숨기기 또는 기각.
+- 사이트 설정: 상단 공지 띠(문구·링크), 개인정보처리방침·이용약관에 공개할 문의 이메일.
+- 처리 기록: 모든 운영 작업을 사유와 함께 최근 100건까지 보여줍니다.
+
+`/privacy`(개인정보처리방침)와 `/terms`(이용약관)는 푸터에서 연결됩니다. 실제 수집 항목에 맞춰 작성했지만, 공개 전에 내용을 한 번 검토하세요.

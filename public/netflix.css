@@ -304,3 +304,19 @@ body.community-view .community-section{margin-top:76px;border-top:0}
   .auth-modal,.upload-modal:has(#upload-auth:not([hidden])){padding:44px 22px 26px}
   .auth-modal h2,.upload-modal:has(#upload-auth:not([hidden])) h2{font-size:21px}
 }
+
+/* Operator notice strip (set in /admin); pushes the fixed header and page down */
+.site-notice{position:fixed;top:0;left:0;right:0;z-index:30;height:36px;padding:0 var(--nf-pad);display:flex;align-items:center;justify-content:center;background:var(--lime);color:#17210e;font-size:13px;font-weight:600;line-height:1}
+.site-notice>*{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.site-notice a:hover{text-decoration:underline}
+body.has-notice .header{top:36px}
+body.has-notice main{padding-top:36px}
+
+/* Header link to /admin, shown only to operators */
+.admin-link{display:inline-flex;align-items:center;height:30px;padding:0 11px;border-radius:999px;border:1px solid #c3f56855;color:var(--lime);font-size:12.5px;font-weight:600;white-space:nowrap}
+.admin-link:hover{background:#c3f56814}
+
+/* Footer legal links */
+.footer-legal{font-size:12px;color:#8b8b8b;white-space:nowrap}
+.footer-legal b{font-weight:600;color:#b5b5b5}
+.footer-legal:hover,.footer-legal:hover b{color:#fff}

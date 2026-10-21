@@ -62,3 +62,16 @@ export const reports = sqliteTable('reports', {
 export const limits = sqliteTable('limits', {
   id:text('id').primaryKey(), windowStart:integer('window_start').notNull(), count:integer('count').notNull(),
 });
+// Operator tooling: site-wide settings, an audit trail of admin actions, and privacy-friendly visit counts
+export const settings = sqliteTable('settings', {
+  key:text('key').primaryKey(), value:text('value').notNull(), updated:integer('updated').notNull(),
+});
+export const adminActions = sqliteTable('admin_actions', {
+  id:text('id').primaryKey(), adminId:text('admin_id').notNull(), action:text('action').notNull(), targetKind:text('target_kind').notNull(), targetId:text('target_id').notNull(), note:text('note').notNull().default(''), created:integer('created').notNull(),
+},t=>[index('admin_actions_created_idx').on(t.created)]);
+export const dailyViews = sqliteTable('daily_views', {
+  day:text('day').primaryKey(), views:integer('views').notNull(),
+});
+export const dailyVisitors = sqliteTable('daily_visitors', {
+  day:text('day').notNull(), visitor:text('visitor').notNull(),
+},t=>[primaryKey({columns:[t.day,t.visitor]})]);

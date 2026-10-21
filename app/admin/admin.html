@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="theme-color" content="#000000">
+  <title>운영자 대시보드 · VIBEFLIX</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/admin.css">
+</head>
+<body>
+  <header class="ad-top">
+    <a class="ad-brand" href="/" aria-label="VIBEFLIX 홈"><svg viewBox="0 0 28 28" fill="none" aria-hidden="true"><path d="m3 5 8 18h6L25 5h-6l-5 12L9 5H3Z" fill="currentColor"/><path d="m14 5 3 7 3-7h-6Z" fill="currentColor" opacity=".45"/></svg>VIBEFLIX<span>운영자</span></a>
+    <div class="ad-top-actions"><span id="ad-user"></span><a class="ad-link" href="/">사이트로 돌아가기 ↗</a></div>
+  </header>
+  <div class="ad-gate" id="ad-gate" hidden>
+    <div class="ad-gate-card"><h1 id="ad-gate-title">운영자 로그인이 필요해요.</h1><p id="ad-gate-copy">사이트에서 운영자 계정으로 로그인한 뒤 다시 열어주세요.</p><a class="ad-btn primary" href="/">사이트에서 로그인하기</a></div>
+  </div>
+  <div class="ad-shell" id="ad-shell" hidden>
+    <nav class="ad-nav" aria-label="운영 메뉴">
+      <button data-view="overview">현황</button>
+      <button data-view="projects">작품</button>
+      <button data-view="users">회원</button>
+      <button data-view="content">게시글 · 댓글</button>
+      <button data-view="reports">신고 <span class="ad-count" id="ad-report-count" hidden></span></button>
+      <button data-view="settings">사이트 설정</button>
+      <button data-view="log">처리 기록</button>
+    </nav>
+    <main class="ad-main" id="ad-main" aria-live="polite"></main>
+  </div>
+  <dialog class="ad-dialog" id="ad-confirm">
+    <form method="dialog">
+      <h2 id="ad-confirm-title"></h2>
+      <p id="ad-confirm-copy"></p>
+      <label class="ad-field">처리 사유 <small>선택 · 처리 기록에 남아요</small><input id="ad-confirm-note" maxlength="300" placeholder="예: 스팸 신고 3건 확인"></label>
+      <div class="ad-dialog-actions"><button class="ad-btn" value="cancel">취소</button><button class="ad-btn primary" id="ad-confirm-ok" value="ok">확인</button></div>
+    </form>
+  </dialog>
+  <div class="ad-toast" id="ad-toast" role="status" hidden></div>
+  <script src="/admin.js" defer></script>
+</body>
+</html>

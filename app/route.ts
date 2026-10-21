@@ -1,7 +1,9 @@
 import html from './site.html?raw';
+import { recordVisit } from '../lib/admin';
 
 export const dynamic = 'force-dynamic';
-export function GET() {
+export async function GET(request: Request) {
+  await recordVisit(request);
   return new Response(html, {
     headers: {
       'Content-Type': 'text/html; charset=utf-8',
