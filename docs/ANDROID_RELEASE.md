@@ -47,13 +47,14 @@ VIBEFLIX의 첫 Android 버전입니다. 작품 발견, 찜과 팔로우, 커뮤
 - Verify public privacy/deletion pages, manifest, asset links and login/content APIs on the deployed origin separately.
 - Store submission, public availability and physical-device validation are separate milestones.
 
-## Console handoff (2026-10-22)
+## Console registration (2026-10-22)
 
 - Play app ID: `4973261830507335401`.
-- Signed code 1 AAB uploaded and saved in an internal-track release draft. It has not been released to testers or submitted for public review.
+- Signed code 1 AAB is attached to the first production release, `1.0.0 (1)`, for South Korea. The internal-track draft remains unreleased.
 - Default Korean listing, icon, feature graphic, two phone screenshots, support contact, privacy URL and declarations for ads/government/finance/health are saved. IARC is saved (Korea 12+, user interaction).
 - Google Play signing SHA-256 fingerprints and the upload certificate are deployed in the site's Digital Asset Links document.
-- Data safety answers are complete in a saved draft. Final save requires target-audience completion; target audience requires app-access completion.
-- The owner must prepare a dedicated Google reviewer account and enter its credentials directly in Play Console → VIBEFLIX → Dashboard → Login details. Do not send the password in chat. Do not provide an administrator account.
-- Account instructions (English): Open the profile icon, check the Terms of Service and Privacy Policy consent box, choose Google login, and sign in with the dedicated reviewer account. Discovering and reading works is available without login. Login unlocks posting, reviews, bookmarks and follows. No purchase, subscription, invitation or location restriction is required.
-- After the account is available: validate login with that account, complete Login details, set the intended target audience, finalize the saved Data safety declaration, prepare the production track and submit for review. Physical-device testing remains outstanding.
+- App-access instructions and the dedicated, email-verified reviewer account are saved in Play Console. The account has ordinary member permissions; administrator access returned HTTP 403. Credentials stay outside this repository in `app-release/private/vibeflix-review-account.json`.
+- Reviewer instructions: Open the profile icon, choose Email login and use the supplied credentials. The account is already verified and needs no inbox, OTP or Google account. Accept the current terms if prompted. Discovering works is available without login; posting, reviews, bookmarks and follows use the reviewer account.
+- Target audience: ages 16–17 and 18+. Data safety is saved with both email/password and OAuth authentication. Advertising ID is declared unused, matching the merged Android manifest.
+- The deployed privacy notice describes email/password authentication handled by Firebase Authentication.
+- Production and listing changes have been submitted. Console shows changes under review while automatic pre-review checks run; successful checks forward the submission to review. Managed publishing is disabled. Approval, public availability and physical-device validation remain separate milestones. See `app-release/outputs/vibeflix/vibeflix-1.0.0-release.json`.

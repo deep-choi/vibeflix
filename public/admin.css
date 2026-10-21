@@ -166,3 +166,8 @@ button.ad-tile:hover{background:var(--panel-2)}
 /* Dialogs scroll without a visible scrollbar, like the site's modals */
 .ad-dialog{scrollbar-width:none}
 .ad-dialog::-webkit-scrollbar{display:none}
+
+/* Mobile: the page never scrolls sideways (wide tables scroll inside their box) and stat tiles sit two per row */
+.ad-shell{grid-template-columns:200px minmax(0,1fr)}.ad-main{min-width:0}
+@media(max-width:860px){.ad-shell{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:600px){.ad-tiles{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.ad-tile{padding:14px}.ad-tile strong{font-size:24px}.ad-main h1{font-size:21px}.ad-top-actions .ad-link{font-size:12.5px}.ad-dialog-actions{flex-wrap:wrap}}

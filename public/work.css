@@ -65,3 +65,6 @@
 .form-error{color:#ff8a7a;font-size:13px}
 .work-toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:20;padding:11px 16px;border-radius:10px;background:#262626;border:1px solid #ffffff24;font-size:13px;box-shadow:0 10px 30px #0009}
 @media(max-width:600px){.comment-form{grid-template-columns:1fr}.entry-grid{flex-direction:column;gap:0}.entry-grid label{flex:none}.follow{margin-left:0}}
+
+/* Mobile: comment box stacks with the button under it */
+@media(max-width:600px){.comment-form,.comment-form:not(:has(select)){grid-template-columns:1fr}.comment-form .btn{justify-self:end}.actions .btn{min-height:40px;padding:0 16px;font-size:13.5px}.owner-stats{grid-template-columns:repeat(2,1fr)}}

@@ -441,3 +441,51 @@ body.community-view .community-discovery{margin-top:0;padding-top:92px}
 .auth-consent-step .text-button{align-self:center;color:#9a9a9a;background:transparent}
 .email-auth[data-mode=signup] .consent-line,.auth-consent-step .consent-line{display:block}
 .consent-line input{display:inline-block;vertical-align:-3px;margin:0 6px 0 0}
+
+/* ───── Mobile polish (≤600px) ───── */
+.profile-admin-link{display:flex;justify-content:center;margin:0 0 18px;min-height:42px;border-radius:10px}
+[data-safety-controls]{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:14px}
+.project-social-actions{flex-wrap:wrap;row-gap:8px}
+.project-social-actions>*{white-space:nowrap}
+@media(max-width:600px){
+  /* Header: logo and icons on one row — search, alerts, a round “＋” upload button and the profile */
+  .header-actions{gap:12px}
+  .header .avatar:not([hidden]){display:grid;place-items:center;width:30px;height:30px;font-size:13px}
+  .header-actions .upload-button{font-size:0;width:32px;height:32px;padding:0;border-radius:50%;justify-content:center;gap:0}
+  .header-actions .upload-button span{width:12px;height:12px}
+  .admin-link,.sign-out-link{display:none}
+  .hero-carousel{margin-top:100px}
+
+  /* Hero: keep the art clear of the title and copy */
+  .hero .hero-art{left:56%;width:44%;height:56%;top:6%;opacity:.55}
+  .hero .hero-description{max-width:100%}
+
+  /* Row tiles (posts, empty states): taller so titles and excerpts fit */
+  .nf-tile{aspect-ratio:auto;min-height:170px;padding:14px 15px;gap:6px}
+  .nf-scroller>.nf-tile,.nf-tile{flex:0 0 min(72vw,280px)}
+  .nf-tile strong{font-size:14.5px}
+  .nf-tile p{font-size:12.5px}
+
+  /* Search / saved / filtered grid must fit the screen */
+  body:not(.nf-home) .project-row{grid-template-columns:repeat(auto-fill,minmax(min(160px,100%),1fr));gap:22px 10px}
+
+  /* “만들었다면…” banner and footer */
+  .creator-banner{flex-direction:column;align-items:stretch;gap:14px;padding:20px}
+  .creator-banner h2{font-size:17px;line-height:1.45}
+  .creator-banner>.primary-button{margin-left:0;width:100%;justify-content:center}
+  footer{flex-wrap:wrap;gap:10px 16px;padding-bottom:36px}
+  footer>span{margin-left:0;order:9;width:100%}
+
+  /* Preview modal: close button above the cover; actions in a tidy grid */
+  .detail-cover{z-index:0}
+  .detail-modal .modal-close{z-index:10}
+  .detail-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .detail-actions>.primary-button{grid-column:1/-1}
+  .detail-actions>*{justify-content:center;min-height:44px}
+
+  /* Dialog titles never run under the close button */
+  .modal h2{padding-right:40px}
+  .upload-modal:has(#upload-auth:not([hidden])) h2,.auth-modal h2{padding-right:0}
+}
+@media(max-width:600px){.detail-modal .modal-close{background:#000000b3;color:#fff}}
+body:not(.nf-home) .project-row{margin-right:0}
