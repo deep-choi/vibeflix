@@ -5,7 +5,7 @@ const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const typeNames={website:'웹사이트',game:'게임',app:'앱',art:'그림·만화',video:'영상',novel:'소설'};
 const postLabels={general:'자유 이야기',showcase:'작품 소개',buildlog:'개발 일지',question:'질문',feedback:'피드백',project:'작품 댓글',post:'게시글 댓글'};
 const kindNames={post:'게시글',comment:'댓글',project:'작품',user:'회원',site:'사이트'};
-const actionNames={'project.hide':'작품 숨김','project.show':'작품 다시 공개','project.pin':'주목 작품 고정','project.unpin':'주목 작품 해제','project.move':'주목 순서 변경','user.suspend':'회원 정지','user.unsuspend':'회원 정지 해제','user.make-admin':'운영자 지정','user.make-member':'운영자 해제','post.hide':'게시글 숨김','post.show':'게시글 다시 공개','comment.hide':'댓글 숨김','comment.show':'댓글 다시 공개','report.hide':'신고 처리 (콘텐츠 숨김)','report.dismiss':'신고 기각','settings':'사이트 설정 변경','project.edit':'작품 수정','project.restore-design':'기본 디자인 복원','project.delete':'작품 영구 삭제','post.delete':'게시글 영구 삭제','comment.delete':'댓글 영구 삭제','user.delete':'회원 영구 삭제','banner.create':'배너 추가','banner.edit':'배너 수정','banner.delete':'배너 삭제','banner.move':'배너 순서 변경','banner.enable':'배너 켜기','banner.disable':'배너 끄기'};
+const actionNames={'project.hide':'작품 숨김','project.show':'작품 다시 공개','project.pin':'주목 작품 고정','project.unpin':'주목 작품 해제','project.move':'주목 순서 변경','user.suspend':'회원 정지','user.unsuspend':'회원 정지 해제','user.make-admin':'운영자 지정','user.make-member':'운영자 해제','post.hide':'게시글 숨김','post.show':'게시글 다시 공개','comment.hide':'댓글 숨김','comment.show':'댓글 다시 공개','report.hide':'신고 처리 (콘텐츠 숨김)','report.dismiss':'신고 기각','settings':'사이트 설정 변경','project.edit':'작품 수정','project.restore-design':'기본 디자인 복원','project.delete':'작품 영구 삭제','post.delete':'게시글 영구 삭제','comment.delete':'댓글 영구 삭제','user.delete':'회원 영구 삭제','banner.create':'배너 추가','banner.edit':'배너 수정','banner.delete':'배너 삭제','banner.move':'배너 순서 변경','banner.enable':'배너 켜기','banner.disable':'배너 끄기','samples.delete':'예시 콘텐츠 모두 삭제'};
 kindNames.banner='배너';
 const fmtDate=t=>t?new Date(Number(t)).toLocaleDateString('ko-KR',{year:'numeric',month:'2-digit',day:'2-digit'}):'-';
 const fmtTime=t=>t?new Date(Number(t)).toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}):'-';
@@ -139,9 +139,9 @@ async function loadProjects(){
   $('#ad-list').innerHTML=table(['작품','카테고리','출처','등록일','상태',''],d.projects.map(p=>`<tr>
     <td><span class="title">${esc(p.title)}</span><span class="meta">${esc(p.creator)}${p.url?` · <a href="${esc(p.url)}" target="_blank" rel="noopener noreferrer">${esc(p.url.replace(/^https?:\/\//,'').slice(0,40))} ↗</a>`:''}</span></td>
     <td>${esc(typeNames[p.type]||p.type)}</td>
-    <td>${p.source==='catalog'?badge('기본 작품','plain'):badge(`커뮤니티 · ${p.ownerName||'알 수 없음'}`,'plain')}</td>
+    <td>${p.source==='catalog'?badge('기본 작품','plain'):p.source==='sample'?badge('예시','plain'):badge(`커뮤니티 · ${p.ownerName||'알 수 없음'}`,'plain')}</td>
     <td class="num">${p.source==='catalog'?'-':fmtDate(p.created)}</td>
-    <td>${p.hidden?badge('숨김','off'):p.status==='upcoming'?badge('공개 예정'):badge('공개','ok')} ${p.pinned>=0?badge(`주목 ${p.pinned+1}`,'pin'):''}</td>
+    <td>${p.hidden?badge('숨김','off'):p.status==='upcoming'?badge('공개 예정'):p.sample?badge('예시로 공개'):badge('공개','ok')} ${p.pinned>=0?badge(`주목 ${p.pinned+1}`,'pin'):''}</td>
     <td><div class="ad-actions"><button class="ad-btn" data-edit-project="${esc(p.id)}">수정</button>${p.pinned>=0?`<button class="ad-btn" data-project="${esc(p.id)}" data-action="unpin">주목 해제</button>`:`<button class="ad-btn" data-project="${esc(p.id)}" data-action="pin" ${p.hidden?'disabled':''}>주목 고정</button>`}${p.hidden?`<button class="ad-btn" data-project="${esc(p.id)}" data-action="show">다시 공개</button>`:`<button class="ad-btn danger" data-project="${esc(p.id)}" data-action="hide" data-title="${esc(p.title)}">숨기기</button>`}</div></td></tr>`))||empty(state.q?'검색 결과가 없어요.':'작품이 없어요.');
 }
 
@@ -151,7 +151,7 @@ function editProject(id){
     ${field('작품 이름',`<input name="title" maxlength="60" required value="${esc(p.title)}">`)}
     ${field('크리에이터',`<input name="creator" maxlength="40" required value="${esc(p.creator)}">`)}
     ${field('카테고리',`<select name="type">${options(Object.entries(typeNames),p.type)}</select>`)}
-    ${field('상태',`<select name="status">${options([['live','공개'],['upcoming','공개 예정']],p.status)}</select>`)}
+    ${field('상태',`<select name="status">${options([['live','공개'],['upcoming','공개 예정'],...(p.source==='sample'?[['sample','예시']]:[])],p.status)}</select>`)}
   </div>
   ${field('작품 링크',`<input name="url" maxlength="2000" value="${esc(p.url)}" placeholder="https://">`,'공개 예정이면 비워둘 수 있어요')}
   ${field('한 줄 소개',`<input name="subtitle" maxlength="120" value="${esc(p.subtitleRaw)}" placeholder="비우면 작품 소개 앞부분이 보여요">`,'카드에 보이는 문구')}
@@ -269,7 +269,10 @@ async function viewSettings(){
     <button class="ad-btn primary">공지 저장</button></form>
   <form class="ad-card" id="ad-contact"><h2>운영자 문의 이메일</h2><p>개인정보처리방침과 이용약관의 문의처로 공개돼요. 공개해도 괜찮은 주소를 넣어주세요.</p>
     <label class="ad-field">이메일<input name="contactEmail" type="email" maxlength="200" value="${esc(s.contactEmail)}" placeholder="contact@example.com"></label>
-    <button class="ad-btn primary">이메일 저장</button></form>`;
+    <button class="ad-btn primary">이메일 저장</button></form>
+  <div class="ad-card" id="ad-samples"><h2>예시 콘텐츠</h2><p>빈 카테고리를 채우려고 넣은 임시 작품·글·배너예요. 사이트에 ‘예시’로 표시돼요. 실제 콘텐츠가 충분히 모이면 한 번에 지울 수 있어요.</p><p id="ad-samples-count" class="ad-sub" style="margin:0 0 14px">불러오는 중…</p><button class="ad-btn danger" id="ad-samples-delete" disabled>예시 콘텐츠 모두 지우기</button></div>`;
+  api('samples').then(c=>{const total=c.projects+c.posts+c.banners;$('#ad-samples-count').textContent=total?`작품 ${c.projects}개 · 게시글 ${c.posts}개 · 배너 ${c.banners}개`:'남아 있는 예시 콘텐츠가 없어요.';$('#ad-samples-delete').disabled=!total;}).catch(error=>{$('#ad-samples-count').textContent=error.message;});
+  $('#ad-samples-delete').addEventListener('click',event=>act(event.currentTarget,{method:'DELETE',path:'samples',confirm:{title:'예시 콘텐츠를 모두 지울까요?',copy:'예시 작품·게시글·배너와 예시 계정이 영구 삭제돼요. 실제 회원 콘텐츠는 그대로예요.',ok:'모두 지우기',danger:true,requireText:'예시 삭제'},done:'예시 콘텐츠를 지웠어요.'}));
   for(const form of $$('form',main))form.addEventListener('submit',async event=>{
     event.preventDefault();const button=$('button',form);button.disabled=true;
     try{await api('settings','PUT',Object.fromEntries(new FormData(form)));toast('저장했어요.');}catch(error){toast(error.message);}finally{button.disabled=false;}

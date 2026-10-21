@@ -1,18 +1,21 @@
 import { db } from './api';
 import { parseGalleryImage } from './project-input';
 
+// Curated works first, then member uploads, then sample placeholders
+export const SOURCE_ORDER="CASE source WHEN 'catalog' THEN 0 WHEN 'community' THEN 1 ELSE 2 END";
 export const PROJECT_COLUMNS="id, owner_id, title, creator, type, description, url, CASE WHEN image LIKE 'data:%' THEN '/api/projects/' || id || '/cover?v=' || length(image) ELSE image END AS image, created, source, subtitle, art, badge, status, tags, genres, featured, sort, hidden_at";
 const parseTags=(value:unknown)=>{try{const v=JSON.parse(String(value||'[]'));return Array.isArray(v)?v.map(String):[];}catch{return [];}};
 
 // Shape a projects row the way the site expects (curated and community works look the same to the client).
 export function publicProject(row:Record<string,unknown>,userId=''){
-  const community=row.source!=='catalog';
+  const community=row.source==='community';
   const tags=parseTags(row.tags);
   return {
     id:String(row.id),title:row.title,creator:row.creator,type:row.type,description:row.description,
     subtitle:row.subtitle||row.description,url:row.url||'',image:row.image||'',created:row.created,
     art:row.art||'custom',tags:tags.length?tags:community?['커뮤니티']:[],genres:parseTags(row.genres),badge:row.badge||(community?'COMMUNITY':''),
-    status:row.status||'live',featured:!!row.featured,owned:!!userId&&community&&row.owner_id===userId,
+    status:row.status||'live',featured:!!row.featured,owned:!!userId&&row.source==='community'&&row.owner_id===userId,
+    sample:row.source==='sample', // placeholder content an operator added; shown with a "예시" label and no link
   };
 }
 

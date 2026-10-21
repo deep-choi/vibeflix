@@ -2,7 +2,7 @@ import { env } from 'cloudflare:workers';
 import catalog from '../../public-catalog';
 import { currentUser } from '../../../lib/auth';
 import { getSettings } from '../../../lib/admin';
-import { PROJECT_COLUMNS, isCuratedOrigin, listBanners, publicProject } from '../../../lib/projects';
+import { PROJECT_COLUMNS, SOURCE_ORDER, isCuratedOrigin, listBanners, publicProject } from '../../../lib/projects';
 import { parseProject, parseCover, parseGalleryImage, sameOrigin, boundedBody, genreTaxonomy, COVER, GALLERY, PROJECT_BODY_LIMIT } from '../../../lib/project-input';
 
 export const dynamic = 'force-dynamic';
@@ -13,7 +13,7 @@ export async function GET() {
     const user = await currentUser();
     const site = await getSettings();
     // Curated works first in their set order, then community works newest first
-    const rows = await env.DB!.prepare(`SELECT ${PROJECT_COLUMNS} FROM projects WHERE deleted_at IS NULL AND hidden_at IS NULL ORDER BY CASE source WHEN 'catalog' THEN 0 ELSE 1 END, sort, created DESC LIMIT 300`).all();
+    const rows = await env.DB!.prepare(`SELECT ${PROJECT_COLUMNS} FROM projects WHERE deleted_at IS NULL AND hidden_at IS NULL ORDER BY ${SOURCE_ORDER}, sort, created DESC LIMIT 300`).all();
     const list = rows.results.map(row => publicProject(row, user?.id));
     const banners = await listBanners().catch(() => []);
     const batches=await env.DB!.batch<Record<string,unknown>>([

@@ -49,7 +49,7 @@ async function dispatch(request:Request,context:Context){
     if(method==='GET'){
       const user=await currentUser();const {offset,take}=pageParams(url);const rows=await db().prepare('SELECT r.score,r.review,r.created,r.updated,u.name AS author_name,u.public_id AS author_id,(r.user_id=?) AS owned FROM ratings r JOIN profiles u ON u.id=r.user_id WHERE r.project_id=? ORDER BY r.updated DESC LIMIT ? OFFSET ?').bind(user?.id||'',id,take+1,offset).all();return json({stats:await stats('project',id,user?.id),reviews:rows.results.slice(0,take).map(r=>({...r,owned:!!r.owned})),next:rows.results.length>take?offset+take:null});
     }
-    const user=await requireUser();if(target.status==='upcoming')throw new ApiError(409,'공개된 작품만 평가할 수 있습니다.');
+    const user=await requireUser();if(target.status==='upcoming'||target.status==='sample')throw new ApiError(409,'공개된 작품만 평가할 수 있습니다.');
     if(method==='PUT'){await limit(user.id,'rating',20);const b=await body(request);if(!Number.isInteger(b.score)||Number(b.score)<1||Number(b.score)>5)throw new ApiError(400,'별점은 1~5점 중에서 선택해주세요.');const review=b.review===undefined?'':text(b.review,0,1000,'한 줄 리뷰');const now=Date.now();await db().prepare('INSERT INTO ratings (user_id,project_id,score,review,created,updated) VALUES(?,?,?,?,?,?) ON CONFLICT(user_id,project_id) DO UPDATE SET score=excluded.score,review=excluded.review,updated=excluded.updated').bind(user.id,id,b.score,review,now,now).run();return json(await stats('project',id,user.id));}
     if(method==='DELETE'){await db().prepare('DELETE FROM ratings WHERE user_id=? AND project_id=?').bind(user.id,id).run();return json(await stats('project',id,user.id));}
   }

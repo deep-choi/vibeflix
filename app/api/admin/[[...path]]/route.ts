@@ -3,7 +3,7 @@ import { ApiError, body, db, failure, json, origin, pageParams } from '../../../
 import { requireAdmin, type Member } from '../../../../lib/auth';
 import { getSettings, kstDay, logAction, purgeComments, purgePosts, purgeProjects, purgeUser, saveSettings } from '../../../../lib/admin';
 import { COVER, genreTaxonomy, normalizeUrl, parseCover, parseGenres, projectTypes, publicUrl } from '../../../../lib/project-input';
-import { PROJECT_COLUMNS, isCuratedOrigin, listBanners, parseBannerImage, publicProject } from '../../../../lib/projects';
+import { PROJECT_COLUMNS, SOURCE_ORDER, isCuratedOrigin, listBanners, parseBannerImage, publicProject } from '../../../../lib/projects';
 
 export const dynamic='force-dynamic';
 type Context={params:Promise<{path?:string[]}>};
@@ -42,10 +42,10 @@ async function overview(){
 async function editProject(id:string,existing:Record<string,unknown>,b:Record<string,unknown>){
   const title=str(b.title,'작품 이름',1,60),creator=str(b.creator,'크리에이터',1,40),description=str(b.description,'작품 소개',1,1000),subtitle=str(b.subtitle,'한 줄 소개',0,120);
   const type=typeof b.type==='string'&&(projectTypes as readonly string[]).includes(b.type)?b.type:'';if(!type)throw new ApiError(400,'카테고리를 선택해주세요.');
-  const status=b.status==='upcoming'?'upcoming':'live';
+  const status=b.status==='upcoming'||b.status==='sample'?String(b.status):'live';
   const rawUrl=typeof b.url==='string'?b.url.trim():'';const url=rawUrl?publicUrl(normalizeUrl(rawUrl)):'';
   if(rawUrl&&!url)throw new ApiError(400,'작품 링크는 공개된 http(s) 주소여야 해요.');
-  if(!url&&status==='live')throw new ApiError(400,'공개 중인 작품에는 링크가 필요해요. 링크가 없으면 상태를 ‘공개 예정’으로 바꿔주세요.');
+  if(!url&&status==='live'&&existing.source!=='sample')throw new ApiError(400,'공개 중인 작품에는 링크가 필요해요. 링크가 없으면 상태를 ‘공개 예정’으로 바꿔주세요.');
   if(url&&existing.source!=='catalog'&&await isCuratedOrigin(url,id))throw new ApiError(409,'기본 작품과 같은 사이트의 링크예요.');
   const genres=b.genres===undefined?JSON.parse(String(existing.genres||'[]')):parseGenres(type,b.genres);
   const tags=Array.isArray(b.tags)?b.tags.map(t=>String(t).trim()).filter(Boolean).slice(0,6).map(t=>t.slice(0,20)):JSON.parse(String(existing.tags||'[]'));
@@ -95,8 +95,8 @@ async function dispatch(request:Request,context:Context){
   if(resource==='projects'){
     if(method==='GET'){
       const s=await getSettings();
-      const rows=await db().prepare(`SELECT ${PROJECT_COLUMNS},(SELECT name FROM profiles WHERE profiles.id=projects.owner_id) AS owner_name FROM projects WHERE deleted_at IS NULL ${q?'AND (title LIKE ? OR creator LIKE ?)':''} ORDER BY CASE source WHEN 'catalog' THEN 0 ELSE 1 END, sort, created DESC LIMIT 300`).bind(...(q?[like(q),like(q)]:[])).all();
-      return json({pinned:s.pinned,genres:genreTaxonomy,projects:rows.results.map(r=>({...publicProject(r),subtitleRaw:r.subtitle||'',source:r.source==='catalog'?'catalog':'community',hidden:!!r.hidden_at,ownerName:r.owner_name,pinned:s.pinned.indexOf(String(r.id)),canRestoreDesign:r.source==='catalog'&&seedCatalog.some(seed=>seed.id===r.id&&(seed.art!==r.art||seed.image!==r.image))}))});
+      const rows=await db().prepare(`SELECT ${PROJECT_COLUMNS},(SELECT name FROM profiles WHERE profiles.id=projects.owner_id) AS owner_name FROM projects WHERE deleted_at IS NULL ${q?'AND (title LIKE ? OR creator LIKE ?)':''} ORDER BY ${SOURCE_ORDER}, sort, created DESC LIMIT 300`).bind(...(q?[like(q),like(q)]:[])).all();
+      return json({pinned:s.pinned,genres:genreTaxonomy,projects:rows.results.map(r=>({...publicProject(r),subtitleRaw:r.subtitle||'',source:['catalog','sample'].includes(String(r.source))?String(r.source):'community',hidden:!!r.hidden_at,ownerName:r.owner_name,pinned:s.pinned.indexOf(String(r.id)),canRestoreDesign:r.source==='catalog'&&seedCatalog.some(seed=>seed.id===r.id&&(seed.art!==r.art||seed.image!==r.image))}))});
     }
     if(a){
       const existing=await db().prepare('SELECT * FROM projects WHERE id=? AND deleted_at IS NULL').bind(a).first();
@@ -198,6 +198,23 @@ async function dispatch(request:Request,context:Context){
       if(action==='hide')await setHidden(String(report.target_kind),String(report.target_id),true);
       await db().prepare('UPDATE reports SET status=?,resolved_at=? WHERE id=?').bind(action==='hide'?'resolved':'dismissed',Date.now(),a).run();
       await logAction(admin.id,`report.${action}`,String(report.target_kind),String(report.target_id),note(b));return json({ok:true});
+    }
+  }
+
+  // Sample placeholders (migration 0008): count them, or remove all of them in one go
+  if(resource==='samples'){
+    const ids=((await db().prepare("SELECT id FROM projects WHERE source='sample'").all()).results).map(r=>String(r.id));
+    const marks=ids.map(()=>'?').join(',');
+    if(method==='GET'){
+      const posts=await count("SELECT COUNT(*) n FROM posts WHERE owner_id='system:sample'");
+      const banners=ids.length?await count(`SELECT COUNT(*) n FROM banners WHERE project_id IN (${marks})`,...ids):0;
+      return json({projects:ids.length,posts,banners});
+    }
+    if(method==='DELETE'){
+      const b=await body(request);confirmName(b,'예시 삭제');
+      if(ids.length)await db().prepare(`DELETE FROM banners WHERE project_id IN (${marks})`).bind(...ids).run(); // sample banners borrow the sample thumbnails
+      await purgeProjects(ids);await purgeUser('system:sample');
+      await logAction(admin.id,'samples.delete','site','samples',`작품 ${ids.length}개`);return json({ok:true});
     }
   }
 
