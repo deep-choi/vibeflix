@@ -70,7 +70,8 @@ function render() {
   const upcoming=projects.filter(p=>p.status==='upcoming'&&(filter==='all'||filter===p.type)&&!query);
   $('#upcoming-section').hidden=!upcoming.length;
   $('#upcoming-grid').innerHTML=upcoming.map(cardMarkup).join('');
-  renderRows(query?null:filter==='all'?'home':typeNames[filter]?filter:null);
+  const mode=query?null:filter==='all'?'home':typeNames[filter]?filter:null;
+  renderRows(mode);updateHero(mode);
   updateHeroSave();requestAnimationFrame(updateArrows);
 }
 // Row layout shared by home, category pages and the community page
@@ -180,6 +181,21 @@ let featured=[
   {id:'banner-dayflow',projectId:'dayflow',title:'Dayflow',description:'일정, 할 일, 메모, 그리고 AI와의 대화.\n복잡한 하루를 나만의 속도로 정리하는 공간.',buttonLabel:'서비스 바로가기 ↗',buttonIcon:'none',url:'https://dayflow.web.app/',theme:'dayflow',image:'/assets/dayflow-screen.jpg'}
 ];
 let featuredIndex=0;
+let homeBanners=featured,heroKey='';
+// Category pages keep a hero: banners linked to that category's works, otherwise its top works as thumbnail-card slides
+function heroSlides(mode){
+  if(!mode||mode==='home')return homeBanners;
+  const linked=homeBanners.filter(b=>findProject(b.projectId)?.type===mode);
+  if(linked.length)return linked;
+  return projects.filter(p=>p.type===mode&&p.status!=='upcoming'&&p.image).sort((a,b)=>pinRank(a)-pinRank(b)||byPopularity(a,b)).slice(0,3)
+    .map(p=>({id:`auto-${p.id}`,projectId:p.id,title:p.title,description:p.subtitle||'',buttonLabel:p.type==='game'?'지금 플레이':'바로가기 ↗',buttonIcon:p.type==='game'?'play':'none',url:p.url,theme:'cover',image:p.image}));
+}
+function updateHero(mode){
+  const slides=heroSlides(mode);const key=`${mode}:${slides.map(s=>s.id).join(',')}`;
+  $('.hero-carousel').hidden=!slides.length;
+  if(!slides.length||key===heroKey)return;
+  heroKey=key;const keep=featured[featuredIndex]?.id;featured=slides;featuredIndex=Math.max(0,featured.findIndex(b=>b.id===keep));selectFeatured(featuredIndex);
+}
 // Side peeks show the linked work's cover; custom banners show their own backdrop
 const peekImage=f=>f.theme==='custom'?f.image:(findProject(f.projectId)?.image||f.image);
 function selectFeatured(value){
@@ -188,8 +204,10 @@ function selectFeatured(value){
   const project=f.projectId?(findProject(f.projectId)||(projects.length?null:{id:f.projectId})):null;currentFeatured=project?project.id:'';
   const hero=$('.hero');hero.dataset.feature=f.theme;hero.setAttribute('aria-label',`추천 작품 ${f.title}`);
   $('.hero h1').textContent=f.title;$('.hero-description').innerHTML=escapeHtml(f.description).replace(/\n/g,'<br>');
-  $('.hero-image').style.backgroundImage=f.theme==='custom'&&f.image?`url("${f.image}")`:'';
-  if(f.theme==='custom'||!f.image)$('#hero-art-image').removeAttribute('src');else $('#hero-art-image').src=f.image;
+  // 'cover' slides fall back to the linked work's thumbnail, shown as a card over its own blurred copy
+  const image=f.image||(f.theme==='cover'?project?.image:'')||'';
+  $('.hero-image').style.backgroundImage=(f.theme==='custom'||f.theme==='cover')&&image?`url("${image}")`:'';
+  if(f.theme==='custom'||!image)$('#hero-art-image').removeAttribute('src');else $('#hero-art-image').src=image;
   const play=$('#hero-play'),external=/^https?:/.test(f.url||'');play.hidden=!f.url;play.href=f.url||'#';
   if(external){play.target='_blank';play.rel='noopener noreferrer';}else{play.removeAttribute('target');play.removeAttribute('rel');}
   play.innerHTML=(f.buttonIcon==='play'?'<span class="play-icon">▶</span> ':'')+escapeHtml(f.buttonLabel||'바로가기');
@@ -337,7 +355,7 @@ function applySite(site){
 }
 async function loadCatalog(){
   let message='';
-  try{const response=await fetch('/api/projects');const result=await response.json();if(!Array.isArray(result.projects))throw Error('잘못된 응답');projects=result.projects;message=result.error||'';applySite(result.site);if(result.genres){genreMap=result.genres;renderUploadGenres();}if(Array.isArray(result.banners)&&result.banners.length){const keep=featured[featuredIndex]?.id;featured=result.banners;featuredIndex=Math.max(0,featured.findIndex(b=>b.id===keep));}selectFeatured(featuredIndex);}
+  try{const response=await fetch('/api/projects');const result=await response.json();if(!Array.isArray(result.projects))throw Error('잘못된 응답');projects=result.projects;message=result.error||'';applySite(result.site);if(result.genres){genreMap=result.genres;renderUploadGenres();}if(Array.isArray(result.banners)&&result.banners.length)homeBanners=result.banners;heroKey='';}
   catch{try{const response=await fetch('/catalog.json');if(!response.ok)throw Error();projects=await response.json();message='커뮤니티 작품을 불러오지 못했습니다. 기본 서비스는 계속 이용할 수 있어요.';}catch{message='작품을 불러올 수 없습니다. 연결을 확인한 뒤 새로고침해주세요.';}}
   $('#catalog-status').hidden=!message;$('#catalog-status').textContent=message;render();
   document.dispatchEvent(new CustomEvent('vibe:catalog'));

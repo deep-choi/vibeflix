@@ -56,7 +56,7 @@ async function editProject(id:string,existing:Record<string,unknown>,b:Record<st
   catch(error){if(error instanceof Error&&error.message.includes('UNIQUE'))throw new ApiError(409,'같은 링크의 작품이 이미 있어요.');throw error;}
 }
 
-const THEMES=['koi','fishing','dayflow','custom'];
+const THEMES=['koi','fishing','dayflow','cover','custom'];
 async function bannerFields(b:Record<string,unknown>,existing?:Record<string,unknown>){
   const title=str(b.title,'배너 제목',1,40),description=str(b.description,'설명',0,200),buttonLabel=str(b.buttonLabel,'버튼 문구',0,20);
   if(description.split('\n').length>3)throw new ApiError(400,'설명은 세 줄까지 쓸 수 있어요.');
@@ -67,7 +67,8 @@ async function bannerFields(b:Record<string,unknown>,existing?:Record<string,unk
   if(projectId&&!(await db().prepare('SELECT 1 FROM projects WHERE id=? AND deleted_at IS NULL').bind(projectId).first()))throw new ApiError(400,'연결할 작품을 찾을 수 없어요.');
   let image=String(existing?.image||'');
   if(typeof b.image==='string'){if(b.image.startsWith('data:')){if(!parseBannerImage(b.image))throw new ApiError(400,'배너 이미지는 PNG·JPG·WebP, 700KB 이하여야 해요.');image=b.image;}else if(!b.image)image='';}
-  if(!image&&theme!=='fishing')throw new ApiError(400,theme==='custom'?'직접 꾸미는 배너에는 배경 이미지가 필요해요.':'이 디자인에는 오른쪽에 띄울 이미지가 필요해요.');
+  // 'cover' may borrow the linked work's thumbnail; 'fishing' has its own built-in backdrop
+  if(!image&&theme!=='fishing'&&!(theme==='cover'&&projectId))throw new ApiError(400,theme==='custom'?'직접 꾸미는 배너에는 배경 이미지가 필요해요.':theme==='cover'?'작품을 연결하거나 이미지를 올려주세요.':'이 디자인에는 오른쪽에 띄울 이미지가 필요해요.');
   return {projectId:projectId||null,title,description,buttonLabel,buttonIcon,url,theme,image};
 }
 

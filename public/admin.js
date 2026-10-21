@@ -173,7 +173,7 @@ function editProject(id){
 }
 
 /* ───── 배너 ───── */
-const themeNames={koi:'코이월드 테마 (청록 배경 + 오른쪽 이미지)',fishing:'네모낚시 테마 (호수 사진 배경)',dayflow:'Dayflow 테마 (파란 배경 + 오른쪽 화면)',custom:'직접 꾸미기 (올린 이미지를 배경 전체에)'};
+const themeNames={koi:'코이월드 테마 (청록 배경 + 오른쪽 이미지)',fishing:'네모낚시 테마 (호수 사진 배경)',dayflow:'Dayflow 테마 (파란 배경 + 오른쪽 화면)',cover:'작품 썸네일 카드 (흐린 배경 + 오른쪽 카드 · 이미지 없으면 연결 작품 썸네일)',custom:'직접 꾸미기 (올린 이미지를 배경 전체에)'};
 async function viewBanners(){
   main.innerHTML=`<h1>배너</h1><p class="ad-sub">홈 맨 위 큰 배너예요. 켜진 배너가 순서대로 넘어가요. 최대 10개까지 만들 수 있어요.</p>
   <div class="ad-toolbar"><button class="ad-btn primary" data-new-banner>＋ 새 배너</button></div><div id="ad-list"></div>`;
