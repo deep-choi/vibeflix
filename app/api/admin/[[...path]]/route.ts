@@ -147,8 +147,8 @@ async function dispatch(request:Request,context:Context){
   if(resource==='users'){
     if(method==='GET'){
       const {offset,take}=pageParams(url,50);
-      const rows=await db().prepare(`SELECT u.public_id,u.id,u.name,u.role,u.suspended,u.created,EXISTS(SELECT 1 FROM deletion_requests d WHERE d.user_id=u.id) AS deletion_requested,(SELECT COUNT(*) FROM projects WHERE owner_id=u.id AND deleted_at IS NULL) AS projects,(SELECT COUNT(*) FROM posts WHERE owner_id=u.id AND deleted_at IS NULL) AS posts,(SELECT COUNT(*) FROM comments WHERE owner_id=u.id AND deleted_at IS NULL) AS comments FROM profiles u ${q?'WHERE u.name LIKE ?':''} ORDER BY u.created DESC LIMIT ? OFFSET ?`).bind(...(q?[like(q)]:[]),take,offset).all();
-      return json({users:rows.results.map(r=>({id:r.public_id,name:r.name,provider:String(r.id).startsWith('google:')?'google':'chatgpt',role:r.role,suspended:!!r.suspended,deletionRequested:!!r.deletion_requested,created:r.created,projects:r.projects,posts:r.posts,comments:r.comments,self:r.id===admin.id}))});
+      const rows=await db().prepare(`SELECT u.public_id,u.id,u.name,u.login_provider,u.role,u.suspended,u.created,EXISTS(SELECT 1 FROM deletion_requests d WHERE d.user_id=u.id) AS deletion_requested,(SELECT COUNT(*) FROM projects WHERE owner_id=u.id AND deleted_at IS NULL) AS projects,(SELECT COUNT(*) FROM posts WHERE owner_id=u.id AND deleted_at IS NULL) AS posts,(SELECT COUNT(*) FROM comments WHERE owner_id=u.id AND deleted_at IS NULL) AS comments FROM profiles u ${q?'WHERE u.name LIKE ?':''} ORDER BY u.created DESC LIMIT ? OFFSET ?`).bind(...(q?[like(q)]:[]),take,offset).all();
+      return json({users:rows.results.map(r=>({id:r.public_id,name:r.name,provider:String(r.login_provider||'')||(String(r.id).startsWith('google:')?'google':'chatgpt'),role:r.role,suspended:!!r.suspended,deletionRequested:!!r.deletion_requested,created:r.created,projects:r.projects,posts:r.posts,comments:r.comments,self:r.id===admin.id}))});
     }
     if(a&&(method==='PATCH'||method==='DELETE')){
       const b=await body(request);

@@ -1,0 +1,1 @@
+ALTER TABLE `profiles` ADD `login_provider` text DEFAULT '' NOT NULL;

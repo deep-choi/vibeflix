@@ -25,18 +25,72 @@
   $('#sign-out').addEventListener('click',()=>busy($('#sign-out'),async()=>{await api('/api/auth/logout','POST',{});await V.refreshAuth();await V.reload();close($('#profile-dialog'));V.toast('로그아웃했어요.');}));
   $('#upload-auth').innerHTML='<p>로그인하고 당신의 작품을 세상에 보여주세요.</p><button class="primary-button" id="upload-login">로그인하고 작품 소개하기 ↗</button><small>둘러보기와 실제 서비스 링크는 로그인 없이 이용할 수 있어요.</small>';
   $('#upload-login').addEventListener('click',()=>login('upload'));
+  // ───── Sign-in: Google and VIBEFLIX email accounts both go through Firebase, then our own session ─────
+  async function firebaseAuth(){
+    const [appSDK,authSDK,config]=await Promise.all([import('https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js'),import('https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js'),fetch('/firebase-config.json').then(r=>r.json())]);
+    const app=appSDK.getApps().length?appSDK.getApps()[0]:appSDK.initializeApp(config);const auth=authSDK.getAuth(app);auth.languageCode='ko';await authSDK.setPersistence(auth,authSDK.inMemoryPersistence);
+    return {authSDK,auth};
+  }
+  const consentGiven=()=>{if($('#auth-consent')?.checked)return true;$('#auth-error').textContent='이용약관과 개인정보처리방침에 동의해주세요.';$('#auth-error').hidden=false;return false;};
+  async function afterLogin(){
+    await V.refreshAuth();await V.reload();close($('#auth-dialog'));if($('#upload-dialog').open){$('#upload-auth').hidden=true;$('#upload-form').hidden=false;$('#upload-form [name="creator"]').value=user().name;$('#upload-form [name="creator"]').readOnly=true;}
+    V.toast('환영해요. 당신의 바이브를 들려주세요.');const action=pendingLogin;pendingLogin=null;if(typeof action==='function')await action();else if(action==='write')openCompose();else if(action==='upload'&&!$('#upload-dialog').open)V.openUpload();
+  }
+  const authMessages={'auth/popup-closed-by-user':'로그인 창을 닫았습니다. 원할 때 다시 시작해주세요.','auth/popup-blocked':'브라우저에서 팝업을 허용한 뒤 다시 시도해주세요.','auth/cancelled-popup-request':'이미 열린 로그인 창에서 계속해주세요.','auth/unauthorized-domain':'현재 주소에서는 로그인을 사용할 수 없습니다. 공개 사이트에서 다시 시도해주세요.',
+    'auth/email-already-in-use':'이미 가입된 이메일이에요. 로그인하거나 비밀번호를 재설정해주세요.','auth/invalid-email':'이메일 주소를 확인해주세요.','auth/weak-password':'비밀번호는 8자 이상으로 더 안전하게 만들어주세요.','auth/missing-password':'비밀번호를 입력해주세요.',
+    'auth/invalid-credential':'이메일 또는 비밀번호가 맞지 않아요.','auth/wrong-password':'이메일 또는 비밀번호가 맞지 않아요.','auth/user-not-found':'이메일 또는 비밀번호가 맞지 않아요.','auth/user-disabled':'이용이 제한된 계정이에요.','auth/too-many-requests':'시도가 너무 많아요. 잠시 후 다시 시도해주세요.','auth/operation-not-allowed':'이메일 로그인이 아직 준비되지 않았어요. 운영자에게 알려주세요.','auth/network-request-failed':'네트워크 연결을 확인해주세요.'};
+  const authError=error=>authMessages[error?.code]||error?.message||'로그인을 완료하지 못했습니다.';
   $('#google-sign-in').addEventListener('click',async()=>{
-    const button=$('#google-sign-in');if(!$('#auth-consent')?.checked){$('#auth-error').textContent='이용약관과 개인정보처리방침에 동의해주세요.';$('#auth-error').hidden=false;return;}button.disabled=true;$('#auth-error').hidden=true;
+    const button=$('#google-sign-in');if(!consentGiven())return;button.disabled=true;$('#auth-error').hidden=true;
     try{
-      const [appSDK,authSDK,config]=await Promise.all([import('https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js'),import('https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js'),fetch('/firebase-config.json').then(r=>r.json())]);
-      const app=appSDK.getApps().length?appSDK.getApps()[0]:appSDK.initializeApp(config);const auth=authSDK.getAuth(app);await authSDK.setPersistence(auth,authSDK.inMemoryPersistence);
+      const {authSDK,auth}=await firebaseAuth();
       const provider=new authSDK.GoogleAuthProvider();provider.setCustomParameters({prompt:'select_account'});
-      const result=await authSDK.signInWithPopup(auth,provider);const token=await result.user.getIdToken();await api('/api/auth/google','POST',{idToken:token,acceptTerms:$('#auth-consent').checked});await authSDK.signOut(auth);
-      await V.refreshAuth();await V.reload();close($('#auth-dialog'));if($('#upload-dialog').open){$('#upload-auth').hidden=true;$('#upload-form').hidden=false;$('#upload-form [name="creator"]').value=user().name;$('#upload-form [name="creator"]').readOnly=true;}
-      V.toast('환영해요. 당신의 바이브를 들려주세요.');const action=pendingLogin;pendingLogin=null;if(typeof action==='function')await action();else if(action==='write')openCompose();else if(action==='upload'&&!$('#upload-dialog').open)V.openUpload();
-    }catch(error){const messages={'auth/popup-closed-by-user':'로그인 창을 닫았습니다. 원할 때 다시 시작해주세요.','auth/popup-blocked':'브라우저에서 팝업을 허용한 뒤 다시 시도해주세요.','auth/cancelled-popup-request':'이미 열린 로그인 창에서 계속해주세요.','auth/unauthorized-domain':'현재 주소에서 Google 로그인을 사용할 수 없습니다. 공개 사이트에서 다시 시도해주세요.'};$('#auth-error').textContent=messages[error.code]||error.message||'Google 로그인을 완료하지 못했습니다.';$('#auth-error').hidden=false;}
+      const result=await authSDK.signInWithPopup(auth,provider);const token=await result.user.getIdToken();await api('/api/auth/google','POST',{idToken:token,acceptTerms:true});await authSDK.signOut(auth);
+      await afterLogin();
+    }catch(error){$('#auth-error').textContent=authError(error);$('#auth-error').hidden=false;}
     finally{button.disabled=false;}
   });
+  // Email accounts: sign up (nickname + email + password, then verify the email), sign in, or reset the password.
+  const emailForm=$('#email-auth');
+  const emailNote=(text,action)=>{const note=$('#email-auth-note');note.innerHTML=esc(text)+(action?` <button type="button" class="text-button" data-email-resend>${esc(action)}</button>`:'');note.hidden=!text;};
+  function emailMode(mode){
+    emailForm.dataset.mode=mode;emailNote('');$('#auth-error').hidden=true;
+    $$('[data-email-mode]',emailForm.querySelector('.email-auth-tabs')).forEach(b=>b.setAttribute('aria-selected',String(b.dataset.emailMode===mode)));
+    $('#email-submit').textContent={login:'이메일로 로그인',signup:'가입하고 인증 메일 받기',reset:'재설정 메일 보내기'}[mode];
+    emailForm.password.autocomplete=mode==='signup'?'new-password':'current-password';
+  }
+  $$('[data-email-mode]',emailForm).forEach(b=>b.addEventListener('click',()=>emailMode(b.dataset.emailMode)));
+  let unverified=null; // signed-in Firebase user whose email still needs verifying (for the resend button)
+  emailForm.addEventListener('click',async event=>{
+    if(!event.target.closest('[data-email-resend]')||!unverified)return;
+    try{const {authSDK}=unverified;await authSDK.sendEmailVerification(unverified.user,{url:`${location.origin}/?verified=1`});emailNote('인증 메일을 다시 보냈어요. 메일함(스팸함 포함)을 확인해주세요.');}catch(error){emailNote(authError(error));}
+  });
+  emailForm.addEventListener('submit',async event=>{
+    event.preventDefault();const mode=emailForm.dataset.mode;const f=emailForm;const email=f.email.value.trim();const password=f.password.value;
+    $('#auth-error').hidden=true;emailNote('');
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){emailNote('이메일 주소를 확인해주세요.');return;}
+    if(mode!=='reset'&&password.length<8){emailNote('비밀번호는 8자 이상이에요.');return;}
+    if(mode==='signup'){if(!f.name.value.trim()){emailNote('닉네임을 입력해주세요.');return;}if(password!==f.confirm.value){emailNote('비밀번호 확인이 일치하지 않아요.');return;}}
+    if(mode!=='reset'&&!consentGiven())return;
+    const button=$('#email-submit');button.disabled=true;
+    try{
+      const {authSDK,auth}=await firebaseAuth();
+      if(mode==='reset'){await authSDK.sendPasswordResetEmail(auth,email,{url:location.origin});emailNote('가입된 이메일이라면 비밀번호 재설정 메일이 도착해요. 메일의 링크에서 새 비밀번호를 정해주세요.');return;}
+      if(mode==='signup'){
+        const result=await authSDK.createUserWithEmailAndPassword(auth,email,password);
+        await authSDK.updateProfile(result.user,{displayName:f.name.value.trim().slice(0,40)});
+        await authSDK.sendEmailVerification(result.user,{url:`${location.origin}/?verified=1`});await authSDK.signOut(auth);
+        emailMode('login');f.password.value='';f.confirm.value='';emailNote(`${email}로 인증 메일을 보냈어요. 메일의 링크를 누른 뒤 여기서 로그인해주세요.`);return;
+      }
+      const result=await authSDK.signInWithEmailAndPassword(auth,email,password);await result.user.reload();
+      if(!result.user.emailVerified){unverified={authSDK,user:result.user};emailNote('아직 이메일 인증을 하지 않았어요. 메일의 링크를 누른 뒤 다시 로그인해주세요.','인증 메일 다시 보내기');return;}
+      unverified=null;const token=await result.user.getIdToken(true);await api('/api/auth/email','POST',{idToken:token,acceptTerms:true});await authSDK.signOut(auth);
+      f.reset();await afterLogin();
+    }catch(error){emailNote(authError(error));}
+    finally{button.disabled=false;}
+  });
+  // Coming back from the verification email
+  if(new URLSearchParams(location.search).get('verified')==='1'){history.replaceState(null,'',location.pathname);setTimeout(()=>{V.toast('이메일 인증이 끝났어요. 이메일로 로그인해주세요.');login();},400);}
   async function onAuth(){
     const member=user();$('#notifications-open').hidden=!member;authLoaded=true;
     if(member&&bookmarkUser!==member.id){bookmarkUser=member.id;try{const b=await community('bookmarks');if(user()?.id===member.id)V.setSaved(b.ids);}catch(error){V.toast(error.message);}}

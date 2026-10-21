@@ -8,14 +8,15 @@ export const sessionName=(request:Request)=>new URL(request.url).protocol==='htt
 export async function digest(value:string){const bytes=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value));return [...new Uint8Array(bytes)].map(b=>b.toString(16).padStart(2,'0')).join('');}
 const config=()=>env as Cloudflare.Env & {ADMIN_EMAILS?:string};
 function isAdminEmail(email:string){return !!email&&String(config().ADMIN_EMAILS||'').split(',').some(value=>value.trim().toLowerCase()===email.toLowerCase());}
-export async function ensureProfile(id:string,name:string,avatar='',email=''){
+export async function ensureProfile(id:string,name:string,avatar='',email='',provider=''){
   const now=Date.now();
   await db().prepare('INSERT INTO profiles (id, public_id, name, avatar, role, created, updated) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO NOTHING').bind(id,crypto.randomUUID(),name.slice(0,40)||'바이버',avatar,isAdminEmail(email)?'admin':'member',now,now).run();
   if(isAdminEmail(email))await db().prepare("UPDATE profiles SET role = 'admin' WHERE id = ? AND role != 'admin'").bind(id).run();
+  if(provider)await db().prepare('UPDATE profiles SET login_provider = ? WHERE id = ? AND login_provider != ?').bind(provider,id,provider).run().catch(()=>{});
   const p=await db().prepare('SELECT * FROM profiles WHERE id = ?').bind(id).first();
   if(!p)throw new ApiError(503,'프로필을 불러올 수 없습니다.');
   if(p.suspended)throw new ApiError(403,'이용이 제한된 계정입니다.');
-  return {id,publicId:String(p.public_id),name:String(p.name),bio:String(p.bio),avatar:String(p.avatar),isAdmin:p.role==='admin',provider:id.startsWith('google:')?'google':'chatgpt'} as Member;
+  return {id,publicId:String(p.public_id),name:String(p.name),bio:String(p.bio),avatar:String(p.avatar),isAdmin:p.role==='admin',provider:String(p.login_provider||'')||(id.startsWith('google:')?'google':'chatgpt')} as Member;
 }
 export async function currentUser():Promise<Member|null>{
   const h=await headers();
@@ -28,7 +29,7 @@ export async function currentUser():Promise<Member|null>{
   }
   if(cookie.split(';').some(p=>p.trim()==='vibeflix_signed_out=1'))return null;
   const chatgpt=await getChatGPTUser();
-  return chatgpt?ensureProfile(chatgpt.userId,chatgpt.fullName||'바이버','',chatgpt.email):null;
+  return chatgpt?ensureProfile(chatgpt.userId,chatgpt.fullName||'바이버','',chatgpt.email,'chatgpt'):null;
 }
 export async function requireUser(){const user=await currentUser();if(!user)throw new ApiError(401,'로그인 후 이용해주세요.');return user;}
 export async function requireAdmin(){const user=await requireUser();if(!user.isAdmin)throw new ApiError(403,'운영자 권한이 필요합니다.');return user;}

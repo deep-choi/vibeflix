@@ -221,7 +221,7 @@ async function loadUsers(){
   const d=await api('users?limit=50&q='+encodeURIComponent(state.q));
   $('#ad-list').innerHTML=table(['닉네임','로그인','권한','상태','가입일','작품 · 글 · 댓글',''],d.users.map(u=>`<tr>
     <td><span class="title">${esc(u.name)}</span>${u.self?` ${badge('나','pin')}`:''}</td>
-    <td>${u.provider==='google'?'Google':'ChatGPT'}</td>
+    <td>${({google:'Google',email:'이메일',chatgpt:'ChatGPT'})[u.provider]||u.provider}</td>
     <td>${u.role==='admin'?badge('운영자','pin'):badge('회원','plain')}</td>
     <td>${u.suspended?badge('정지','off'):badge('정상','ok')}${u.deletionRequested?badge('탈퇴 요청','off'):''}</td>
     <td class="num">${fmtDate(u.created)}</td>

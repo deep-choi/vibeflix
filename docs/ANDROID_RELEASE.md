@@ -46,3 +46,14 @@ VIBEFLIX의 첫 Android 버전입니다. 작품 발견, 찜과 팔로우, 커뮤
 - Run TypeScript, framework build and local `scripts/check-community.mjs` regressions against disposable members. `VIBEFLIX_QA_PERSIST` selects an isolated local database.
 - Verify public privacy/deletion pages, manifest, asset links and login/content APIs on the deployed origin separately.
 - Store submission, public availability and physical-device validation are separate milestones.
+
+## Console handoff (2026-10-22)
+
+- Play app ID: `4973261830507335401`.
+- Signed code 1 AAB uploaded and saved in an internal-track release draft. It has not been released to testers or submitted for public review.
+- Default Korean listing, icon, feature graphic, two phone screenshots, support contact, privacy URL and declarations for ads/government/finance/health are saved. IARC is saved (Korea 12+, user interaction).
+- Google Play signing SHA-256 fingerprints and the upload certificate are deployed in the site's Digital Asset Links document.
+- Data safety answers are complete in a saved draft. Final save requires target-audience completion; target audience requires app-access completion.
+- The owner must prepare a dedicated Google reviewer account and enter its credentials directly in Play Console → VIBEFLIX → Dashboard → Login details. Do not send the password in chat. Do not provide an administrator account.
+- Account instructions (English): Open the profile icon, check the Terms of Service and Privacy Policy consent box, choose Google login, and sign in with the dedicated reviewer account. Discovering and reading works is available without login. Login unlocks posting, reviews, bookmarks and follows. No purchase, subscription, invitation or location restriction is required.
+- After the account is available: validate login with that account, complete Login details, set the intended target audience, finalize the saved Data safety declaration, prepare the production track and submit for review. Physical-device testing remains outstanding.

@@ -44,6 +44,7 @@ export const profiles = sqliteTable('profiles', {
   id:text('id').primaryKey(), publicId:text('public_id').notNull().unique(),
   name:text('name').notNull(), bio:text('bio').notNull().default(''), avatar:text('avatar').notNull().default(''),
   role:text('role').notNull().default('member'), suspended:integer('suspended').notNull().default(0),
+  loginProvider:text('login_provider').notNull().default(''), // 'google' | 'email' | 'chatgpt' — last sign-in method
   created:integer('created').notNull(), updated:integer('updated').notNull(),
 });
 export const sessions = sqliteTable('sessions', {
