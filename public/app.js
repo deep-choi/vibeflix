@@ -17,6 +17,7 @@ let detailId = null;
 let toastTimeout;
 let submitting = false;
 let editingProjectId = null;
+let homePosts = [];
 let saved;
 try {const value=JSON.parse(localStorage.getItem('vibeflix.saved.v2') || '[]');saved=new Set(Array.isArray(value)?value.filter(id=>typeof id==='string'):[]);} catch {saved=new Set();}
 function validUrl(value) {try{const url=new URL(value);return ['http:','https:'].includes(url.protocol)&&!url.username&&!url.password?url.href:'';}catch{return '';}}
@@ -59,7 +60,7 @@ function render() {
   $('#discovery-title').textContent=titles[filter];
   $('#row-title').innerHTML=query?`검색 결과 <span class="muted">${escapeHtml($('#search').value)}</span>`:filter==='saved'?'나만의 바이브 컬렉션':'<span class="trending-icon">↗</span> 지금, 주목할 바이브';
   $$('[data-filter]').forEach(b=>{b.classList.toggle('active',b.dataset.filter===filter);b.setAttribute('aria-pressed',String(b.dataset.filter===filter));});
-  $$('[data-nav]').forEach(b=>b.classList.toggle('active',b.dataset.nav===filter));
+  $$('[data-nav]').forEach(b=>b.classList.toggle('active',!document.body.classList.contains('community-view')&&b.dataset.nav===filter));
   $('#saved-count').textContent=saved.size?saved.size:'';
   $('#fresh-section').hidden=filter!=='all'||!!query;
   $('#fresh-grid').innerHTML=projects.filter(p=>['website','app'].includes(p.type)&&p.status!=='upcoming').slice(0,3).map(p=>`<button class="fresh-card" data-detail="${escapeHtml(p.id)}" aria-label="${escapeHtml(p.title)} 자세히 보기">${artMarkup(p)}<div class="fresh-text"><span class="fresh-label">${typeNames[p.type]} <span aria-hidden="true">/</span> ${escapeHtml(p.creator)}</span><h4>${escapeHtml(p.title)}</h4><p>${escapeHtml(p.subtitle)}</p><span class="fresh-cta">발견하기 ↗</span></div></button>`).join('');
@@ -75,23 +76,34 @@ function renderRows(home){
   if(!home){host.innerHTML='';return;}
   const live=projects.filter(p=>p.status!=='upcoming');
   const popular=[...live].sort((a,b)=>(b.recommendations||0)-(a.recommendations||0)||(b.rating||0)-(a.rating||0)||b.created-a.created).slice(0,10);
+  // Category rows follow the header nav order and stay visible even when empty
+  const typeRow=type=>({title:typeNames[type],type,items:live.filter(p=>p.type===type),always:true});
   const rows=[
     {title:'지금, 주목할 바이브',items:live},
-    {title:'플레이하고 싶은 게임',items:live.filter(p=>p.type==='game')},
-    {title:'일상을 바꾸는 웹사이트 · 앱',items:live.filter(p=>['website','app'].includes(p.type))},
-    {title:'그림 · 만화 · 일러스트',items:live.filter(p=>p.type==='art')},
-    {title:'영상',items:live.filter(p=>p.type==='video')},
-    {title:'소설',items:live.filter(p=>p.type==='novel')},
-    {title:'방금 올라온 커뮤니티 작품',items:live.filter(p=>p.badge==='COMMUNITY').sort((a,b)=>b.created-a.created)},
+    typeRow('website'),typeRow('game'),typeRow('app'),typeRow('art'),typeRow('video'),typeRow('novel'),
+    {title:'커뮤니티',community:true,items:homePosts,always:true},
     {title:'내가 찜한 작품',items:projects.filter(p=>saved.has(p.id))},
     {title:'곧 공개됩니다',items:projects.filter(p=>p.status==='upcoming')},
-  ].filter(r=>r.items.length>=(r.min||1));
-  host.innerHTML=rows.map(r=>`<section class="nf-row${r.top?' nf-top':''}" aria-label="${escapeHtml(r.title)}"><h3 class="nf-row-title">${escapeHtml(r.title)}</h3><div class="nf-row-wrap"><button class="nf-arrow prev" data-row-scroll="-1" aria-label="이전 작품" tabindex="-1">‹</button><div class="nf-scroller">${r.items.map((p,i)=>r.top?`<div class="nf-ranked"><span class="nf-rank" aria-hidden="true">${i+1}</span>${cardMarkup(p)}</div>`:cardMarkup(p)).join('')}</div><button class="nf-arrow next" data-row-scroll="1" aria-label="다음 작품" tabindex="-1">›</button></div></section>`).join('');
+  ].filter(r=>r.always||r.items.length>=(r.min||1));
+  const rowItems=r=>!r.items.length?emptyTile(r):r.community?r.items.map(postTile).join(''):r.items.map((p,i)=>r.top?`<div class="nf-ranked"><span class="nf-rank" aria-hidden="true">${i+1}</span>${cardMarkup(p)}</div>`:cardMarkup(p)).join('');
+  host.innerHTML=rows.map(r=>`<section class="nf-row${r.top?' nf-top':''}" aria-label="${escapeHtml(r.title)}"><h3 class="nf-row-title">${escapeHtml(r.title)}${r.community?'<button class="nf-row-more" data-open-community>전체 보기 ›</button>':''}</h3><div class="nf-row-wrap"><button class="nf-arrow prev" data-row-scroll="-1" aria-label="이전 작품" tabindex="-1">‹</button><div class="nf-scroller">${rowItems(r)}</div><button class="nf-arrow next" data-row-scroll="1" aria-label="다음 작품" tabindex="-1">›</button></div></section>`).join('');
   $$('.nf-scroller',host).forEach((el,i)=>{el.scrollLeft=positions[i]||0;});
 }
+
+const postLabels={general:'자유 이야기',showcase:'작품 소개',buildlog:'개발 일지',question:'질문',feedback:'피드백'};
+function postTile(p){return `<button class="nf-tile nf-post-tile" data-post="${escapeHtml(p.id)}"><span class="nf-tile-kicker">${escapeHtml(postLabels[p.category]||'이야기')}</span><strong>${escapeHtml(p.title)}</strong><p>${escapeHtml(p.body.slice(0,90))}</p><span class="nf-tile-meta">${escapeHtml(p.author_name)} · ♡ ${Number(p.recommendations)} · 댓글 ${Number(p.comments)}</span></button>`;}
+function emptyTile(r){return r.community?'<div class="nf-tile nf-empty-tile"><strong>첫 번째 이야기를 들려주세요.</strong><p>만드는 과정도, 작은 질문도 좋은 이야기의 시작이에요.</p><button class="secondary-button" data-compose-post>＋ 이야기 쓰기</button></div>':`<div class="nf-tile nf-empty-tile"><strong>아직 올라온 ${typeNames[r.type]} 작품이 없어요.</strong><p>첫 번째 작품의 주인공이 되어보세요.</p><button class="secondary-button" data-upload-empty>＋ 작품 올리기</button></div>`;}
+// community.js shares the newest posts so the home row stays in sync with the board
+document.addEventListener('vibe:posts',event=>{homePosts=event.detail;if(document.body.classList.contains('nf-home'))renderRows(true);});
+function setCommunityView(on){document.body.classList.toggle('community-view',on);$('#community-nav').classList.toggle('active',on);if(on){$$('[data-nav]').forEach(b=>b.classList.remove('active'));window.scrollTo({top:0});}}
+document.addEventListener('click',event=>{
+  if(event.target.closest('[data-open-community]'))setCommunityView(true);
+  else if(event.target.closest('[data-compose-post]'))window.VibeCommunity?.openCompose();
+  else if(event.target.closest('[data-upload-empty]'))openUpload();
+});
 document.addEventListener('click',event=>{const button=event.target.closest('[data-row-scroll]');if(!button)return;const scroller=$('.nf-scroller',button.parentElement);scroller.scrollBy({left:Number(button.dataset.rowScroll)*scroller.clientWidth*.85,behavior:'smooth'});});
 {const header=$('.header');const onScroll=()=>header.classList.toggle('scrolled',window.scrollY>20);window.addEventListener('scroll',onScroll,{passive:true});onScroll();}
-function setFilter(next,scroll=false){filter=next;render();$('#project-row').scrollLeft=0;if(scroll)$('#discover').scrollIntoView({behavior:'smooth'});}
+function setFilter(next,scroll=false){setCommunityView(false);filter=next;render();$('#project-row').scrollLeft=0;if(scroll)$('#discover').scrollIntoView({behavior:'smooth'});}
 async function toggleSave(id){
   if(!findProject(id))return;
   if(user){try{const response=await fetch('/api/community/bookmarks',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({projectId:id,active:!saved.has(id)})});if(!response.ok){const result=await response.json();throw Error(result.error);}}catch(error){toast(error.message||'찜 목록을 저장하지 못했어요.');return;}}
@@ -120,7 +132,7 @@ $('#row-prev').addEventListener('click',()=>$('#project-row').scrollBy({left:-$(
 $('#row-next').addEventListener('click',()=>$('#project-row').scrollBy({left:$('#project-row').clientWidth*.8,behavior:'smooth'}));
 document.addEventListener('click',event=>{const detail=event.target.closest('[data-detail]');const save=event.target.closest('[data-save]');if(save)toggleSave(save.dataset.save);else if(detail)openDetail(detail.dataset.detail);});
 document.addEventListener('error',event=>{if(event.target instanceof HTMLImageElement)event.target.remove();},true);
-function openSearch(){$('#search-wrap').hidden=false;$('#discover').scrollIntoView({behavior:'smooth'});$('#search').focus({preventScroll:true});$('#search-toggle').setAttribute('aria-expanded','true');}
+function openSearch(){setCommunityView(false);$('#search-wrap').hidden=false;$('#discover').scrollIntoView({behavior:'smooth'});$('#search').focus({preventScroll:true});$('#search-toggle').setAttribute('aria-expanded','true');}
 $('#search-toggle').setAttribute('aria-expanded','false');$('#search-toggle').addEventListener('click',openSearch);
 $('#search').addEventListener('input',event=>{query=event.target.value.trim().toLowerCase();render();});
 $('#search-close').addEventListener('click',()=>{$('#search-wrap').hidden=true;$('#search').value='';query='';render();$('#search-toggle').setAttribute('aria-expanded','false');$('#search-toggle').focus();});
@@ -267,4 +279,4 @@ async function loadCatalog(){
 }
 loadCatalog();
 if(new URL(location.href).searchParams.get('upload')==='1')openUpload();
-window.Vibe={getUser:()=>user,getProjects:()=>projects,getSaved:()=>[...saved],setSaved:ids=>{saved=new Set(ids);render();},refreshAuth:loadSession,reload:loadCatalog,openDetail,openUpload,render,artMarkup,toast,escapeHtml,setFilter,patchProject:(id,patch)=>{const p=findProject(id);if(p)Object.assign(p,patch);render();}};
+window.Vibe={getUser:()=>user,getProjects:()=>projects,getSaved:()=>[...saved],setSaved:ids=>{saved=new Set(ids);render();},refreshAuth:loadSession,reload:loadCatalog,openDetail,openUpload,render,artMarkup,toast,escapeHtml,setFilter,setCommunityView,patchProject:(id,patch)=>{const p=findProject(id);if(p)Object.assign(p,patch);render();}};

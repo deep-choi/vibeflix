@@ -45,11 +45,11 @@
     else{$('#notification-count').hidden=true;}
   }
   document.addEventListener('vibe:auth',onAuth);
-  $('#community-nav').addEventListener('click',()=>{$('#community-section').scrollIntoView({behavior:'smooth'});});
+  $('#community-nav').addEventListener('click',()=>V.setCommunityView(true));
   function postCard(p){return `<article class="post-list-item"><button class="post-open" data-post="${esc(p.id)}"><span class="post-category">${esc(labels[p.category]||'이야기')}</span><h3>${esc(p.title)}</h3><p>${esc(p.body.slice(0,140))}</p><div class="post-list-meta"><span class="mini-avatar">${esc(p.author_name[0]||'V')}</span><span>${esc(p.author_name)}</span><span>·</span><time>${time(p.created)}</time></div></button><div class="post-list-stats"><button class="recommend-small ${p.recommended?'selected':''}" data-recommend-post="${esc(p.id)}" aria-label="${esc(p.title)} 추천" aria-pressed="${p.recommended}"><span>♡</span>${Number(p.recommendations)}</button><span>댓글 ${Number(p.comments)}</span></div></article>`;}
   async function loadPosts(append=false){
     const generation=++postGeneration;const offset=append?postNext:0;const params=new URLSearchParams({category:postCategory,q:postQuery,sort:postSort,offset:String(offset||0)});$('#posts-more').disabled=true;
-    try{const result=await community('posts?'+params);if(generation!==postGeneration)return;postItems=append?[...postItems,...result.posts]:result.posts;postNext=result.next;$('#post-list').innerHTML=postItems.length?postItems.map(postCard).join(''):emptyMarkup(postQuery?'아직 일치하는 이야기가 없어요.':'첫 번째 이야기를 들려주세요.',postQuery?'다른 검색어로 찾아보세요.':'만드는 과정도, 작은 질문도 좋은 이야기의 시작이에요.');$('#posts-more').hidden=postNext===null;}
+    try{const result=await community('posts?'+params);if(generation!==postGeneration)return;postItems=append?[...postItems,...result.posts]:result.posts;postNext=result.next;if(!append&&postCategory==='all'&&!postQuery&&postSort==='newest')document.dispatchEvent(new CustomEvent('vibe:posts',{detail:postItems.slice(0,10)}));$('#post-list').innerHTML=postItems.length?postItems.map(postCard).join(''):emptyMarkup(postQuery?'아직 일치하는 이야기가 없어요.':'첫 번째 이야기를 들려주세요.',postQuery?'다른 검색어로 찾아보세요.':'만드는 과정도, 작은 질문도 좋은 이야기의 시작이에요.');$('#posts-more').hidden=postNext===null;}
     catch(error){if(generation===postGeneration)$('#post-list').innerHTML=errorMarkup(error.message)+'<button class="secondary-button" id="posts-retry">다시 불러오기 ↻</button>';$('#posts-retry')?.addEventListener('click',()=>loadPosts());}
     finally{if(generation===postGeneration)$('#posts-more').disabled=false;}
   }
