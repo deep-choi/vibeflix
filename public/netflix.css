@@ -112,9 +112,8 @@ body:not(.nf-home) .project-card:hover{transform:scale(1.04);z-index:2}
 /* ───── Detail modal ───── */
 .detail-modal{width:min(880px,calc(100vw - 24px));background:#181a17;border:0;border-radius:10px;overflow-y:auto}
 .detail-cover{position:relative}
-.detail-cover:after{content:'';position:absolute;left:0;right:0;bottom:0;height:55%;background:linear-gradient(0deg,#181a17 0%,transparent 100%);z-index:2;pointer-events:none}
 .detail-cover .card-art{aspect-ratio:16/9;border-radius:0}
-.detail-body{position:relative;z-index:3;margin-top:-72px;padding:0 clamp(20px,4vw,48px) 36px}
+.detail-body{position:relative;padding:28px clamp(20px,4vw,48px) 36px}
 .detail-body h2{font-size:clamp(28px,4vw,46px);letter-spacing:-1.2px}
 .detail-subtitle{font-size:16px;color:#e5e5e5}
 .detail-description{font-size:14px;line-height:1.85;color:#c4c8bd;white-space:pre-line}
@@ -366,3 +365,8 @@ body.community-view .community-discovery{margin-top:0;padding-top:92px}
 .hero[data-feature="cover"] .hero-art{left:47%;width:48%}
 .hero[data-feature="cover"] .hero-art>img{width:100%;height:auto;max-width:640px;max-height:100%;aspect-ratio:16/9;object-fit:cover;border-radius:18px;transform:rotate(-4deg);box-shadow:0 30px 80px #000b}
 @media(max-width:600px){.nf-cat-action{position:static;margin:0 0 16px;min-height:38px;font-size:13px}}
+
+/* Detail modal: the close button floats over the cover without taking width
+   (a floated button used to narrow the cover and leave an empty strip on the right) */
+.detail-modal .modal-close{display:block;float:none;position:sticky;top:16px;z-index:5;margin:16px 16px -50px auto;transform:none}
+.detail-cover{overflow:hidden}
