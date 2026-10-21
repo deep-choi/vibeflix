@@ -270,3 +270,37 @@ body.community-view .community-section{margin-top:76px;border-top:0}
 .nf-empty-tile .secondary-button{margin-top:6px;min-height:36px;padding:0 14px;font-size:12px}
 .nf-row-more{margin-left:12px;background:none;font-size:13px;font-weight:600;color:#9aa192}
 .nf-row-more:hover{color:var(--lime)}
+
+/* ───── Modals: neutral black surface to match the page ───── */
+.modal{background:#141414;border:1px solid #ffffff14;border-radius:16px;box-shadow:0 40px 120px #000c}
+.modal::backdrop{background:#000000b8;backdrop-filter:blur(6px)}
+.modal-close{width:34px;height:34px;border:0;background:#ffffff0f;color:#cfcfcf;font-size:0}
+.modal-close:hover{background:#ffffff1f;color:#fff;filter:none}
+.modal-close::before,.modal-close::after{content:'';position:absolute;inset:0;margin:auto;width:14px;height:1.6px;border-radius:1px;background:currentColor;transform:rotate(45deg)}
+.modal-close::after{transform:rotate(-45deg)}
+
+/* Compact gate modals: sign-in, and the upload dialog while logged out */
+.modal-badge{display:none}
+.auth-modal,.upload-modal:has(#upload-auth:not([hidden])){width:440px;padding:48px 36px 32px;text-align:center}
+.auth-modal .modal-close,.upload-modal:has(#upload-auth:not([hidden])) .modal-close{position:absolute;top:16px;right:16px;float:none;margin:0;transform:none}
+.auth-modal .modal-badge,.upload-modal:has(#upload-auth:not([hidden])) .modal-badge{display:grid;place-items:center;width:52px;height:52px;margin:0 auto 22px;border-radius:14px;background:#c3f5681a;color:var(--lime);box-shadow:inset 0 0 0 1px #c3f56833}
+.modal-badge svg{width:26px;height:26px}
+.auth-modal .section-kicker,.upload-modal:has(#upload-auth:not([hidden])) .section-kicker{display:none}
+.auth-modal h2,.upload-modal:has(#upload-auth:not([hidden])) h2{font-size:24px;line-height:1.35;letter-spacing:-.6px;margin:0 0 10px}
+.auth-modal>p,.upload-modal:has(#upload-auth:not([hidden])) .form-intro{font-size:14px;line-height:1.7;color:#a1a1a1;margin:0 0 28px}
+.upload-auth{padding:0;margin:0;background:none;border:0}
+.upload-auth p{display:none}
+.upload-auth .primary-button{width:100%;min-height:50px;border-radius:10px;font-size:15px}
+.upload-auth small,.auth-modal>small{display:block;margin-top:20px;font-size:12px;line-height:1.7;color:#7a7a7a;text-align:center}
+.google-sign-in{min-height:50px;border-radius:10px;background:#fff;color:#1f1f1f;font-size:15px;font-weight:600;gap:12px}
+.google-sign-in:hover{background:#ececec;filter:none}
+.google-mark{width:20px;height:20px;flex-shrink:0}
+.auth-divider{display:flex;align-items:center;gap:12px;margin:16px 0;font-size:12px;color:#6b6b6b}
+.auth-divider::before,.auth-divider::after{content:'';flex:1;height:1px;background:#ffffff14}
+.no-chatgpt .auth-divider{display:none}
+.chatgpt-sign-in{margin-top:0;min-height:50px;border-radius:10px;background:#1f1f1f;border:1px solid #ffffff1a;color:#f1f1f1;font-size:15px;font-weight:600}
+.chatgpt-sign-in:hover{background:#2a2a2a}
+@media(max-width:600px){
+  .auth-modal,.upload-modal:has(#upload-auth:not([hidden])){padding:44px 22px 26px}
+  .auth-modal h2,.upload-modal:has(#upload-auth:not([hidden])) h2{font-size:21px}
+}
