@@ -343,7 +343,9 @@ body.has-notice .nf-row{scroll-margin-top:132px}
 body:not(.community-view) #community-discovery{display:none}
 body.community-view #community-rows{display:block}
 body.community-view .community-discovery{margin-top:0;padding-top:92px}
-body.community-view .community-section{margin-top:24px}
+/* The old board section stays in the DOM for community.js (compose, post dialogs, feeds) but is never shown */
+#community-section{display:none!important}
+.nf-cat-action{position:absolute;right:0;top:34px;min-height:44px;padding:0 20px;border-radius:999px;font-size:14px}
 
 /* Genre picker in the upload form */
 .genre-field{display:flex;flex-direction:column;gap:9px;margin:4px 0 18px}
@@ -363,3 +365,4 @@ body.community-view .community-section{margin-top:24px}
 .hero[data-feature="cover"] .hero-image{background-color:#111;background-position:center;background-size:cover;filter:blur(38px) brightness(.4) saturate(1.25);transform:scale(1.25)}
 .hero[data-feature="cover"] .hero-art{left:47%;width:48%}
 .hero[data-feature="cover"] .hero-art>img{width:100%;height:auto;max-width:640px;max-height:100%;aspect-ratio:16/9;object-fit:cover;border-radius:18px;transform:rotate(-4deg);box-shadow:0 30px 80px #000b}
+@media(max-width:600px){.nf-cat-action{position:static;margin:0 0 16px;min-height:38px;font-size:13px}}

@@ -79,7 +79,7 @@ const byPopularity=(a,b)=>(b.recommendations||0)-(a.recommendations||0)||(b.rati
 const rowItems=r=>!r.items.length?emptyTile(r):r.community?r.items.map(postTile).join(''):r.items.map((p,i)=>r.top?`<div class="nf-ranked"><span class="nf-rank" aria-hidden="true">${i+1}</span>${cardMarkup(p)}</div>`:cardMarkup(p)).join('');
 const rowMarkup=(r,i)=>`<section class="nf-row${r.top?' nf-top':''}" id="nf-row-${i}" aria-label="${escapeHtml(r.title)}"><h3 class="nf-row-title">${escapeHtml(r.title)}${r.count?`<span class="nf-row-count">${r.count}</span>`:''}${r.more||''}</h3><div class="nf-row-wrap"><button class="nf-arrow prev" data-row-scroll="-1" aria-label="이전 작품" tabindex="-1">‹</button><div class="nf-scroller">${rowItems(r)}</div><button class="nf-arrow next" data-row-scroll="1" aria-label="다음 작품" tabindex="-1">›</button></div></section>`;
 // Category page header: name, tagline, and chips that jump to each genre row
-const categoryHead=(title,tagline,total,rows,prefix='')=>`<header class="nf-cat-head"><span class="nf-cat-kicker">CATEGORY</span><h2>${escapeHtml(title)}</h2><p>${escapeHtml(tagline)}${total?` · ${total}개`:''}</p>${rows.some(r=>r.chip)?`<nav class="nf-cat-chips" aria-label="${escapeHtml(title)} 장르">${rows.map((r,i)=>r.chip?`<button data-jump="nf-row-${prefix}${i}">${escapeHtml(r.chip)}<span>${r.items.length}</span></button>`:'').join('')}</nav>`:''}</header>`;
+const categoryHead=(title,tagline,total,rows,prefix='',action='')=>`<header class="nf-cat-head">${action}<span class="nf-cat-kicker">CATEGORY</span><h2>${escapeHtml(title)}</h2><p>${escapeHtml(tagline)}${total?` · ${total}개`:''}</p>${rows.some(r=>r.chip)?`<nav class="nf-cat-chips" aria-label="${escapeHtml(title)} 장르">${rows.map((r,i)=>r.chip?`<button data-jump="nf-row-${prefix}${i}">${escapeHtml(r.chip)}<span>${r.items.length}</span></button>`:'').join('')}</nav>`:''}</header>`;
 let rowsMode=null;
 function categoryRows(type){
   const all=projects.filter(p=>p.type===type),live=all.filter(p=>p.status!=='upcoming');
@@ -125,11 +125,11 @@ let communityRowsGeneration=0;
 async function renderCommunityRows(){
   const host=$('#community-rows');const generation=++communityRowsGeneration;
   const groups=[{key:'popular',title:'인기 이야기',query:'sort=popular'},...Object.entries(postLabels).sort(([a],[b])=>['showcase','buildlog','question','feedback','general'].indexOf(a)-['showcase','buildlog','question','feedback','general'].indexOf(b)).map(([key,title])=>({key,title,chip:title,query:`category=${key}&sort=newest`}))];
-  const results=await Promise.all(groups.map(g=>fetch(`/api/community/posts?${g.query}&limit=10`).then(r=>r.ok?r.json():{posts:[]}).then(d=>d.posts||[]).catch(()=>[])));
+  const results=await Promise.all(groups.map(g=>fetch(`/api/community/posts?${g.query}&limit=30`).then(r=>r.ok?r.json():{posts:[]}).then(d=>d.posts||[]).catch(()=>[])));
   if(generation!==communityRowsGeneration)return;
   results[0]=results[0].filter(p=>Number(p.recommendations)>0); // "인기" only once something has been liked
   const rows=groups.map((g,i)=>({title:g.title,chip:g.chip,community:true,items:results[i],count:results[i].length||0})).filter((r,i)=>i>0||r.items.length);
-  host.innerHTML=categoryHead('커뮤니티','만드는 과정도, 써본 경험도. 바이브를 나누는 크리에이터들의 공간.',0,rows,'c')+rows.map((r,i)=>rowMarkup({...r,count:r.items.length||''},`c${i}`)).join('');
+  host.innerHTML=categoryHead('커뮤니티','만드는 과정도, 써본 경험도. 바이브를 나누는 크리에이터들의 공간.',0,rows,'c','<button class="primary-button nf-cat-action" data-compose-post>＋ 이야기 쓰기</button>')+rows.map((r,i)=>rowMarkup({...r,count:r.items.length||''},`c${i}`)).join('');
 }
 document.addEventListener('click',event=>{
   const jump=event.target.closest('[data-jump]');if(jump){document.getElementById(jump.dataset.jump)?.scrollIntoView({behavior:'smooth',block:'start'});return;}
