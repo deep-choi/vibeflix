@@ -44,6 +44,7 @@ export const projectImages = sqliteTable('project_images', {
 export const profiles = sqliteTable('profiles', {
   id:text('id').primaryKey(), publicId:text('public_id').notNull().unique(),
   name:text('name').notNull(), bio:text('bio').notNull().default(''), avatar:text('avatar').notNull().default(''),
+  links:text('links').notNull().default('[]'), // up to 3 public http(s) links (portfolio, GitHub, shop) shown on the creator page
   role:text('role').notNull().default('member'), suspended:integer('suspended').notNull().default(0),
   loginProvider:text('login_provider').notNull().default(''), // 'google' | 'email' | 'chatgpt' — last sign-in method
   suspendedUntil:integer('suspended_until'), // set with suspended=1 for a temporary suspension; null = until lifted
@@ -54,7 +55,9 @@ export const sessions = sqliteTable('sessions', {
 }, t=>[index('sessions_user_idx').on(t.userId), index('sessions_expiry_idx').on(t.expires)]);
 export const posts = sqliteTable('posts', {
   id:text('id').primaryKey(), ownerId:text('owner_id').notNull(), title:text('title').notNull(), body:text('body').notNull(),
-  category:text('category').notNull().default('general'), projectId:text('project_id'), created:integer('created').notNull(), updated:integer('updated').notNull(),
+  category:text('category').notNull().default('general'), projectId:text('project_id'),
+  solvedComment:text('solved_comment'), // question posts: the reply the asker accepted as the answer
+  created:integer('created').notNull(), updated:integer('updated').notNull(),
   deletedAt:integer('deleted_at'), hiddenAt:integer('hidden_at'),
 }, t=>[index('posts_created_idx').on(t.created),index('posts_owner_idx').on(t.ownerId)]);
 export const comments = sqliteTable('comments', {

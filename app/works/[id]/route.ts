@@ -3,7 +3,7 @@ import { blockedOwners } from '../../../lib/member-safety';
 import { currentUser } from '../../../lib/auth';
 import { stats as reactionStats } from '../../../lib/community';
 import { announceDueEntries, entryKind, entryLabel, listEntries } from '../../../lib/entries';
-import { parseVideoUrl } from '../../../lib/project-input';
+import { DAY_NAMES, parseVideoUrl } from '../../../lib/project-input';
 import { resolveContent } from '../../../lib/projects';
 import { sampleBlocks, sampleContent, type Scene } from '../../../lib/sample-content';
 import { SCENE_CSS, playerScript, scenePlayer } from '../../../lib/scene-player';
@@ -24,12 +24,23 @@ function infoCards(type: string, d: Details, blocks: ViewBlock[], entryCount: nu
   const p = (v: unknown) => v ? `<p>${esc(v)}</p>` : '';
   const form = d.form === 'serial' ? (type === 'video' ? '시리즈' : '연재') : d.form === 'single' ? '단편' : '';
   if (type === 'website') return card('주요 기능', list(d.features).length ? `<ul>${list(d.features).map(f => `<li>${esc(f)}</li>`).join('')}</ul>` : '') + card('사용 기술', chips(list(d.stack)));
-  if (type === 'app') return card('플랫폼', chips(list(d.platforms).map(x => ({ ios: 'iOS', android: 'Android', web: '웹' }[x] || x)))) + card('가격', p({ free: '무료', paid: '유료', iap: '무료 · 앱 내 결제' }[String(d.price)])) + card('베타 테스터', d.beta ? `<p>모집 중${d.betaUrl ? ` · <a href="${esc(d.betaUrl)}" target="_blank" rel="noopener noreferrer" data-track-click>참여하기 ↗</a>` : ''}</p>` : '');
-  if (type === 'game') return card('개발 단계', p({ demo: '데모', early: '얼리 액세스', release: '정식 출시' }[String(d.stage)])) + card('플레이 방식', p({ browser: '브라우저에서 바로', download: '다운로드 설치', mobile: '모바일' }[String(d.playMode)])) + card('조작 장치', chips(list(d.inputs).map(x => ({ keyboard: '키보드', mouse: '마우스', gamepad: '게임패드', touch: '터치' }[x] || x)))) + card('플레이 시간', p(d.playtime)) + card('조작법', d.controls ? `<p class="pre">${esc(d.controls)}</p>` : '', true);
-  if (type === 'art') return card('형식', p([{ illustration: '일러스트', webtoon: '웹툰 (세로 스크롤)', comic: '만화' }[String(d.format)], form].filter(Boolean).join(' · '))) + card('라이선스', p(LICENSE_NAMES[String(d.license)]));
-  if (type === 'video') return card('형식', p(form)) + card('길이', p(d.duration));
-  if (type === 'novel') { const chars = blocks.reduce((n, b) => n + (b.type === 'text' ? b.text.length : 0), 0); return card('형식', p(form)) + card('연재 상태', d.status ? `<p>${d.status === 'complete' ? '완결' : '연재 중'}</p>` : '') + card('분량', entryCount ? `<p>${entryCount}화</p>` : chars ? `<p>약 ${chars.toLocaleString('ko-KR')}자</p>` : ''); }
+  if (type === 'app') return card('사용 기술', chips(list(d.stack))) + card('플랫폼', chips(list(d.platforms).map(x => ({ ios: 'iOS', android: 'Android', web: '웹' }[x] || x)))) + card('가격', p({ free: '무료', paid: '유료', iap: '무료 · 앱 내 결제' }[String(d.price)])) + card('베타 테스터', d.beta ? `<p>모집 중${d.betaUrl ? ` · <a href="${esc(d.betaUrl)}" target="_blank" rel="noopener noreferrer" data-track-click>참여하기 ↗</a>` : ''}</p>` : '');
+  if (type === 'game') return card('사용 기술', chips(list(d.stack))) + card('개발 단계', p({ demo: '데모', early: '얼리 액세스', release: '정식 출시' }[String(d.stage)])) + card('플레이 방식', p({ browser: '브라우저에서 바로', download: '다운로드 설치', mobile: '모바일' }[String(d.playMode)])) + card('조작 장치', chips(list(d.inputs).map(x => ({ keyboard: '키보드', mouse: '마우스', gamepad: '게임패드', touch: '터치' }[x] || x)))) + card('플레이 시간', p(d.playtime)) + card('조작법', d.controls ? `<p class="pre">${esc(d.controls)}</p>` : '', true);
+  if (type === 'art') return card('형식', p([{ illustration: '일러스트', webtoon: '웹툰 (세로 스크롤)', comic: '만화' }[String(d.format)], form].filter(Boolean).join(' · '))) + card('연재 일정', p(scheduleText(d))) + card('라이선스', p(LICENSE_NAMES[String(d.license)]));
+  if (type === 'video') return card('형식', p(form)) + card('길이', p(d.duration)) + card('연재 일정', p(scheduleText(d)));
+  if (type === 'novel') { const chars = blocks.reduce((n, b) => n + (b.type === 'text' ? b.text.length : 0), 0); return card('형식', p(form)) + card('연재 상태', d.status ? `<p>${d.status === 'complete' ? '완결' : '연재 중'}${scheduleText(d) && d.status !== 'complete' ? ` · ${scheduleText(d)}` : ''}</p>` : p(scheduleText(d))) + card('분량', entryCount ? `<p>${entryCount}화</p>` : chars ? `<p>약 ${chars.toLocaleString('ko-KR')}자</p>` : ''); }
   return '';
+}
+/** "매주 수·토 연재" for serials that set a schedule. */
+const scheduleText = (d: Details) => { const days = list(d.schedule).map(x => DAY_NAMES[x]).filter(Boolean); return d.form === 'serial' && days.length ? `매주 ${days.join('·')} 연재` : ''; };
+/** Video chapters: "1:20 본편" lines become buttons that jump the player to that moment. */
+function chaptersList(text: string) {
+  return `<ol class="chapters">${text.split('\n').map(line => line.trim()).filter(Boolean).map(line => {
+    const m = line.match(/^(?:(\d{1,2}):)?(\d{1,2}):(\d{2})\s+(.+)$/);
+    if (!m) return `<li><span>${esc(line)}</span></li>`;
+    const seconds = Number(m[1] || 0) * 3600 + Number(m[2]) * 60 + Number(m[3]);
+    return `<li><button type="button" data-seek="${seconds}">${esc(line.slice(0, line.length - m[4].length).trim())}</button><span>${esc(m[4])}</span></li>`;
+  }).join('')}</ol>`;
 }
 /** "AI로 이렇게 만들었어요" — the site's core: tools, time, process, source. */
 function makingCard(d: Details) {
@@ -103,10 +114,13 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   const entryRows = entries.map(e => { const href = `/works/${encodeURIComponent(id)}/e/${encodeURIComponent(String(e.id))}`; const badge = e.status === 'draft' ? '<em class="chip">임시 저장</em>' : e.scheduled ? `<em class="chip">예약 · ${fmtDate(e.published_at)}</em>` : ''; return `<li><a href="${href}" data-entry="${esc(e.id)}"><b>${esc(entryLabel(e))}</b><span>${badge}${fmtDate(e.published_at)}</span></a></li>`; }).join('');
   const entriesHtml = entries.length || owner ? `<section class="entries" id="entries"><div class="section-title"><h2>${kind === 'episode' ? '회차' : '업데이트 소식'}</h2><span>${kind === 'episode' ? `${published.length}화` : published.length ? `최근 ${fmtDate(published[0].published_at)}` : ''}</span></div>${kind === 'episode' && published.length ? '<a class="btn small continue" data-continue-latest hidden>이어 보기</a>' : ''}${entryRows ? `<ol class="entry-list ${kind}">${entryRows}</ol>` : `<p class="muted">${kind === 'episode' ? '아직 회차가 없어요.' : '아직 업데이트 소식이 없어요.'}</p>`}</section>` : '';
   const ownerPanel = mine ? `<section class="owner"><div class="owner-head"><b>내 작품 관리</b>${row.visibility === 'draft' ? '<em class="chip">임시 저장 · 나만 볼 수 있어요</em>' : ''}${row.hidden_at ? `<a class="chip warn" href="/#appeal=project:${encodeURIComponent(id)}">운영자가 숨긴 작품 · 이의 제기 ›</a>` : ''}</div><div class="owner-stats"><div><span>조회 (7일)</span><b>${mine.views7}</b></div><div><span>조회 (30일)</span><b>${mine.views30}</b></div><div><span>링크 클릭 (30일)</span><b>${mine.clicks30}</b></div><div><span>찜</span><b>${mine.saves}</b></div><div><span>팔로워</span><b>${Number(follow?.n || 0)}</b></div></div>${ownerInsights(mine, entries, kind)}<div class="owner-actions"><a class="btn small" href="/#edit=${encodeURIComponent(id)}">작품 정보 수정</a><button class="btn small primary" data-new-entry>＋ ${kind === 'episode' ? '새 회차 쓰기' : '업데이트 소식 쓰기'}</button></div></section>` : '';
-  const chapters = type === 'video' && details.chapters ? `<div class="info wide"><span>챕터</span><p class="pre">${esc(details.chapters)}</p></div>` : '';
+  const chapters = type === 'video' && details.chapters ? `<div class="info wide"><span>챕터 <small>누르면 그 장면부터 재생돼요</small></span>${chaptersList(String(details.chapters))}</div>` : '';
+  const team = list(details.team).length ? `<div class="info wide"><span>함께 만든 사람</span><ul class="team">${list(details.team).map(t => `<li>${esc(t)}</li>`).join('')}</ul></div>` : '';
   const credits = type === 'video' && details.credits ? `<div class="info wide"><span>크레딧</span><p class="pre">${esc(details.credits)}</p></div>` : '';
-  const cards = infoCards(type, details, blocks, published.length) + chapters + credits;
-  const config = { id, type, kind, title: row.title, owner, loggedIn: !!user, creatorId: row.creator_id || '', following: !!follow?.mine, saved, recommended: r.recommended, myRating: r.myRating || 0, myReview: r.myReview || '', canRate: row.status !== 'upcoming' && !sample, labels: ['app', 'game', 'website'].includes(type), nextNumber: entries.reduce((n, e) => Math.max(n, Number(e.number) || 0), 0) + 1, upcoming: row.status === 'upcoming',
+  const cards = infoCards(type, details, blocks, published.length) + chapters + credits + team;
+  // works marked 성인 소재 stay blurred until the visitor chooses to see them (once per visit, per work)
+  const mature = list(details.warnings).includes('mature') && !owner;
+  const config = { id, type, kind, title: row.title, owner, mature, loggedIn: !!user, creatorId: row.creator_id || '', following: !!follow?.mine, saved, recommended: r.recommended, myRating: r.myRating || 0, myReview: r.myReview || '', canRate: row.status !== 'upcoming' && !sample && !owner, labels: ['app', 'game', 'website'].includes(type), nextNumber: entries.reduce((n, e) => Math.max(n, Number(e.number) || 0), 0) + 1, upcoming: row.status === 'upcoming',
     updates: owner && kind === 'update' ? published.map(e => ({ id: String(e.id), label: entryLabel(e) })) : [] };
   const origin = new URL(request.url).origin; const ogImage = image ? new URL(image, origin).href : '';
 
@@ -114,7 +128,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
 <link rel="stylesheet" href="/work.css">${owner ? '<link rel="stylesheet" href="/block-editor.css">' : ''}<style>${BASE_CSS}${SCENE_CSS}</style></head><body>
 ${topBar()}
 ${sample ? '<div class="notice">화면 구성을 보여주기 위해 운영자가 만든 예시 작품이에요. 실제 작품이 아니에요.</div>' : ''}${row.visibility === 'draft' ? '<div class="notice">임시 저장된 작품이에요. 공개하기 전까지 나만 볼 수 있어요.</div>' : ''}
-<main>${media}${details.embed ? `<div class="play-embed" id="play-embed" hidden data-src="${esc(details.embed)}"></div>` : ''}
+<main${mature ? ' class="is-gated"' : ''}>${mature ? '<div class="mature-gate" role="region" aria-label="성인 소재 안내"><b>성인 소재가 포함된 작품이에요</b><p>작가가 성인 소재 경고를 표시했어요. 만 19세 이상이고 내용을 보고 싶을 때만 열어주세요.</p><button class="btn primary" data-mature-ok>확인하고 보기</button></div>' : ''}${media}${details.embed ? `<div class="play-embed" id="play-embed" hidden data-src="${esc(details.embed)}"></div>` : ''}
 <div class="head"><span class="kicker">${esc(typeNames[type] || '')}${sample ? ' · SAMPLE' : ''}${genres.length ? ` <b>· ${genres.map(esc).join(' · ')}</b>` : ''}</span><h1>${esc(row.title)}</h1>${row.subtitle && row.subtitle !== row.description ? `<p class="sub">${esc(row.subtitle)}</p>` : ''}<div class="meta">${meta.map(m => `<span>${m}</span>`).join('')}${row.source === 'community' && row.verified_at && row.url ? '<span class="chip ok" title="운영자가 링크를 확인했어요">✓ 운영자 확인</span>' : ''}${row.creator_id && !owner ? `<button class="follow${follow?.mine ? ' on' : ''}" data-follow>${follow?.mine ? '팔로잉' : '＋ 팔로우'}</button>` : ''}</div>
 <div class="actions">${actions(row, details, blocks.length > 0, firstEntry)}<button class="btn${saved ? ' on' : ''}" data-save>${row.status === 'upcoming' ? (saved ? '✓ 출시 알림 신청함' : '＋ 출시 알림 받기') : (saved ? '✓ 찜했어요' : '＋ 찜하기')}</button><button class="btn${r.recommended ? ' on' : ''}" data-recommend>♡ 추천 <span data-recommend-count>${r.recommendations || ''}</span></button><button class="btn" data-share>링크 공유</button></div></div>
 ${warnings.length ? `<p class="warning">이 작품에는 ${warnings.join(', ')} 요소가 있어요.</p>` : ''}${ownerPanel}

@@ -28,6 +28,7 @@ jobs:
           npm start -- --port 5297 > server.log 2>&1 &
           for i in $(seq 1 90); do curl -sf http://127.0.0.1:5297/api/session > /dev/null && break; sleep 1; done
           node scripts/check-operator.mjs http://127.0.0.1:5297
+          node scripts/check-personas.mjs http://127.0.0.1:5297
           node scripts/check-community.mjs http://127.0.0.1:5297
       - name: Server log
         if: failure()

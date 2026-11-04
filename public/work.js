@@ -56,6 +56,36 @@
   // guarded links (public/leave-guard.js) count once the visitor confirms leaving
   document.addEventListener('vibe:leave',event=>{if(event.detail?.closest?.('[data-track-click]'))countClick();});
 
+  /* ───── 성인 소재: blurred until the visitor opts in (remembered for this visit) ───── */
+  if(cfg.mature){
+    const okKey='vibeflix.mature-ok';const seen=()=>{try{return JSON.parse(sessionStorage.getItem(okKey)||'[]');}catch{return [];}};
+    const open=()=>{$('main')?.classList.remove('is-gated');$('.mature-gate')?.remove();};
+    if(seen().includes(cfg.id))open();
+    $('[data-mature-ok]')?.addEventListener('click',()=>{try{sessionStorage.setItem(okKey,JSON.stringify([...seen(),cfg.id]));}catch{}open();});
+  }
+
+  /* ───── Video chapters jump the player to that moment ───── */
+  document.addEventListener('click',event=>{
+    const b=event.target.closest('[data-seek]');if(!b)return;const frame=$('.frame iframe');if(!frame){toast('영상을 재생할 수 없어요.');return;}
+    const t=Number(b.dataset.seek)||0;const url=new URL(frame.src);
+    if(url.hostname.includes('vimeo')){url.searchParams.set('autoplay','1');url.hash=`t=${t}s`;}else{url.searchParams.set('start',String(t));url.searchParams.set('autoplay','1');}
+    frame.src=url.href;frame.closest('.frame')?.scrollIntoView({behavior:'smooth',block:'center'});
+  });
+
+  /* ───── Back from playing/using it? Ask for a rating while the experience is fresh ───── */
+  let leftAt=0;
+  const markLeft=()=>{leftAt=Date.now();};
+  document.addEventListener('click',event=>{if(event.target.closest('[data-track-click]:not([data-leave-guard])'))markLeft();});
+  document.addEventListener('vibe:leave',markLeft);
+  document.addEventListener('visibilitychange',()=>{
+    if(document.visibilityState!=='visible'||!leftAt||Date.now()-leftAt<20000||!cfg.canRate||cfg.myRating||$('.after-play'))return;
+    leftAt=0;const bar=document.createElement('div');bar.className='after-play';bar.setAttribute('role','status');
+    bar.innerHTML=`<span><b>${cfg.type==='game'?'플레이해보니 어땠나요?':'써보니 어땠나요?'}</b> 별점과 한 줄 리뷰가 다음 사람에게 큰 도움이 돼요.</span><button class="btn small primary" data-rate-now>별점 남기기</button><button class="close" aria-label="닫기">✕</button>`;
+    document.body.append(bar);
+    bar.querySelector('.close').addEventListener('click',()=>bar.remove());
+    bar.querySelector('[data-rate-now]').addEventListener('click',()=>{bar.remove();$('#discussion')?.scrollIntoView({behavior:'smooth'});setTimeout(()=>$('#rating-box [data-star="5"]')?.focus(),500);});
+  });
+
   /* ───── In-page play (itch.io HTML5 embed) ───── */
   $('[data-play-embed]')?.addEventListener('click',()=>{
     const box=$('#play-embed');if(!box)return;
@@ -76,6 +106,7 @@
   const box=$('#rating-box');
   function ratingForm(){
     if(!box)return;
+    if(cfg.owner){box.innerHTML='<p class="muted">내 작품에는 별점을 남길 수 없어요. 받은 평가는 아래에서 볼 수 있어요.</p>';return;}
     if(!cfg.canRate){box.innerHTML='<p class="muted">공개된 작품만 평가할 수 있어요.</p>';return;}
     box.innerHTML=`<form class="rating-form"><div class="stars" role="radiogroup" aria-label="별점">${[1,2,3,4,5].map(n=>`<button type="button" role="radio" aria-checked="${n===cfg.myRating}" aria-label="${n}점" data-star="${n}" class="${n<=cfg.myRating?'on':''}">★</button>`).join('')}</div><input name="review" maxlength="1000" placeholder="${cfg.loggedIn?'한 줄 리뷰 (선택)':'로그인하면 별점을 남길 수 있어요.'}" value="${esc(cfg.myReview)}"><button class="btn small primary">${cfg.myRating?'수정':'남기기'}</button>${cfg.myRating?'<button type="button" class="btn small" data-rating-delete>삭제</button>':''}</form>`;
     let score=cfg.myRating;const form=$('form',box);
@@ -86,9 +117,12 @@
   }
   const summary=s=>{const el=$('[data-rating-summary]');if(el)el.textContent=s.ratingCount?`★ ${Number(s.rating).toFixed(1)} · ${s.ratingCount}명`:'첫 평가를 기다려요';};
   async function loadReviews(){
-    const list=$('#reviews');if(!list||!cfg.canRate)return;
+    const list=$('#reviews');if(!list||!(cfg.canRate||cfg.owner))return;
     try{const r=await api(`/api/community/ratings/${encodeURIComponent(cfg.id)}`);const rows=r.reviews.filter(x=>x.review);
-      list.innerHTML=rows.length?`<ul class="reviews">${rows.map(x=>`<li><span class="stars-read">${'★'.repeat(x.score)}${'☆'.repeat(5-x.score)}</span><p>${esc(x.review)}</p><small>${esc(x.author_name)} · ${time(x.updated)}</small></li>`).join('')}</ul>`:'';}catch{}
+      // how the scores spread, so one 5★ doesn't read like a consensus
+      const total=(r.distribution||[]).reduce((n,x)=>n+x,0);const top=Math.max(1,...(r.distribution||[0]));
+      const dist=total>=2?`<ul class="dist" aria-label="별점 분포">${[5,4,3,2,1].map(n=>`<li><span>${n}★</span><i style="--w:${Math.round((r.distribution[n-1]/top)*100)}%"></i><em>${r.distribution[n-1]}</em></li>`).join('')}</ul>`:'';
+      list.innerHTML=dist+(rows.length?`<ul class="reviews">${rows.map(x=>`<li><span class="stars-read">${'★'.repeat(x.score)}${'☆'.repeat(5-x.score)}</span><p>${esc(x.review)}</p><small>${esc(x.author_name)} · ${time(x.updated)}</small></li>`).join('')}</ul>`:'');}catch{}
   }
 
   /* ───── Comments (with feedback / bug report labels on apps, games and websites) ───── */

@@ -2,8 +2,13 @@ import { ApiError, db } from './api';
 import { currentUser, type Member } from './auth';
 import { assertVisibleAuthor } from './member-safety';
 
-export async function entity(kind:string,id:string){
-  if(!['project','post','comment'].includes(kind)||!id||id.length>100)throw new ApiError(400,'대상을 확인해주세요.');
+export async function entity(kind:string,id:string):Promise<{id:string;ownerId:string|null;title:string;status:string;kind:string;projectId?:string}>{
+  if(!['project','post','comment','entry'].includes(kind)||!id||id.length>100)throw new ApiError(400,'대상을 확인해주세요.');
+  // a published episode or update note of a visible work (readers comment per episode)
+  if(kind==='entry'){
+    const e=await db().prepare("SELECT e.id,e.project_id,p.owner_id,p.source,e.title FROM entries e JOIN projects p ON p.id=e.project_id WHERE e.id=? AND e.status='published' AND e.published_at<=? AND p.deleted_at IS NULL AND p.hidden_at IS NULL AND p.visibility='public'").bind(id,Date.now()).first();
+    if(e){await assertVisibleAuthor(String(e.owner_id),(await currentUser())?.id);return{id,ownerId:e.source==='community'?String(e.owner_id):null,title:String(e.title),status:'live',kind,projectId:String(e.project_id)};}
+  }
   if(kind==='project'){
     const p=await db().prepare("SELECT id, owner_id, title, source, status FROM projects WHERE id = ? AND deleted_at IS NULL AND hidden_at IS NULL AND visibility = 'public'").bind(id).first();
     if(p){await assertVisibleAuthor(String(p.owner_id),(await currentUser())?.id);return{id,ownerId:p.source==='catalog'?null:String(p.owner_id),title:String(p.title),status:String(p.status||'live'),kind};}
@@ -18,6 +23,9 @@ export async function entity(kind:string,id:string){
   }
   throw new ApiError(404,'삭제되었거나 찾을 수 없는 콘텐츠입니다.');
 }
+/** Milliseconds since the member joined (brand-new accounts get tighter spam limits). */
+export async function accountAge(userId:string){const row=await db().prepare('SELECT created FROM profiles WHERE id=?').bind(userId).first();return Date.now()-Number(row?.created||0);}
+export const NEW_ACCOUNT=86400000;
 export async function stats(kind:string,id:string,userId=''){
   const reactions=await db().prepare('SELECT COUNT(*) AS total, COALESCE(MAX(user_id = ?),0) AS mine FROM reactions WHERE target_kind = ? AND target_id = ?').bind(userId,kind,id).first();
   const comments=await db().prepare('SELECT COUNT(*) AS total FROM comments WHERE target_kind = ? AND target_id = ? AND deleted_at IS NULL AND hidden_at IS NULL').bind(kind,id).first();
@@ -49,5 +57,5 @@ export async function notifyAdmins(actorId:string,kind:string,tab:string,excerpt
   const ops=admins.results.filter(a=>a.id!==actorId).map(a=>db().prepare('INSERT INTO notifications (id,recipient_id,actor_id,kind,target_kind,target_id,excerpt,created) VALUES (?,?,?,?,?,?,?,?)').bind(crypto.randomUUID(),a.id,actorId,kind,'admin',tab,excerpt.slice(0,140),now));
   if(ops.length)await db().batch(ops);
 }
-export const postSelect=`SELECT p.id,p.title,p.body,p.category,p.project_id,p.created,p.updated,u.public_id AS author_id,u.name AS author_name,u.avatar AS author_avatar,(p.owner_id = ?) AS owned,(SELECT COUNT(*) FROM reactions r WHERE r.target_kind = 'post' AND r.target_id = p.id) AS recommendations,(SELECT COUNT(*) FROM comments c WHERE c.target_kind = 'post' AND c.target_id = p.id AND c.deleted_at IS NULL AND c.hidden_at IS NULL) AS comments,EXISTS(SELECT 1 FROM reactions r WHERE r.target_kind='post' AND r.target_id=p.id AND r.user_id=?) AS recommended FROM posts p JOIN profiles u ON u.id=p.owner_id`;
+export const postSelect=`SELECT p.id,p.title,p.body,p.category,p.project_id,p.solved_comment,p.created,p.updated,u.public_id AS author_id,u.name AS author_name,u.avatar AS author_avatar,(p.owner_id = ?) AS owned,(SELECT COUNT(*) FROM reactions r WHERE r.target_kind = 'post' AND r.target_id = p.id) AS recommendations,(SELECT COUNT(*) FROM comments c WHERE c.target_kind = 'post' AND c.target_id = p.id AND c.deleted_at IS NULL AND c.hidden_at IS NULL) AS comments,EXISTS(SELECT 1 FROM reactions r WHERE r.target_kind='post' AND r.target_id=p.id AND r.user_id=?) AS recommended FROM posts p JOIN profiles u ON u.id=p.owner_id`;
 export function safePost(p:Record<string,unknown>){return {...p,owned:!!p.owned,recommended:!!p.recommended};}

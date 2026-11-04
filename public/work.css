@@ -92,3 +92,24 @@
 .triage{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:8px;padding:8px 10px;border-radius:8px;background:#ffffff08;font-size:13px;color:#9a9a9a}
 .triage select{min-height:32px;padding:0 8px;border-radius:6px;border:1px solid #ffffff24;background:#111;color:#eee}
 @media(max-width:600px){.bars li{grid-template-columns:minmax(0,1fr) 70px auto}}
+/* Video chapters that seek the player */
+.chapters{list-style:none;margin:0;padding:0;display:grid;gap:4px}
+.chapters li{display:flex;gap:10px;align-items:baseline}
+.chapters button{min-width:56px;padding:2px 8px;border-radius:6px;background:#c3f5681a;color:var(--lime);font:600 13px ui-monospace,Menlo,monospace;text-align:center}
+.chapters button:hover{background:#c3f56833}
+.info>span small{font-weight:500;color:#6f6f6f;margin-left:6px}
+.team{margin:0;padding-left:18px;columns:2;column-gap:24px}
+@media(max-width:600px){.team{columns:1}}
+/* 성인 소재: blurred until the visitor opts in */
+.mature-gate{margin:0 0 18px;padding:18px 20px;border-radius:14px;background:#ffb4471a;border:1px solid #ffb44766}
+.mature-gate b{display:block;color:#ffc46b;font-size:16px}
+.mature-gate p{margin:6px 0 12px;color:#e6d3b3;font-size:14px}
+.is-gated>.cover,.is-gated>.frame,.is-gated .body,.is-gated .play-embed,.is-gated .scene-player{filter:blur(28px) saturate(.6);pointer-events:none;user-select:none}
+/* Rating distribution + after-play prompt */
+.dist{display:grid;gap:4px;margin:4px 0 14px;max-width:420px}
+.dist li{display:grid;grid-template-columns:28px 1fr 32px;align-items:center;gap:8px;font-size:12.5px;color:#9a9a9a}
+.dist i{display:block;height:8px;border-radius:4px;background:linear-gradient(90deg,#ffd166 var(--w),#ffffff12 var(--w))}
+.dist em{font-style:normal;text-align:right;font-variant-numeric:tabular-nums}
+.after-play{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);z-index:20;display:flex;align-items:center;gap:12px;max-width:calc(100% - 32px);padding:12px 14px 12px 18px;border-radius:14px;background:#151915;border:1px solid #c3f56855;box-shadow:0 12px 40px #000a;font-size:14px}
+.after-play b{color:#fff}
+.after-play button.close{color:#9a9a9a;font-size:18px;padding:0 4px}

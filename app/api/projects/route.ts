@@ -78,12 +78,15 @@ export async function POST(request: Request) {
     const created = Date.now();
     const id = `community-${crypto.randomUUID()}`;
     const { ops, json:content } = await contentStatements(id, blocks, created);
-    const result = await env.DB!.prepare('INSERT INTO projects (id, owner_id, title, creator, type, description, url, image, created, genres, details, content, visibility) SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? WHERE (SELECT COUNT(*) FROM projects WHERE owner_id = ? AND created > ?) < 10 RETURNING id').bind(id,user.id,project.title,user.name,project.type,project.description,project.url||null,image,created,JSON.stringify(project.genres),JSON.stringify(project.details),content,b.draft===true?'draft':'public',user.id,created-86400000).all();
-    if (!result.results.length) return json({error:'하루에 최대 10개까지 등록할 수 있습니다. 내일 다시 소개해주세요.'},429);
+    // brand-new accounts (first 24 hours) get a smaller daily allowance: the usual shape of link-spam accounts
+    const joined = Number((await env.DB!.prepare('SELECT created FROM profiles WHERE id=?').bind(user.id).first())?.created || 0);
+    const daily = created - joined < 86400000 ? 2 : 10;
+    const result = await env.DB!.prepare('INSERT INTO projects (id, owner_id, title, creator, type, description, url, image, created, genres, details, content, visibility, status) SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? WHERE (SELECT COUNT(*) FROM projects WHERE owner_id = ? AND created > ?) < ? RETURNING id').bind(id,user.id,project.title,user.name,project.type,project.description,project.url||null,image,created,JSON.stringify(project.genres),JSON.stringify(project.details),content,b.draft===true?'draft':'public',project.status,user.id,created-86400000,daily).all();
+    if (!result.results.length) return json({error:daily===2?'가입 첫날에는 작품을 2개까지 올릴 수 있어요. 내일부터는 하루 10개까지 가능해요.':'하루에 최대 10개까지 등록할 수 있습니다. 내일 다시 소개해주세요.'},429);
     if (ops.length) await env.DB!.batch(ops);
     invalidateCatalog();
     const gallery = JSON.parse(content).filter((x:{type:string})=>x.type==='image').map((x:{id:string})=>`/api/project-images/${x.id}`);
-    return json({ project:{...project,image:image?`/api/projects/${id}/cover?v=${image.length}`:'',creator:user.name,id,created,subtitle:project.description,owned:true,art:'custom',tags:['커뮤니티'],badge:'COMMUNITY',status:'live',draft:b.draft===true,rating:0,ratingCount:0,recommendations:0,commentCount:0,gallery} },201);
+    return json({ project:{...project,image:image?`/api/projects/${id}/cover?v=${image.length}`:'',creator:user.name,id,created,subtitle:project.description,owned:true,art:'custom',tags:['커뮤니티'],badge:'COMMUNITY',status:project.status,draft:b.draft===true,rating:0,ratingCount:0,recommendations:0,commentCount:0,gallery} },201);
   } catch (error) {
     if (error instanceof Error && error.message.includes('UNIQUE')) return json({error:'같은 링크의 작품이 이미 등록되어 있습니다.'},409);
     if (error instanceof Error && 'status' in error) return json({error:error.message},Number((error as {status:number}).status));

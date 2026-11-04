@@ -26,3 +26,7 @@
 .detail-gallery img{display:block;width:100%;height:auto;border-radius:8px;border:1px solid #ffffff12;background:#10150d}
 .notification-item.system strong{color:var(--lime)}
 .notification-item .notice-action{display:block;margin-top:6px;font-style:normal;font-size:12.5px;font-weight:700;color:#ffc46b}
+.question-badge{display:inline-flex;margin-left:6px;padding:1px 8px;border-radius:999px;border:1px solid #ffffff24;color:#bfc5b6;font-size:11px;font-weight:700;vertical-align:middle}
+.question-badge.solved{border-color:#c3f56866;color:var(--lime)}
+.accepted-badge{margin-left:6px;padding:1px 8px;border-radius:999px;background:#c3f5681f;color:var(--lime);font-size:11px;font-weight:700}
+.unsolved-toggle{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:#b9beb2}

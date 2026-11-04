@@ -77,6 +77,7 @@ export async function purgePosts(ids:string[]){
 }
 export async function purgeProjects(ids:string[]){
   await purgeComments(await idsWhere("SELECT id FROM comments WHERE target_kind='project' AND target_id IN (??)",ids));
+  await purgeComments(await idsWhere("SELECT id FROM comments WHERE target_kind='entry' AND target_id IN (SELECT id FROM entries WHERE project_id IN (??))",ids));
   for(const part of chunks(ids))await db().batch([
     run('DELETE FROM project_images WHERE project_id IN (??)',part),
     run('DELETE FROM ratings WHERE project_id IN (??)',part),

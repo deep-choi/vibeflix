@@ -21,7 +21,7 @@ sql(actors.map(u=>`INSERT INTO profiles(id,public_id,name,role,created,updated) 
 async function request(actor,url,method='GET',body,extra={}){
   for(let attempt=0;;attempt++){
     const headers={...(actor?{Cookie:'vibeflix_session='+actor.token}:{}),...(method!=='GET'?{Origin:origin}:{}),...(body!==undefined?{'Content-Type':'application/json'}:{}),...extra};
-    const response=await fetch(origin+url,{method,headers,...(body!==undefined?{body:JSON.stringify(body)}:{})});
+    const response=await fetch(origin+url,{method,headers,signal:AbortSignal.timeout(30000),...(body!==undefined?{body:JSON.stringify(body)}:{})});
     const text=await response.text();let data;try{data=JSON.parse(text);}catch{data=text;}
     if(response.status===503&&attempt<2&&!(data&&data.error)){await new Promise(r=>setTimeout(r,300));continue;}
     return {status:response.status,data,headers:response.headers};
