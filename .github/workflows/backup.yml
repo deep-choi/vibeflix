@@ -1,0 +1,40 @@
+# Daily export of the production D1 as a workflow artifact (kept 30 days), on top of D1's own 30-day time travel.
+# Needs repository secrets CLOUDFLARE_API_TOKEN (D1 read) and CLOUDFLARE_ACCOUNT_ID; skips itself until both exist.
+# The export contains member data: keep this repository private and limit who can download artifacts.
+name: D1 backup
+on:
+  schedule:
+    - cron: '17 18 * * *' # 03:17 KST
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: Check secrets
+        id: secrets
+        run: |
+          if [ -n "$CLOUDFLARE_API_TOKEN" ] && [ -n "$CLOUDFLARE_ACCOUNT_ID" ]; then echo "ready=true" >> "$GITHUB_OUTPUT"; else echo "::notice::Set CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID to enable D1 backups."; fi
+      - uses: actions/checkout@v4
+        if: steps.secrets.outputs.ready == 'true'
+      - uses: actions/setup-node@v4
+        if: steps.secrets.outputs.ready == 'true'
+        with:
+          node-version: 22
+          cache: npm
+      - if: steps.secrets.outputs.ready == 'true'
+        run: npm ci --include=dev --no-audit --no-fund
+      - name: Export vibeflix-db
+        if: steps.secrets.outputs.ready == 'true'
+        run: npx wrangler d1 export vibeflix-db --remote --output "vibeflix-db-$(date -u +%Y%m%d).sql"
+      - uses: actions/upload-artifact@v4
+        if: steps.secrets.outputs.ready == 'true'
+        with:
+          name: vibeflix-db-${{ github.run_id }}
+          path: vibeflix-db-*.sql
+          retention-days: 30

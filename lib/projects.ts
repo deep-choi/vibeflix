@@ -3,7 +3,7 @@ import { parseGalleryImage, type ContentBlock } from './project-input';
 
 // Curated works first, then member uploads, then sample placeholders
 export const SOURCE_ORDER="CASE source WHEN 'catalog' THEN 0 WHEN 'community' THEN 1 ELSE 2 END";
-export const PROJECT_COLUMNS="id, owner_id, title, creator, type, description, url, CASE WHEN image LIKE 'data:%' THEN '/api/projects/' || id || '/cover?v=' || length(image) ELSE image END AS image, created, source, subtitle, art, badge, status, tags, genres, details, visibility, featured, sort, hidden_at, (SELECT public_id FROM profiles WHERE profiles.id = projects.owner_id) AS owner_public_id";
+export const PROJECT_COLUMNS="id, owner_id, title, creator, type, description, url, CASE WHEN image LIKE 'data:%' THEN '/api/projects/' || id || '/cover?v=' || length(image) ELSE image END AS image, created, source, subtitle, art, badge, status, tags, genres, details, visibility, featured, sort, hidden_at, verified_at, (SELECT public_id FROM profiles WHERE profiles.id = projects.owner_id) AS owner_public_id";
 const parseTags=(value:unknown)=>{try{const v=JSON.parse(String(value||'[]'));return Array.isArray(v)?v.map(String):[];}catch{return [];}};
 
 // Shape a projects row the way the site expects (curated and community works look the same to the client).
@@ -16,7 +16,9 @@ export function publicProject(row:Record<string,unknown>,userId=''){
     art:row.art||'custom',tags:tags.length?tags:community?['커뮤니티']:[],genres:parseTags(row.genres),badge:row.badge||(community?'COMMUNITY':''),
     status:row.status||'live',featured:!!row.featured,owned:!!userId&&row.source==='community'&&row.owner_id===userId,
     sample:row.source==='sample', // placeholder content an operator added; shown with a "예시" label and no link
-    draft:row.visibility==='draft',creatorId:row.source==='catalog'?'':String(row.owner_public_id||''),
+    draft:row.visibility==='draft',
+    // curated works are the operator's own; community links count as checked once an operator verified them
+    verified:row.source==='catalog'||!!row.verified_at,creatorId:row.source==='catalog'?'':String(row.owner_public_id||''),
     details:(()=>{try{const d=JSON.parse(String(row.details||'{}'));return d&&typeof d==='object'?d:{};}catch{return {};}})(),
   };
 }
@@ -33,12 +35,45 @@ export const BANNER_IMAGE={maxBytes:700*1024,maxDimension:4096} as const; // sam
 export const bannerImageUrl=(row:Record<string,unknown>)=>{const image=String(row.image||'');return image.startsWith('data:')?`/api/banners/${row.id}/image?v=${image.length}`:image;};
 export const parseBannerImage=(value:unknown)=>{const image=parseGalleryImage(value);return image&&image.bytes.length<=BANNER_IMAGE.maxBytes?image:null;};
 export function publicBanner(row:Record<string,unknown>){
-  return {id:String(row.id),projectId:row.project_id?String(row.project_id):'',title:row.title,description:row.description,buttonLabel:row.button_label,buttonIcon:row.button_icon,url:row.url,theme:row.theme,image:bannerImageUrl(row),sort:row.sort,enabled:!!row.enabled};
+  return {id:String(row.id),projectId:row.project_id?String(row.project_id):'',title:row.title,description:row.description,buttonLabel:row.button_label,buttonIcon:row.button_icon,url:row.url,theme:row.theme,image:bannerImageUrl(row),sort:row.sort,enabled:!!row.enabled,startsAt:row.starts_at?Number(row.starts_at):null,endsAt:row.ends_at?Number(row.ends_at):null};
 }
-export async function listBanners(includeDisabled=false){
-  const rows=await db().prepare(`SELECT * FROM banners ${includeDisabled?'':'WHERE enabled=1'} ORDER BY sort, created`).all();
+/** Scheduled rows (banners, collections) are live when enabled and inside their optional start/end window. */
+export const LIVE_WINDOW='enabled=1 AND (starts_at IS NULL OR starts_at<=?) AND (ends_at IS NULL OR ends_at>?)';
+export async function listBanners(includeAll=false){
+  const now=Date.now();
+  const rows=await (includeAll?db().prepare('SELECT * FROM banners ORDER BY sort, created'):db().prepare(`SELECT * FROM banners WHERE ${LIVE_WINDOW} ORDER BY sort, created`).bind(now,now)).all();
   return rows.results.map(publicBanner);
 }
+
+// ───── Collections (기획전): operator-curated rows on the home page ─────
+export const parseIds=(value:unknown)=>{try{const v=JSON.parse(String(value||'[]'));return Array.isArray(v)?v.map(String):[];}catch{return [];}};
+export function publicCollection(row:Record<string,unknown>){
+  return {id:String(row.id),title:String(row.title),description:String(row.description||''),projectIds:parseIds(row.project_ids),sort:Number(row.sort||0),enabled:!!row.enabled,startsAt:row.starts_at?Number(row.starts_at):null,endsAt:row.ends_at?Number(row.ends_at):null};
+}
+export async function listCollections(includeAll=false){
+  const now=Date.now();
+  const rows=await (includeAll?db().prepare('SELECT * FROM collections ORDER BY sort, created'):db().prepare(`SELECT * FROM collections WHERE ${LIVE_WINDOW} ORDER BY sort, created`).bind(now,now)).all();
+  return rows.results.map(publicCollection);
+}
+
+/** Tells everyone who saved an upcoming work that it is now live (once per launch). */
+export async function announceLaunch(projectId:string,actorId:string,title:string){
+  const recipients=await db().prepare('SELECT user_id FROM bookmarks WHERE project_id=? LIMIT 2000').bind(projectId).all();
+  const now=Date.now();
+  const ops=recipients.results.filter(r=>r.user_id!==actorId).map(r=>db().prepare('INSERT INTO notifications (id,recipient_id,actor_id,kind,target_kind,target_id,excerpt,created) VALUES (?,?,?,?,?,?,?,?)').bind(crypto.randomUUID(),r.user_id,actorId,'launch','project',projectId,`${title} · 지금 만나볼 수 있어요`.slice(0,140),now));
+  for(let i=0;i<ops.length;i+=50)await db().batch(ops.slice(i,i+50));
+  return ops.length;
+}
+
+// ───── Public catalog cache ─────
+// Signed-out visitors all get the same catalog page, so each Worker isolate keeps it for a short while instead of
+// re-running the list and its aggregates on every home visit. Writes in this isolate clear it straight away;
+// other isolates catch up within CATALOG_TTL. (The Cache API is not available on workers.dev, so this lives in memory.)
+export const CATALOG_TTL=30_000;
+const catalogCache=new Map<string,{at:number;body:string}>();
+export function cachedCatalog(key:string){const hit=catalogCache.get(key);return hit&&Date.now()-hit.at<CATALOG_TTL?hit.body:null;}
+export function storeCatalog(key:string,body:string){if(catalogCache.size>50)catalogCache.clear();catalogCache.set(key,{at:Date.now(),body});}
+export function invalidateCatalog(){catalogCache.clear();}
 
 /**
  * Turns validated body blocks into D1 statements: new images are inserted into project_images, kept ones are

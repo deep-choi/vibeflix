@@ -68,3 +68,27 @@
 
 /* Mobile: comment box stacks with the button under it */
 @media(max-width:600px){.comment-form,.comment-form:not(:has(select)){grid-template-columns:1fr}.comment-form .btn{justify-self:end}.actions .btn{min-height:40px;padding:0 16px;font-size:13.5px}.owner-stats{grid-template-columns:repeat(2,1fr)}}
+/* Owner insights: 30-day views, where views came from, episode-by-episode readers */
+.insights{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;margin-top:10px}
+.insight{padding:12px 14px;border-radius:10px;background:#00000066;min-width:0}
+.insight.wide{grid-column:1/-1}
+.insight>span{display:block;font-size:12px;color:#9a9a9a;margin-bottom:8px}
+.insight .muted{margin:0;font-size:13px}
+.spark{display:block;width:100%;height:72px}
+.spark rect{fill:var(--lime);opacity:.85}
+.spark rect:hover{opacity:1}
+.insight small{display:flex;justify-content:space-between;margin-top:4px;font-size:11px;color:#7d7d7d}
+.insight small em{font-style:normal}
+.bars{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.bars li{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr) auto;align-items:center;gap:8px;font-size:13px}
+.bars b{font-weight:600;color:#e6e6e6;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bars i{display:block;height:8px;border-radius:4px;background:linear-gradient(90deg,var(--lime) var(--w),#ffffff14 var(--w))}
+.bars em{font-style:normal;color:#bdbdbd;font-variant-numeric:tabular-nums;white-space:nowrap}
+/* Status chips: operator-checked link, hidden work, creator triage */
+.chip.ok{border-color:#c3f56866;color:var(--lime)}
+.chip.warn{border-color:#ffb44766;color:#ffc46b;text-decoration:none}
+.status-ack{border-color:#ffffff40;color:#e6e6e6}
+.status-fixed{border-color:#c3f56866;color:var(--lime);text-decoration:none}
+.triage{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:8px;padding:8px 10px;border-radius:8px;background:#ffffff08;font-size:13px;color:#9a9a9a}
+.triage select{min-height:32px;padding:0 8px;border-radius:6px;border:1px solid #ffffff24;background:#111;color:#eee}
+@media(max-width:600px){.bars li{grid-template-columns:minmax(0,1fr) 70px auto}}

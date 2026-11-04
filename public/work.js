@@ -29,10 +29,15 @@
   }));
   if(cfg.creatorPage)return;
 
+  /* ───── Remember this work for the home page's "이어서 볼 작품" row (this device only) ───── */
+  try{const key='vibeflix.recent';const list=JSON.parse(localStorage.getItem(key)||'[]').filter(x=>x&&x.id!==cfg.id);const prev=JSON.parse(localStorage.getItem(key)||'[]').find(x=>x&&x.id===cfg.id)||{};list.unshift({...prev,id:cfg.id,at:Date.now()});localStorage.setItem(key,JSON.stringify(list.slice(0,20)));}catch{}
+
   /* ───── Save, recommend, share ───── */
   $('[data-save]')?.addEventListener('click',async event=>{
     const b=event.currentTarget;if(needLogin())return;b.disabled=true;
-    try{await api('/api/community/bookmarks','PUT',{projectId:cfg.id,active:!cfg.saved});cfg.saved=!cfg.saved;b.classList.toggle('on',cfg.saved);b.textContent=cfg.saved?'✓ 찜했어요':'＋ 찜하기';toast(cfg.saved?'찜했어요. 새 회차와 업데이트를 알려드릴게요.':'찜을 취소했어요.');}
+    try{await api('/api/community/bookmarks','PUT',{projectId:cfg.id,active:!cfg.saved});cfg.saved=!cfg.saved;b.classList.toggle('on',cfg.saved);
+      if(cfg.upcoming){b.textContent=cfg.saved?'✓ 출시 알림 신청함':'＋ 출시 알림 받기';toast(cfg.saved?'공개되면 알림으로 알려드릴게요.':'출시 알림을 취소했어요.');}
+      else{b.textContent=cfg.saved?'✓ 찜했어요':'＋ 찜하기';toast(cfg.saved?'찜했어요. 새 회차와 업데이트를 알려드릴게요.':'찜을 취소했어요.');}}
     catch(error){toast(error.message);}finally{b.disabled=false;}
   });
   $('[data-recommend]')?.addEventListener('click',async event=>{
@@ -46,7 +51,10 @@
   });
 
   /* ───── Click stats: outbound links on this page ───── */
-  document.addEventListener('click',event=>{if(event.target.closest('[data-track-click]'))fetch(workApi('/hit?kind=click'),{method:'POST',keepalive:true}).catch(()=>{});});
+  const countClick=()=>fetch(workApi('/hit?kind=click'),{method:'POST',keepalive:true}).catch(()=>{});
+  document.addEventListener('click',event=>{if(event.target.closest('[data-track-click]'))countClick();});
+  // guarded links (public/leave-guard.js) count once the visitor confirms leaving
+  document.addEventListener('vibe:leave',event=>{if(event.detail?.closest?.('[data-track-click]'))countClick();});
 
   /* ───── In-page play (itch.io HTML5 embed) ───── */
   $('[data-play-embed]')?.addEventListener('click',()=>{
@@ -89,10 +97,28 @@
   function drawComments(){
     const list=$('#comments');if(!list)return;
     const top=comments.filter(c=>!c.parent_id&&(!filter||c.label===filter));const replies=id=>comments.filter(c=>c.parent_id===id);
-    const item=(c,reply)=>`<li class="comment${reply?' reply':''}" data-comment="${esc(c.id)}"><div class="comment-head"><b>${esc(c.author_name)}</b>${c.label?`<em class="chip label-${esc(c.label)}">${labelName[c.label]||''}</em>`:''}<small>${time(c.created)}</small></div><p>${esc(c.body)}</p>${!reply&&!c.removed?'<button class="link" data-reply>답글</button>':''}${c.owned&&!c.removed?'<button class="link" data-delete-comment>삭제</button>':''}</li>`;
+    const item=(c,reply)=>`<li class="comment${reply?' reply':''}" data-comment="${esc(c.id)}"><div class="comment-head"><b>${esc(c.author_name)}</b>${c.label?`<em class="chip label-${esc(c.label)}">${labelName[c.label]||''}</em>`:''}${statusChip(c)}<small>${time(c.created)}</small></div><p>${esc(c.body)}</p>${!reply&&!c.removed?'<button class="link" data-reply>답글</button>':''}${c.owned&&!c.removed?'<button class="link" data-delete-comment>삭제</button>':''}${triageControls(c,reply)}</li>`;
     list.innerHTML=top.length?`<ul class="comments">${top.map(c=>item(c,false)+replies(c.id).map(r=>item(r,true)).join('')).join('')}</ul>`:`<p class="muted">${filter?'이 분류의 댓글이 아직 없어요.':'첫 댓글을 남겨보세요.'}</p>`;
     const count=$('[data-comment-count]');const n=comments.filter(c=>!c.removed).length;if(count)count.textContent=n?`${n}개`:'';
   }
+  // Creator triage: feedback and bug reports can be marked "확인함" or "반영됨" (optionally with the update that fixed it)
+  function statusChip(c){
+    if(!c.label||c.removed)return '';
+    if(c.status==='fixed'){const label=c.status_entry_label?` · ${esc(c.status_entry_label)}`:'';return c.status_entry&&c.status_entry_label?`<a class="chip status-fixed" href="/works/${encodeURIComponent(cfg.id)}/e/${encodeURIComponent(c.status_entry)}">✓ 반영됨${label}</a>`:`<em class="chip status-fixed">✓ 반영됨</em>`;}
+    return c.status==='ack'?'<em class="chip status-ack">작가 확인</em>':'';
+  }
+  function triageControls(c,reply){
+    if(!cfg.owner||reply||c.removed||!c.label)return '';
+    const opts=[['','새 의견'],['ack','확인함'],['fixed','반영됨']].map(([v,l])=>`<option value="${v}" ${(c.status||'')===v?'selected':''}>${l}</option>`).join('');
+    const updates=cfg.updates?.length?`<select data-triage-entry ${c.status==='fixed'?'':'hidden'} aria-label="반영한 업데이트"><option value="">업데이트 연결 안 함</option>${cfg.updates.map(u=>`<option value="${esc(u.id)}" ${c.status_entry===u.id?'selected':''}>${esc(u.label)}</option>`).join('')}</select>`:'';
+    return `<form class="triage" data-triage><label>상태 <select data-triage-status>${opts}</select></label>${updates}<button class="link">저장</button></form>`;
+  }
+  $('#comments')?.addEventListener('change',event=>{const status=event.target.closest('[data-triage-status]');if(!status)return;const entry=status.closest('form').querySelector('[data-triage-entry]');if(entry)entry.hidden=status.value!=='fixed';});
+  $('#comments')?.addEventListener('submit',async event=>{
+    const form=event.target.closest('[data-triage]');if(!form)return;event.preventDefault();const id=form.closest('[data-comment]').dataset.comment;
+    const status=form.querySelector('[data-triage-status]').value;const entry=form.querySelector('[data-triage-entry]');
+    try{await api(`/api/community/triage/${encodeURIComponent(id)}`,'PUT',{status,entryId:status==='fixed'&&entry?entry.value:''});toast(status?'상태를 바꿨어요. 남긴 사람에게 알려드릴게요.':'상태를 지웠어요.');await loadComments();}catch(error){toast(error.message);}
+  });
   async function loadComments(){try{const r=await api(`/api/community/comments?kind=project&id=${encodeURIComponent(cfg.id)}`);comments=r.comments;drawComments();}catch{}}
   $$('[data-comment-filter]').forEach(b=>b.addEventListener('click',()=>{filter=b.dataset.commentFilter;$$('[data-comment-filter]').forEach(x=>x.classList.toggle('on',x===b));drawComments();}));
   $('#comment-form')?.addEventListener('submit',async event=>{

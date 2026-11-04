@@ -1,6 +1,8 @@
 import { ApiError, body, db, failure, json, limit, origin, pageParams, text } from '../../../../lib/api';
-import { currentUser, publicMember, requireAdmin, requireUser } from '../../../../lib/auth';
-import { entity, notify, postSelect, safePost, stats } from '../../../../lib/community';
+import { currentUser, digest, publicMember, requireAdmin, requireUser } from '../../../../lib/auth';
+import { entity, notify, postSelect, safePost, stats, systemNotify } from '../../../../lib/community';
+import { kstDay } from '../../../../lib/admin';
+import { alertNewReport, createAppeal, reportCategory, reportReason, resolveReports } from '../../../../lib/moderation';
 
 import { blockedPublicIds, requireContentConsent } from '../../../../lib/member-safety';
 
@@ -33,7 +35,7 @@ async function dispatch(request:Request,context:Context){
   if(resource==='comments'){
     if(method==='GET'){
       const kind=url.searchParams.get('kind')||'';const targetId=url.searchParams.get('id')||'';if(!['project','post'].includes(kind))throw new ApiError(400,'댓글 대상을 확인해주세요.');await entity(kind,targetId);const user=await currentUser();const {offset}=pageParams(url);const take=50;
-      const rows=await db().prepare(`SELECT c.id,c.parent_id,c.label,CASE WHEN c.deleted_at IS NOT NULL THEN '삭제된 댓글입니다.' WHEN c.hidden_at IS NOT NULL THEN '운영자가 숨긴 댓글입니다.' ELSE c.body END AS body,c.created,c.updated,(c.deleted_at IS NOT NULL OR c.hidden_at IS NOT NULL) AS removed,u.public_id AS author_id,u.name AS author_name,u.avatar AS author_avatar,(c.owner_id=?) AS owned,(SELECT COUNT(*) FROM reactions r WHERE r.target_kind='comment' AND r.target_id=c.id) AS recommendations,EXISTS(SELECT 1 FROM reactions r WHERE r.target_kind='comment' AND r.target_id=c.id AND r.user_id=?) AS recommended FROM comments c JOIN profiles u ON u.id=c.owner_id WHERE c.target_kind=? AND c.target_id=? ORDER BY c.created ASC,c.id ASC LIMIT ? OFFSET ?`).bind(user?.id||'',user?.id||'',kind,targetId,take+1,offset).all();
+      const rows=await db().prepare(`SELECT c.id,c.parent_id,c.label,c.status,c.status_entry,(SELECT CASE WHEN e.version<>'' THEN 'v'||ltrim(e.version,'vV')||' · '||e.title ELSE e.title END FROM entries e WHERE e.id=c.status_entry AND e.status='published' AND e.published_at<=?) AS status_entry_label,CASE WHEN c.deleted_at IS NOT NULL THEN '삭제된 댓글입니다.' WHEN c.hidden_at IS NOT NULL THEN '운영자가 숨긴 댓글입니다.' ELSE c.body END AS body,c.created,c.updated,(c.deleted_at IS NOT NULL OR c.hidden_at IS NOT NULL) AS removed,u.public_id AS author_id,u.name AS author_name,u.avatar AS author_avatar,(c.owner_id=?) AS owned,(SELECT COUNT(*) FROM reactions r WHERE r.target_kind='comment' AND r.target_id=c.id) AS recommendations,EXISTS(SELECT 1 FROM reactions r WHERE r.target_kind='comment' AND r.target_id=c.id AND r.user_id=?) AS recommended FROM comments c JOIN profiles u ON u.id=c.owner_id WHERE c.target_kind=? AND c.target_id=? ORDER BY c.created ASC,c.id ASC LIMIT ? OFFSET ?`).bind(Date.now(),user?.id||'',user?.id||'',kind,targetId,take+1,offset).all();
       const blocked=await blockedPublicIds(user?.id);return json({comments:rows.results.slice(0,take).filter(c=>!blocked.has(String(c.author_id))).map(c=>({...c,owned:!!c.owned,removed:!!c.removed,recommended:!!c.recommended})),next:rows.results.length>take?offset+take:null});
     }
     const user=await requireUser();
@@ -44,6 +46,20 @@ async function dispatch(request:Request,context:Context){
       const commentId=crypto.randomUUID();const now=Date.now();await db().prepare('INSERT INTO comments (id,owner_id,target_kind,target_id,parent_id,body,label,created,updated) VALUES(?,?,?,?,?,?,?,?,?)').bind(commentId,user.id,kind,targetId,parentId,content,label,now,now).run();await notify(recipient,user,parentId?'reply':'comment',kind,targetId,content);return json({id:commentId},201);
     }
     if(id&&(method==='PATCH'||method==='DELETE')){const c=await db().prepare('SELECT owner_id,target_kind,target_id FROM comments WHERE id=? AND deleted_at IS NULL AND hidden_at IS NULL').bind(id).first();if(!c||c.owner_id!==user.id)throw new ApiError(404,'수정할 댓글을 찾을 수 없습니다.');await entity(String(c.target_kind),String(c.target_id));if(method==='DELETE')await db().prepare('UPDATE comments SET deleted_at=?,updated=? WHERE id=? AND owner_id=?').bind(Date.now(),Date.now(),id,user.id).run();else{await limit(user.id,'edit',30);const b=await body(request);await db().prepare('UPDATE comments SET body=?,updated=? WHERE id=? AND owner_id=?').bind(text(b.body,1,2000,'댓글'),Date.now(),id,user.id).run();}return json({ok:true});}
+  }
+  // The work's creator marks a feedback / bug-report comment as seen ('ack') or fixed (optionally in an update note);
+  // the commenter is told once per change.
+  if(resource==='triage'&&id&&method==='PUT'){
+    const user=await requireUser();await limit(user.id,'triage',60);const b=await body(request);
+    const status=['','ack','fixed'].includes(String(b.status??''))?String(b.status??''):null;if(status===null)throw new ApiError(400,'상태를 확인해주세요.');
+    const c=await db().prepare("SELECT c.id,c.owner_id,c.label,c.status,c.parent_id,c.target_id,p.owner_id AS work_owner,p.title AS work_title FROM comments c JOIN projects p ON p.id=c.target_id WHERE c.id=? AND c.target_kind='project' AND c.deleted_at IS NULL AND c.hidden_at IS NULL").bind(id).first();
+    if(!c||c.work_owner!==user.id)throw new ApiError(404,'상태를 바꿀 댓글을 찾을 수 없어요.');
+    if(c.parent_id||!['feedback','bug'].includes(String(c.label)))throw new ApiError(400,'피드백·버그 제보 댓글만 상태를 정할 수 있어요.');
+    let entry:null|string=null;let entryLabel='';
+    if(status==='fixed'&&typeof b.entryId==='string'&&b.entryId){const e=await db().prepare("SELECT id,version,title FROM entries WHERE id=? AND project_id=? AND kind='update' AND status='published'").bind(b.entryId,c.target_id).first();if(!e)throw new ApiError(400,'연결할 업데이트 소식을 찾을 수 없어요.');entry=String(e.id);entryLabel=e.version?`v${String(e.version).replace(/^v/i,'')}`:String(e.title);}
+    await db().prepare('UPDATE comments SET status=?,status_entry=? WHERE id=?').bind(status,entry,id).run();
+    if(status&&status!==c.status&&c.owner_id!==user.id){const what=c.label==='bug'?'버그 제보':'피드백';await systemNotify(String(c.owner_id),user.id,'triage','work',String(c.target_id),`${c.work_title} · ${status==='fixed'?`남긴 ${what}가 반영됐어요${entryLabel?` (${entryLabel})`:''}`:`작가가 남긴 ${what}를 확인했어요`}`);}
+    return json({ok:true,status,statusEntry:entry});
   }
   if(resource==='react'&&method==='PUT'){
     const user=await requireUser();await limit(user.id,'react',40);const b=await body(request);const kind=String(b.kind);const targetId=text(b.targetId,1,100,'대상');await entity(kind,targetId);if(typeof b.active!=='boolean')throw new ApiError(400,'추천 상태를 확인해주세요.');
@@ -65,7 +81,7 @@ async function dispatch(request:Request,context:Context){
   if(resource==='profile'){
     const user=await requireUser();if(method==='GET'){
       const ownProjects=await db().prepare('SELECT id,title,created,deleted_at,hidden_at,visibility FROM projects WHERE owner_id=? ORDER BY created DESC LIMIT 100').bind(user.id).all();
-      const ownPosts=await db().prepare('SELECT id,title,created,deleted_at FROM posts WHERE owner_id=? ORDER BY created DESC LIMIT 100').bind(user.id).all();
+      const ownPosts=await db().prepare('SELECT id,title,created,deleted_at,hidden_at FROM posts WHERE owner_id=? ORDER BY created DESC LIMIT 100').bind(user.id).all();
       const ownComments=await db().prepare('SELECT id,target_kind,target_id,body,created FROM comments WHERE owner_id=? AND deleted_at IS NULL AND hidden_at IS NULL ORDER BY created DESC LIMIT 50').bind(user.id).all();
       return json({user:publicMember(user),projects:ownProjects.results,posts:ownPosts.results,comments:ownComments.results});
     }
@@ -76,13 +92,26 @@ async function dispatch(request:Request,context:Context){
     if(method==='PATCH'){const b=await body(request);if(b.id)await db().prepare('UPDATE notifications SET read_at=? WHERE id=? AND recipient_id=?').bind(Date.now(),String(b.id),user.id).run();else await db().prepare('UPDATE notifications SET read_at=? WHERE recipient_id=? AND read_at IS NULL').bind(Date.now(),user.id).run();return json({ok:true});}
   }
   if(resource==='reports'&&method==='POST'){
-    const user=await requireUser();await limit(user.id,'report',5,3600);const b=await body(request);const kind=String(b.kind);const targetId=text(b.targetId,1,100,'대상');await entity(kind,targetId);const reason=text(b.reason,5,500,'신고 사유');const existing=await db().prepare("SELECT id FROM reports WHERE reporter_id=? AND target_kind=? AND target_id=? AND status='pending'").bind(user.id,kind,targetId).first();if(existing)throw new ApiError(409,'이미 접수된 신고입니다.');await db().prepare('INSERT INTO reports (id,reporter_id,target_kind,target_id,reason,created) VALUES(?,?,?,?,?,?)').bind(crypto.randomUUID(),user.id,kind,targetId,reason,Date.now()).run();return json({ok:true},201);
+    const user=await requireUser();await limit(user.id,'report',5,3600);const b=await body(request);const kind=String(b.kind);const targetId=text(b.targetId,1,100,'대상');await entity(kind,targetId);const category=reportCategory(b.category);const reason=reportReason(b.reason,category);const existing=await db().prepare("SELECT id FROM reports WHERE reporter_id=? AND target_kind=? AND target_id=? AND status='pending'").bind(user.id,kind,targetId).first();if(existing)throw new ApiError(409,'이미 접수된 신고입니다.');await db().prepare('INSERT INTO reports (id,reporter_id,target_kind,target_id,reason,category,created) VALUES(?,?,?,?,?,?,?)').bind(crypto.randomUUID(),user.id,kind,targetId,reason,category,Date.now()).run();await alertNewReport(user.id,kind,targetId,category);return json({ok:true},201);
+  }
+  if(resource==='appeals'&&method==='POST'){
+    const user=await requireUser();await limit(user.id,'appeal',5,3600);const b=await body(request);
+    const appeal=await createAppeal(user.id,String(b.kind),text(b.targetId,1,100,'대상'),text(b.reason,10,1000,'이의 제기 사유'));return json({id:appeal},201);
+  }
+  // Searches that found nothing, counted per day without any account or IP attached (what visitors look for but can't find)
+  if(resource==='search-miss'&&method==='POST'){
+    const ip=request.headers.get('cf-connecting-ip')||'local';await limit(`ip:${(await digest(ip)).slice(0,24)}`,'search-miss',20);
+    const b=await body(request,2000);const q=typeof b.q==='string'?b.q.normalize('NFC').trim().toLowerCase().replace(/\s+/g,' ').slice(0,50):'';
+    if(q.length<2)return json({ok:true});
+    const statements=[db().prepare('INSERT INTO search_misses (day,query,count) VALUES (?,?,1) ON CONFLICT(day,query) DO UPDATE SET count=count+1').bind(kstDay(),q)];
+    if(Math.random()<.02)statements.push(db().prepare('DELETE FROM search_misses WHERE day < ?').bind(kstDay(Date.now()-90*86400000)));
+    await db().batch(statements);return json({ok:true});
   }
   if(resource==='moderation'){
-    await requireAdmin();if(method==='GET'){const rows=await db().prepare(`SELECT r.id,r.target_kind,r.target_id,r.reason,r.status,r.created,u.name AS reporter_name,CASE WHEN r.target_kind='comment' THEN (SELECT body FROM comments WHERE id=r.target_id) WHEN r.target_kind='post' THEN (SELECT title || char(10) || body FROM posts WHERE id=r.target_id) ELSE (SELECT title || char(10) || description FROM projects WHERE id=r.target_id) END AS content,CASE WHEN r.target_kind='comment' THEN (SELECT target_kind FROM comments WHERE id=r.target_id) ELSE r.target_kind END AS content_kind,CASE WHEN r.target_kind='comment' THEN (SELECT target_id FROM comments WHERE id=r.target_id) ELSE r.target_id END AS content_id FROM reports r JOIN profiles u ON u.id=r.reporter_id ORDER BY (r.status='pending') DESC,r.created DESC LIMIT 100`).all();return json({reports:rows.results});}
+    const admin=await requireAdmin();if(method==='GET'){const rows=await db().prepare(`SELECT r.id,r.target_kind,r.target_id,r.reason,r.status,r.created,u.name AS reporter_name,CASE WHEN r.target_kind='comment' THEN (SELECT body FROM comments WHERE id=r.target_id) WHEN r.target_kind='post' THEN (SELECT title || char(10) || body FROM posts WHERE id=r.target_id) ELSE (SELECT title || char(10) || description FROM projects WHERE id=r.target_id) END AS content,CASE WHEN r.target_kind='comment' THEN (SELECT target_kind FROM comments WHERE id=r.target_id) ELSE r.target_kind END AS content_kind,CASE WHEN r.target_kind='comment' THEN (SELECT target_id FROM comments WHERE id=r.target_id) ELSE r.target_id END AS content_id FROM reports r JOIN profiles u ON u.id=r.reporter_id ORDER BY (r.status='pending') DESC,r.created DESC LIMIT 100`).all();return json({reports:rows.results});}
     if(method==='PATCH'){const b=await body(request);const reportId=text(b.id,1,100,'신고');const report=await db().prepare("SELECT * FROM reports WHERE id=? AND status='pending'").bind(reportId).first();if(!report)throw new ApiError(404,'처리할 신고를 찾을 수 없습니다.');if(!['dismiss','hide'].includes(String(b.action)))throw new ApiError(400,'처리 방식을 확인해주세요.');
-      if(b.action==='hide'){const table=report.target_kind==='post'?'posts':report.target_kind==='comment'?'comments':report.target_kind==='project'?'projects':'';if(!table)throw new ApiError(400,'처리할 수 없는 대상입니다.');if(table==='projects'&&!String(report.target_id).startsWith('community-'))throw new ApiError(409,'기본 작품은 운영 소스에서 수정해주세요.');await db().prepare(`UPDATE ${table} SET hidden_at=? WHERE id=?`).bind(Date.now(),report.target_id).run();}
-      await db().prepare('UPDATE reports SET status=?,resolved_at=? WHERE id=?').bind(b.action==='hide'?'resolved':'dismissed',Date.now(),reportId).run();return json({ok:true});}
+      if(b.action==='hide'){if(!['post','comment','project'].includes(String(report.target_kind)))throw new ApiError(400,'회원 신고는 운영자 대시보드에서 처리해주세요.');if(report.target_kind==='project'&&!String(report.target_id).startsWith('community-'))throw new ApiError(409,'기본 작품은 운영 소스에서 수정해주세요.');}
+      await resolveReports(admin.id,String(report.target_kind),String(report.target_id),String(b.action),'',reportId);return json({ok:true});}
   }
   throw new ApiError(404,'지원하지 않는 요청입니다.');
 }

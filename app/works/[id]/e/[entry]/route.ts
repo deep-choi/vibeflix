@@ -4,12 +4,13 @@ import { currentUser } from '../../../../../lib/auth';
 import { entryKind, entryLabel, listEntries } from '../../../../../lib/entries';
 import { resolveContent } from '../../../../../lib/projects';
 import { BASE_CSS, esc, fmtDate, htmlResponse, pageHead, renderBlocks, topBar, type ViewBlock } from '../../../../../lib/page-shell';
+import { countEntry } from '../../../../../lib/stats';
 
 // One episode or update note: title, body, the author's note, and previous/next navigation.
 export const dynamic = 'force-dynamic';
 const notFound = () => new Response('회차를 찾을 수 없어요.', { status: 404, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
 
-export async function GET(_request: Request, context: { params: Promise<{ id: string; entry: string }> }) {
+export async function GET(request: Request, context: { params: Promise<{ id: string; entry: string }> }) {
   const { id, entry } = await context.params;
   const work = await db().prepare('SELECT id,owner_id,title,type,details,visibility,hidden_at,source FROM projects WHERE id=? AND deleted_at IS NULL').bind(id).first().catch(() => null);
   const user = await currentUser().catch(() => null);
@@ -19,6 +20,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
   const e = await db().prepare('SELECT * FROM entries WHERE id=? AND project_id=?').bind(entry, id).first();
   if (!e || (!owner && (e.status !== 'published' || Number(e.published_at) > Date.now()))) return notFound();
   const kind = entryKind(String(work.type)); const all = await listEntries(id, kind, owner);
+  if (!owner && e.status === 'published') await countEntry(request, id, entry);
   const i = all.findIndex(x => x.id === entry); const prev = kind === 'episode' ? all[i - 1] : all[i + 1]; const next = kind === 'episode' ? all[i + 1] : all[i - 1];
   let details: Record<string, unknown> = {}; try { details = JSON.parse(String(work.details || '{}')); } catch {}
   const blocks: ViewBlock[] = resolveContent(e.content).map(b => b.type === 'image' ? { type: 'image', src: b.src, caption: b.caption } : b);
@@ -38,7 +40,7 @@ ${blocks.length ? `<article class="body${work.type === 'novel' ? ' novel' : ''}$
 ${e.note ? `<aside class="note"><span>${kind === 'episode' ? '작가의 말' : '덧붙이는 말'}</span><p>${esc(e.note)}</p></aside>` : ''}
 <nav class="pager">${nav(prev, kind === 'episode' ? '← 이전 화' : '← 이전 소식')}${nav(next, kind === 'episode' ? '다음 화 →' : '다음 소식 →')}</nav>
 <div class="to-work"><a class="btn small" href="${workHref}#entries">${kind === 'episode' ? '전체 회차' : '전체 소식'}</a><a class="btn small" href="${workHref}#discussion">별점 · 댓글</a></div></main>
-<script>try{localStorage.setItem('vibeflix.read.'+${JSON.stringify(id)},${JSON.stringify(entry)})}catch{}document.querySelectorAll('.body.phones img').forEach(i=>{const f=()=>{if(i.naturalHeight>i.naturalWidth*1.3)i.classList.add('portrait')};i.complete?f():i.onload=f;});</script>
+<script>try{localStorage.setItem('vibeflix.read.'+${JSON.stringify(id)},${JSON.stringify(entry)});const k='vibeflix.recent',l=JSON.parse(localStorage.getItem(k)||'[]').filter(x=>x&&x.id!==${JSON.stringify(id)});l.unshift({id:${JSON.stringify(id)},at:Date.now(),entry:${JSON.stringify(entry)},label:${JSON.stringify(kind === 'episode' ? `${e.number}화` : entryLabel(e)).replace(/</g, '\\u003c')}});localStorage.setItem(k,JSON.stringify(l.slice(0,20)))}catch{}document.querySelectorAll('.body.phones img').forEach(i=>{const f=()=>{if(i.naturalHeight>i.naturalWidth*1.3)i.classList.add('portrait')};i.complete?f():i.onload=f;});</script>
 </body></html>`;
   return htmlResponse(html);
 }

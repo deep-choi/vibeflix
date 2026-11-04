@@ -27,11 +27,12 @@
     dialog.showModal();
   }
   const reload = () => location.reload();
+  const REPORT_FORM = '<label>어떤 문제인가요?<select name="category"><option value="spam">스팸·광고</option><option value="abuse">욕설·괴롭힘</option><option value="copyright">도용·저작권 침해</option><option value="privacy">개인정보 노출</option><option value="sexual">음란·선정적인 내용</option><option value="malicious">악성 링크·사기</option><option value="other">기타 (사유 필수)</option></select></label><label>자세한 내용<textarea name="reason" maxlength="500" placeholder="‘기타’를 고르면 5자 이상 적어주세요."></textarea></label>';
   function enhance() {
     document.querySelectorAll('[data-report-review-user], [data-block-review-user]').forEach(button => {
       if (button.dataset.safetyEnhanced) return;
       button.dataset.safetyEnhanced = '1';
-      if (button.dataset.reportReviewUser) button.onclick = () => open('리뷰 작성자 신고', '<label>신고 사유<textarea name="reason" minlength="5" maxlength="500" required></textarea></label>', {label:'신고 접수',action:async data=>{await api({action:'report-user',publicId:button.dataset.reportReviewUser,reason:data.get('reason')});alert('이용자 신고가 접수되었습니다.');}});
+      if (button.dataset.reportReviewUser) button.onclick = () => open('리뷰 작성자 신고', REPORT_FORM, {label:'신고 접수',action:async data=>{await api({action:'report-user',publicId:button.dataset.reportReviewUser,category:data.get('category'),reason:data.get('reason')});alert('이용자 신고가 접수되었습니다.');}});
       else button.onclick = () => open('작성자를 차단할까요?', '<p>이 이용자의 콘텐츠와 알림을 숨깁니다. 내 프로필에서 해제할 수 있습니다.</p>', {label:'차단하기',action:async()=>{await api({action:'block',publicId:button.dataset.blockReviewUser});reload();}});
     });
     document.querySelectorAll('[data-report-kind]').forEach(button => {
@@ -40,7 +41,7 @@
       const actions = document.createElement('span');
       actions.innerHTML = '<button type="button" class="text-button" data-member-report>작성자 신고</button><button type="button" class="text-button" data-member-block>작성자 차단</button>';
       const target = {kind:button.dataset.reportKind,targetId:button.dataset.reportId};
-      actions.querySelector('[data-member-report]').onclick = () => open('작성자 신고', '<label>신고 사유<textarea name="reason" minlength="5" maxlength="500" required></textarea></label>', {label:'신고 접수',action:async data => {await api({...target,action:'report-user',reason:data.get('reason')}); alert('이용자 신고가 접수되었습니다.');}});
+      actions.querySelector('[data-member-report]').onclick = () => open('작성자 신고', REPORT_FORM, {label:'신고 접수',action:async data => {await api({...target,action:'report-user',category:data.get('category'),reason:data.get('reason')}); alert('이용자 신고가 접수되었습니다.');}});
       actions.querySelector('[data-member-block]').onclick = () => open('작성자를 차단할까요?', '<p>이 이용자의 작품·게시글·댓글·리뷰와 알림을 숨깁니다. 내 프로필에서 차단을 해제할 수 있습니다.</p>', {label:'차단하기',action:async()=>{await api({...target,action:'block'});reload();}});
       button.after(actions);
     });

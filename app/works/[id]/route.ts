@@ -8,7 +8,7 @@ import { resolveContent } from '../../../lib/projects';
 import { sampleBlocks, sampleContent, type Scene } from '../../../lib/sample-content';
 import { SCENE_CSS, playerScript, scenePlayer } from '../../../lib/scene-player';
 import { BASE_CSS, embed, esc, fmtDate, htmlResponse, pageHead, renderBlocks, topBar, typeNames, type ViewBlock } from '../../../lib/page-shell';
-import { countWork, workStats } from '../../../lib/stats';
+import { countWork, workStats, type WorkStats } from '../../../lib/stats';
 
 // One detail page for every work: media → title and actions → category facts and how it was made with AI →
 // description → episodes or update notes → body → ratings and comments. Owners also get their stats and an entry editor.
@@ -39,7 +39,9 @@ function makingCard(d: Details) {
 }
 function actions(row: Record<string, unknown>, d: Details, hasBody: boolean, firstEntry: string) {
   const out: string[] = []; const url = String(row.url || ''); const type = String(row.type);
-  const ext = (href: string, label: string, primary = false) => `<a class="btn${primary ? ' primary' : ''}" href="${esc(href)}" target="_blank" rel="noopener noreferrer" data-track-click>${label}</a>`;
+  // member links nobody has checked yet ask before leaving the site (public/leave-guard.js)
+  const guard = row.source === 'community' && !row.verified_at ? ' data-leave-guard' : '';
+  const ext = (href: string, label: string, primary = false) => `<a class="btn${primary ? ' primary' : ''}" href="${esc(href)}" target="_blank" rel="noopener noreferrer" data-track-click${guard}>${label}</a>`;
   if (row.status === 'upcoming') out.push('<span class="btn primary disabled">공개 준비 중</span>');
   else if (firstEntry) out.push(`<a class="btn primary" href="${esc(firstEntry)}" data-continue>${type === 'novel' ? '첫 화 읽기' : type === 'video' ? '첫 편 보기' : '첫 화 보기'}</a>`);
   else if (row.source === 'sample') { if (hasBody) out.push(`<a class="btn primary" href="#content">${type === 'novel' ? '읽기 시작 ↓' : '예시 보기 ↓'}</a>`); }
@@ -52,9 +54,24 @@ function actions(row: Record<string, unknown>, d: Details, hasBody: boolean, fir
   return out.join('');
 }
 
+/** Owner-only insights: 30 days of views as bars, where views came from, and how far readers get through episodes. */
+function ownerInsights(stats: WorkStats, entries: Record<string, unknown>[], kind: string) {
+  const max = Math.max(1, ...stats.daily.map(d => d.views)); const W = 300, H = 72, bw = W / stats.daily.length;
+  const bars = stats.daily.map((d, i) => { const h = d.views ? Math.max(2, (d.views / max) * (H - 4)) : 0; return `<rect x="${(i * bw + 1).toFixed(1)}" y="${(H - h).toFixed(1)}" width="${(bw - 2).toFixed(1)}" height="${h.toFixed(1)}" rx="1.5"><title>${d.day} · 조회 ${d.views} · 링크 클릭 ${d.clicks}</title></rect>`; }).join('');
+  const chart = !stats.views30 ? '<div class="insight"><span>최근 30일 조회</span><p class="muted">아직 조회가 없어요. 커뮤니티에 소개 글을 쓰거나 링크를 공유해보세요.</p></div>' : `<div class="insight"><span>최근 30일 조회</span><svg class="spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="최근 30일 일별 조회수, 최대 ${max}회">${bars}</svg><small><em>${stats.daily[0].day.slice(5).replace('-', '/')}</em><em>오늘</em></small></div>`;
+  const total = stats.sources.reduce((n, s) => n + s.views, 0);
+  const sources = `<div class="insight"><span>어디서 왔나요 · 30일</span>${total ? `<ul class="bars">${stats.sources.map(s => `<li><b>${esc(s.source)}</b><i style="--w:${Math.round((s.views / total) * 100)}%"></i><em>${s.views}</em></li>`).join('')}</ul>` : '<p class="muted">아직 기록된 방문이 없어요.</p>'}</div>`;
+  const views = new Map(stats.entries.map(e => [e.id, e.views]));
+  const published = entries.filter(e => e.status === 'published' && !e.scheduled);
+  const list = kind === 'episode' ? published : published.slice(0, 8);
+  const first = kind === 'episode' && list.length ? views.get(String(list[0].id)) || 0 : 0; const top = Math.max(1, ...list.map(e => views.get(String(e.id)) || 0));
+  const reading = list.length ? `<div class="insight wide"><span>${kind === 'episode' ? '회차별 조회 · 1화 대비 남은 독자' : '업데이트 소식 조회'}</span><ul class="bars">${list.map(e => { const v = views.get(String(e.id)) || 0; return `<li><b>${esc(entryLabel(e))}</b><i style="--w:${Math.round((v / top) * 100)}%"></i><em>${v}${kind === 'episode' && first ? ` · ${Math.round((v / first) * 100)}%` : ''}</em></li>`; }).join('')}</ul></div>` : '';
+  return `<div class="insights">${chart}${sources}${reading}</div>`;
+}
+
 export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
-  const row = await db().prepare("SELECT p.id,p.owner_id,p.title,p.creator,p.type,p.description,p.subtitle,p.url,CASE WHEN p.image LIKE 'data:%' THEN '/api/projects/' || p.id || '/cover?v=' || length(p.image) ELSE p.image END AS image,p.genres,p.details,p.content,p.status,p.source,p.visibility,p.hidden_at,u.public_id AS creator_id,u.name AS owner_name FROM projects p LEFT JOIN profiles u ON u.id=p.owner_id WHERE p.id=? AND p.deleted_at IS NULL").bind(id).first().catch(() => null);
+  const row = await db().prepare("SELECT p.id,p.owner_id,p.title,p.creator,p.type,p.description,p.subtitle,p.url,CASE WHEN p.image LIKE 'data:%' THEN '/api/projects/' || p.id || '/cover?v=' || length(p.image) ELSE p.image END AS image,p.genres,p.details,p.content,p.status,p.source,p.visibility,p.hidden_at,p.verified_at,u.public_id AS creator_id,u.name AS owner_name FROM projects p LEFT JOIN profiles u ON u.id=p.owner_id WHERE p.id=? AND p.deleted_at IS NULL").bind(id).first().catch(() => null);
   const user = await currentUser().catch(() => null);
   if(row && (await blockedOwners(user?.id)).has(String(row.owner_id)))return new Response('차단한 이용자의 콘텐츠입니다.',{status:404});
   const owner = !!row && !!user && user.id === row.owner_id && row.source === 'community';
@@ -85,11 +102,12 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   const meta = [`by ${creator}`, r.ratingCount ? `★ ${Number(r.rating).toFixed(1)} (${r.ratingCount})` : '', r.recommendations ? `♡ ${r.recommendations}` : '', r.comments ? `댓글 ${r.comments}` : ''].filter(Boolean);
   const entryRows = entries.map(e => { const href = `/works/${encodeURIComponent(id)}/e/${encodeURIComponent(String(e.id))}`; const badge = e.status === 'draft' ? '<em class="chip">임시 저장</em>' : e.scheduled ? `<em class="chip">예약 · ${fmtDate(e.published_at)}</em>` : ''; return `<li><a href="${href}" data-entry="${esc(e.id)}"><b>${esc(entryLabel(e))}</b><span>${badge}${fmtDate(e.published_at)}</span></a></li>`; }).join('');
   const entriesHtml = entries.length || owner ? `<section class="entries" id="entries"><div class="section-title"><h2>${kind === 'episode' ? '회차' : '업데이트 소식'}</h2><span>${kind === 'episode' ? `${published.length}화` : published.length ? `최근 ${fmtDate(published[0].published_at)}` : ''}</span></div>${kind === 'episode' && published.length ? '<a class="btn small continue" data-continue-latest hidden>이어 보기</a>' : ''}${entryRows ? `<ol class="entry-list ${kind}">${entryRows}</ol>` : `<p class="muted">${kind === 'episode' ? '아직 회차가 없어요.' : '아직 업데이트 소식이 없어요.'}</p>`}</section>` : '';
-  const ownerPanel = mine ? `<section class="owner"><div class="owner-head"><b>내 작품 관리</b>${row.visibility === 'draft' ? '<em class="chip">임시 저장 · 나만 볼 수 있어요</em>' : ''}${row.hidden_at ? '<em class="chip">운영자가 숨긴 작품</em>' : ''}</div><div class="owner-stats"><div><span>조회 (7일)</span><b>${mine.views7}</b></div><div><span>조회 (30일)</span><b>${mine.views30}</b></div><div><span>링크 클릭 (30일)</span><b>${mine.clicks30}</b></div><div><span>찜</span><b>${mine.saves}</b></div><div><span>팔로워</span><b>${Number(follow?.n || 0)}</b></div></div><div class="owner-actions"><a class="btn small" href="/#edit=${encodeURIComponent(id)}">작품 정보 수정</a><button class="btn small primary" data-new-entry>＋ ${kind === 'episode' ? '새 회차 쓰기' : '업데이트 소식 쓰기'}</button></div></section>` : '';
+  const ownerPanel = mine ? `<section class="owner"><div class="owner-head"><b>내 작품 관리</b>${row.visibility === 'draft' ? '<em class="chip">임시 저장 · 나만 볼 수 있어요</em>' : ''}${row.hidden_at ? `<a class="chip warn" href="/#appeal=project:${encodeURIComponent(id)}">운영자가 숨긴 작품 · 이의 제기 ›</a>` : ''}</div><div class="owner-stats"><div><span>조회 (7일)</span><b>${mine.views7}</b></div><div><span>조회 (30일)</span><b>${mine.views30}</b></div><div><span>링크 클릭 (30일)</span><b>${mine.clicks30}</b></div><div><span>찜</span><b>${mine.saves}</b></div><div><span>팔로워</span><b>${Number(follow?.n || 0)}</b></div></div>${ownerInsights(mine, entries, kind)}<div class="owner-actions"><a class="btn small" href="/#edit=${encodeURIComponent(id)}">작품 정보 수정</a><button class="btn small primary" data-new-entry>＋ ${kind === 'episode' ? '새 회차 쓰기' : '업데이트 소식 쓰기'}</button></div></section>` : '';
   const chapters = type === 'video' && details.chapters ? `<div class="info wide"><span>챕터</span><p class="pre">${esc(details.chapters)}</p></div>` : '';
   const credits = type === 'video' && details.credits ? `<div class="info wide"><span>크레딧</span><p class="pre">${esc(details.credits)}</p></div>` : '';
   const cards = infoCards(type, details, blocks, published.length) + chapters + credits;
-  const config = { id, type, kind, title: row.title, owner, loggedIn: !!user, creatorId: row.creator_id || '', following: !!follow?.mine, saved, recommended: r.recommended, myRating: r.myRating || 0, myReview: r.myReview || '', canRate: row.status !== 'upcoming' && !sample, labels: ['app', 'game', 'website'].includes(type), nextNumber: entries.reduce((n, e) => Math.max(n, Number(e.number) || 0), 0) + 1 };
+  const config = { id, type, kind, title: row.title, owner, loggedIn: !!user, creatorId: row.creator_id || '', following: !!follow?.mine, saved, recommended: r.recommended, myRating: r.myRating || 0, myReview: r.myReview || '', canRate: row.status !== 'upcoming' && !sample, labels: ['app', 'game', 'website'].includes(type), nextNumber: entries.reduce((n, e) => Math.max(n, Number(e.number) || 0), 0) + 1, upcoming: row.status === 'upcoming',
+    updates: owner && kind === 'update' ? published.map(e => ({ id: String(e.id), label: entryLabel(e) })) : [] };
   const origin = new URL(request.url).origin; const ogImage = image ? new URL(image, origin).href : '';
 
   const html = `${pageHead(`${row.title}${sample ? ' (예시)' : ''}`, `<meta name="description" content="${esc(row.subtitle || row.description)}"><meta property="og:type" content="article"><meta property="og:title" content="${esc(row.title)} · VIBEFLIX"><meta property="og:description" content="${esc(row.subtitle || row.description)}">${ogImage ? `<meta property="og:image" content="${esc(ogImage)}">` : ''}<meta property="og:url" content="${esc(origin)}/works/${esc(id)}">${sample || row.visibility !== 'public' ? '<meta name="robots" content="noindex">' : ''}`)}
@@ -97,8 +115,8 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
 ${topBar()}
 ${sample ? '<div class="notice">화면 구성을 보여주기 위해 운영자가 만든 예시 작품이에요. 실제 작품이 아니에요.</div>' : ''}${row.visibility === 'draft' ? '<div class="notice">임시 저장된 작품이에요. 공개하기 전까지 나만 볼 수 있어요.</div>' : ''}
 <main>${media}${details.embed ? `<div class="play-embed" id="play-embed" hidden data-src="${esc(details.embed)}"></div>` : ''}
-<div class="head"><span class="kicker">${esc(typeNames[type] || '')}${sample ? ' · SAMPLE' : ''}${genres.length ? ` <b>· ${genres.map(esc).join(' · ')}</b>` : ''}</span><h1>${esc(row.title)}</h1>${row.subtitle && row.subtitle !== row.description ? `<p class="sub">${esc(row.subtitle)}</p>` : ''}<div class="meta">${meta.map(m => `<span>${m}</span>`).join('')}${row.creator_id && !owner ? `<button class="follow${follow?.mine ? ' on' : ''}" data-follow>${follow?.mine ? '팔로잉' : '＋ 팔로우'}</button>` : ''}</div>
-<div class="actions">${actions(row, details, blocks.length > 0, firstEntry)}<button class="btn${saved ? ' on' : ''}" data-save>${saved ? '✓ 찜했어요' : '＋ 찜하기'}</button><button class="btn${r.recommended ? ' on' : ''}" data-recommend>♡ 추천 <span data-recommend-count>${r.recommendations || ''}</span></button><button class="btn" data-share>링크 공유</button></div></div>
+<div class="head"><span class="kicker">${esc(typeNames[type] || '')}${sample ? ' · SAMPLE' : ''}${genres.length ? ` <b>· ${genres.map(esc).join(' · ')}</b>` : ''}</span><h1>${esc(row.title)}</h1>${row.subtitle && row.subtitle !== row.description ? `<p class="sub">${esc(row.subtitle)}</p>` : ''}<div class="meta">${meta.map(m => `<span>${m}</span>`).join('')}${row.source === 'community' && row.verified_at && row.url ? '<span class="chip ok" title="운영자가 링크를 확인했어요">✓ 운영자 확인</span>' : ''}${row.creator_id && !owner ? `<button class="follow${follow?.mine ? ' on' : ''}" data-follow>${follow?.mine ? '팔로잉' : '＋ 팔로우'}</button>` : ''}</div>
+<div class="actions">${actions(row, details, blocks.length > 0, firstEntry)}<button class="btn${saved ? ' on' : ''}" data-save>${row.status === 'upcoming' ? (saved ? '✓ 출시 알림 신청함' : '＋ 출시 알림 받기') : (saved ? '✓ 찜했어요' : '＋ 찜하기')}</button><button class="btn${r.recommended ? ' on' : ''}" data-recommend>♡ 추천 <span data-recommend-count>${r.recommendations || ''}</span></button><button class="btn" data-share>링크 공유</button></div></div>
 ${warnings.length ? `<p class="warning">이 작품에는 ${warnings.join(', ')} 요소가 있어요.</p>` : ''}${ownerPanel}
 ${cards ? `<div class="infos">${cards}</div>` : ''}${makingCard(details)}
 <p class="desc">${esc(row.description)}</p>
@@ -111,6 +129,6 @@ ${type === 'art' && details.license ? `<p class="license">© ${esc(row.creator)}
 </main>
 ${owner ? `<dialog class="entry-dialog" id="entry-dialog"><form id="entry-form" novalidate><h2 id="entry-dialog-title"></h2><div class="entry-grid">${kind === 'episode' ? '<label>회차 <input name="number" type="number" min="1" max="9999" required></label>' : '<label>버전 <input name="version" maxlength="30" placeholder="예: 1.2.0"></label>'}<label class="grow">제목 <input name="title" maxlength="100" required placeholder="${kind === 'episode' ? '예: 첫 번째 별' : '예: 다크 모드 추가'}"></label></div><div class="entry-body" id="entry-body"></div><label>${kind === 'episode' ? '작가의 말' : '덧붙이는 말'} <small>선택</small><textarea name="note" maxlength="1000" rows="2"></textarea></label><div class="entry-grid"><label>공개 <select name="status"><option value="published">공개</option><option value="draft">임시 저장</option></select></label><label class="grow">예약 공개 <small>비우면 지금 공개</small><input name="publishAt" type="datetime-local"></label></div><p class="form-error" id="entry-error" hidden></p><div class="entry-actions"><button type="button" class="btn small" data-entry-delete hidden>삭제</button><span></span><button type="button" class="btn small" data-entry-cancel>취소</button><button class="btn small primary">저장</button></div></form></dialog>` : ''}
 <script type="application/json" id="work-config">${JSON.stringify(config).replace(/</g, '\\u003c')}</script>
-${owner ? '<script src="/block-editor.js" defer></script>' : ''}<script src="/work.js" defer></script>${scenes ? `<script>${playerScript}</script>` : ''}</body></html>`;
+${owner ? '<script src="/block-editor.js" defer></script>' : ''}<script src="/work.js" defer></script><script src="/leave-guard.js" defer></script>${scenes ? `<script>${playerScript}</script>` : ''}</body></html>`;
   return htmlResponse(html, sample || row.visibility !== 'public' ? { 'X-Robots-Tag': 'noindex' } : {});
 }

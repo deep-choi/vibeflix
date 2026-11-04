@@ -34,5 +34,20 @@ export async function notify(recipient:string|null,actor:Member,kind:string,targ
   if(await db().prepare('SELECT 1 FROM member_blocks WHERE owner_id=? AND target_id=?').bind(recipient,actor.id).first())return;
   await db().prepare('INSERT INTO notifications (id,recipient_id,actor_id,kind,target_kind,target_id,excerpt,created) VALUES (?,?,?,?,?,?,?,?)').bind(crypto.randomUUID(),recipient,actor.id,kind,targetKind,targetId,excerpt.slice(0,140),Date.now()).run();
 }
+/**
+ * Operator → member notices (moderation results, warnings, launches, appeal answers). Unlike notify(), a member's
+ * blocks do not filter these: someone who blocked an operator still has to learn their post was hidden.
+ */
+export async function systemNotify(recipient:string,actorId:string,kind:string,targetKind:string,targetId:string,excerpt:string){
+  if(!recipient||recipient.startsWith('system:')||recipient===actorId)return;
+  await db().prepare('INSERT INTO notifications (id,recipient_id,actor_id,kind,target_kind,target_id,excerpt,created) VALUES (?,?,?,?,?,?,?,?)').bind(crypto.randomUUID(),recipient,actorId,kind,targetKind,targetId,excerpt.slice(0,140),Date.now()).run();
+}
+/** Tells every active operator that something needs their attention in /admin (target_kind 'admin', target_id = the tab). */
+export async function notifyAdmins(actorId:string,kind:string,tab:string,excerpt:string){
+  const admins=await db().prepare("SELECT id FROM profiles WHERE role='admin' AND suspended=0 LIMIT 10").all();
+  const now=Date.now();
+  const ops=admins.results.filter(a=>a.id!==actorId).map(a=>db().prepare('INSERT INTO notifications (id,recipient_id,actor_id,kind,target_kind,target_id,excerpt,created) VALUES (?,?,?,?,?,?,?,?)').bind(crypto.randomUUID(),a.id,actorId,kind,'admin',tab,excerpt.slice(0,140),now));
+  if(ops.length)await db().batch(ops);
+}
 export const postSelect=`SELECT p.id,p.title,p.body,p.category,p.project_id,p.created,p.updated,u.public_id AS author_id,u.name AS author_name,u.avatar AS author_avatar,(p.owner_id = ?) AS owned,(SELECT COUNT(*) FROM reactions r WHERE r.target_kind = 'post' AND r.target_id = p.id) AS recommendations,(SELECT COUNT(*) FROM comments c WHERE c.target_kind = 'post' AND c.target_id = p.id AND c.deleted_at IS NULL AND c.hidden_at IS NULL) AS comments,EXISTS(SELECT 1 FROM reactions r WHERE r.target_kind='post' AND r.target_id=p.id AND r.user_id=?) AS recommended FROM posts p JOIN profiles u ON u.id=p.owner_id`;
 export function safePost(p:Record<string,unknown>){return {...p,owned:!!p.owned,recommended:!!p.recommended};}

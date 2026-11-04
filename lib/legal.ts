@@ -1,7 +1,7 @@
 import { getSettings } from './admin';
 
 const esc=(v:string)=>v.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
-export const EFFECTIVE_DATE='2026년 10월 21일';
+export const EFFECTIVE_DATE='2026년 11월 4일'; // update to the deploy date when publishing changed terms
 
 // Legal pages share one shell; the operator's contact email comes from /admin settings.
 export async function legalPage(title:string,body:(contact:string)=>string){
