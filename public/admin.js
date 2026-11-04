@@ -29,8 +29,7 @@ async function api(path,method='GET',payload){
   if(!response.ok)throw Error(data.error||'요청을 처리하지 못했어요.');
   return data;
 }
-let toastTimer;
-function toast(message){const t=$('#ad-toast');t.textContent=message;t.hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>{t.hidden=true;},2600);}
+function toast(message){window.DS?.toast(message);}
 // requireText: permanent actions only enable once the operator types the exact name
 function confirmAction({title,copy,ok='확인',danger=false,requireText=''}){
   const d=$('#ad-confirm');$('#ad-confirm-title').textContent=title;$('#ad-confirm-copy').textContent=copy;$('#ad-confirm-note').value='';
@@ -68,7 +67,7 @@ $('#ad-edit-form').addEventListener('submit',async event=>{
   catch(error){$('#ad-edit-error').textContent=error.message;$('#ad-edit-error').hidden=false;}
   finally{button.disabled=false;}
 });
-$('[data-edit-cancel]').addEventListener('click',()=>$('#ad-edit').close());
+$('[data-edit-cancel]').addEventListener('click',()=>window.DS.requestClose($('#ad-edit')));
 const field=(label,input,hint='')=>`<label class="ad-field">${label}${hint?` <small>${hint}</small>`:''}${input}</label>`;
 const options=(list,value)=>list.map(([v,l])=>`<option value="${esc(v)}" ${String(v)===String(value)?'selected':''}>${esc(l)}</option>`).join('');
 function loadImage(file){return new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>{URL.revokeObjectURL(img.src);resolve(img);};img.onerror=()=>reject(Error('이미지를 읽을 수 없어요.'));img.src=URL.createObjectURL(file);});}

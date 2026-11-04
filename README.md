@@ -13,6 +13,10 @@ Node.js 22.13 이상. `npm run install:ci`로 의존성을 설치하고 `npm run
 프런트엔드: `app/site.html`, `public/style.css`, `public/app.js`.
 서버: Vinext API routes, Cloudflare D1 (`DB`). Sites starter의 호스팅 통합을 유지합니다.
 
+## 디자인 시스템
+
+버튼·입력칸·칩·배지·탭·알림·토스트·모달의 생김새와 동작은 `public/ds.css`·`public/ds.js` 한 곳에서 정해요. 모든 페이지가 가장 먼저 불러오고, 페이지 CSS는 `@layer page` 안에서 배치만 맡아요(시스템이 항상 우선). 휴대폰(≤640px)에서 모달은 아래에서 올라오는 시트가 되고, 글을 쓰는 모달은 닫기 전에 물어봐요. 규칙과 예전 클래스 대응표는 `docs/DESIGN_SYSTEM.md`, 모든 컴포넌트 견본은 `/design-system`에 있어요.
+
 ## 로그인과 커뮤니티
 
 - VIBEFLIX 회원가입·로그인(이메일·비밀번호): Firebase Authentication 이메일 로그인을 씁니다. 가입하면 인증 메일이 가고, 이메일 인증을 마쳐야 로그인(세션 발급)됩니다. 비밀번호 재설정 메일도 Firebase가 보냅니다(메일 언어: 한국어). 비밀번호는 우리 DB에 저장하지 않습니다. 같은 이메일의 Google·이메일 로그인은 Firebase에서 같은 계정이면 같은 프로필을 씁니다. 회원의 마지막 로그인 방식은 `profiles.login_provider`에 남고 운영자 회원 목록에 보입니다.

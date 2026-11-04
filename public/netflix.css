@@ -1,3 +1,6 @@
+/* Page layout styles. They sit in the `page` layer, under the design system (public/ds.css), which owns how components look. */
+@layer page, ds;
+@layer page {
 /* Netflix-style layout layer. Loaded last; keeps the existing lime-on-dark brand palette. */
 :root{--nf-pad:clamp(28px,3.3vw,72px);--nf-card:clamp(210px,17.4vw,320px);--nf-panel:#1a1c19}
 html{scroll-padding-top:80px}
@@ -533,3 +536,4 @@ body:not(.nf-home) .project-row{margin-right:0}
 .more-fields>summary small{font-weight:500;color:#8f9688;margin-left:6px}
 .more-fields[open]{padding-bottom:16px}
 .details-field .detail-input+.detail-input,.details-field .form-pair+.detail-input,.details-field .detail-input+.form-pair{margin-top:12px}
+}

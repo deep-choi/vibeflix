@@ -14,7 +14,6 @@ let query = '';
 let sort = 'curated';
 let currentFeatured = 'koiworld';
 let detailId = null;
-let toastTimeout;
 let submitting = false;
 let editingProjectId = null;
 let homePosts = [];
@@ -32,7 +31,7 @@ function normalizeUrl(value) {const v=String(value||'').trim();return /^[a-z][a-
 function publicUrlError(value) {const href=validUrl(value);if(!href)return '올바른 주소를 입력해주세요. (예: www.example.com)';const host=new URL(href).hostname.toLowerCase();return (host==='localhost'||host.endsWith('.localhost')||host.endsWith('.local')||!host.includes('.')||host.startsWith('[')||/^\d{1,3}(\.\d{1,3}){3}$/.test(host))?'누구나 접속할 수 있는 공개 주소만 등록할 수 있어요.':'';}
 const COVER={width:1280,height:720,maxBytes:800*1024,types:['image/png','image/jpeg','image/webp']};
 let cover={mode:'keep',data:''};
-function toast(message) {clearTimeout(toastTimeout);$('#toast').textContent=message;$('#toast').classList.add('visible');toastTimeout=setTimeout(()=>$('#toast').classList.remove('visible'),3500);}
+function toast(message) {window.DS?.toast(message);}
 let myDrafts = [];
 const findProject = id => projects.find(p=>p.id===id) || myDrafts.find(p=>p.id===id);
 
@@ -470,8 +469,7 @@ $('#upload-form').addEventListener('submit',async event=>{
   }catch(error){$('#form-error').textContent=error.message||'네트워크 연결을 확인하고 다시 시도해주세요.';$('#form-error').hidden=false;}
   finally{submitting=false;button.disabled=false;button.innerHTML='공개 등록하기 <span>↗</span>';}
 });
-$$('[data-close]').forEach(b=>b.addEventListener('click',()=>b.closest('dialog').close()));
-$$('dialog').forEach(dialog=>dialog.addEventListener('click',event=>{if(event.target===dialog){const r=dialog.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)dialog.close();}}));
+// [data-close] buttons and backdrop clicks are handled by public/ds.js (with the unsaved-input guard)
 $('#about-button').addEventListener('click',()=>$('#about-dialog').showModal());
 document.addEventListener('keydown',event=>{if(event.key==='/'&&!$('dialog[open]')&&!['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName)){event.preventDefault();openSearch();}});
 // Operator settings from /admin: a notice strip and the pinned order of the highlight row

@@ -35,6 +35,6 @@ main{max-width:1000px;margin:0 auto;padding:32px clamp(16px,4vw,40px) 96px}
 .muted{color:#8d8d8d}.chip{display:inline-flex;font-style:normal;font-size:12.5px;font-weight:600;padding:3px 10px;border-radius:999px;background:#ffffff12;border:1px solid #ffffff1f}`;
 
 export const FONTS = '<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@500;700&family=Noto+Sans+KR:wght@400;500;700;800&family=Noto+Serif+KR:wght@400;600&display=swap" rel="stylesheet">';
-export const pageHead = (title: string, extra = '') => `<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#000000"><title>${esc(title)} · VIBEFLIX</title>${FONTS}${extra}`;
+export const pageHead = (title: string, extra = '') => `<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#000000"><title>${esc(title)} · VIBEFLIX</title><link rel="stylesheet" href="/ds.css"><script src="/ds.js" defer></script>${FONTS}${extra}`;
 export const topBar = (back = '/', label = '사이트로 돌아가기') => `<header class="top"><a class="brand" href="/">VIBEFLIX</a><a class="back" href="${esc(back)}">← ${esc(label)}</a></header>`;
 export const htmlResponse = (html: string, headers: Record<string, string> = {}) => new Response(html, { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache', 'X-Content-Type-Options': 'nosniff', ...headers } });

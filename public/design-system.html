@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#000000">
+<title>디자인 시스템 · VIBEFLIX</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/ds.css">
+<script src="/ds.js" defer></script>
+<style>
+/* Gallery page layout only — every component below comes from /ds.css */
+@layer page {
+  body { margin: 0; background: var(--ds-bg); color: var(--ds-text); font: 400 15px/1.6 var(--ds-font); -webkit-font-smoothing: antialiased; }
+  header.g-top { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; justify-content: space-between; gap: 12px; height: 60px; padding: 0 clamp(16px, 4vw, 48px); background: #000d; backdrop-filter: blur(10px); border-bottom: 1px solid var(--ds-border); }
+  .g-brand { color: var(--ds-accent); font: 800 19px var(--ds-font); letter-spacing: -1px; text-decoration: none; }
+  main { max-width: 1080px; margin: 0 auto; padding: 32px clamp(16px, 4vw, 48px) 96px; }
+  h1 { margin: 8px 0 6px; font: 800 clamp(28px, 4vw, 40px)/1.2 var(--ds-font); letter-spacing: -.03em; }
+  .g-lead { margin: 0; max-width: 720px; color: var(--ds-text-2); }
+  section.g { margin-top: 56px; }
+  section.g > h2 { margin: 0 0 4px; font: 800 22px/1.3 var(--ds-font); letter-spacing: -.02em; }
+  section.g > p { margin: 0 0 20px; color: var(--ds-text-3); font-size: 14px; }
+  .g-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 12px 0; }
+  .g-card { padding: 20px; border: 1px solid var(--ds-border); border-radius: var(--ds-radius-md); background: var(--ds-surface); }
+  .g-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+  .g-swatch { border: 1px solid var(--ds-border); border-radius: var(--ds-radius-md); overflow: hidden; background: var(--ds-surface); font-size: 12px; }
+  .g-swatch i { display: block; height: 56px; }
+  .g-swatch div { padding: 8px 10px; }
+  .g-swatch b { display: block; font-size: 13px; }
+  .g-swatch code { color: var(--ds-text-3); }
+  .g-type > div { display: flex; align-items: baseline; gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--ds-border); }
+  .g-type code { width: 120px; flex: none; color: var(--ds-text-3); font-size: 12px; }
+  .g-label { margin: 18px 0 6px; color: var(--ds-text-3); font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+  .g-form { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
+  .g-form label { display: block; margin-bottom: 20px; }
+  @media (max-width: 640px) { .g-form { grid-template-columns: 1fr; } .g-type code { width: 84px; } }
+}
+</style>
+</head>
+<body>
+<header class="g-top"><a class="g-brand" href="/">VIBEFLIX</a><span class="badge">디자인 시스템 · ds.css</span></header>
+<main>
+  <span class="ds-kicker">DESIGN SYSTEM</span>
+  <h1>VIBEFLIX 디자인 시스템</h1>
+  <p class="g-lead">사이트·작품 페이지·운영자 대시보드가 함께 쓰는 토큰과 컴포넌트예요. 이 페이지의 모든 요소는 <code>/ds.css</code>와 <code>/ds.js</code>만으로 그려져요. 문서: <code>docs/DESIGN_SYSTEM.md</code></p>
+
+  <section class="g" aria-labelledby="g-color">
+    <h2 id="g-color">색</h2><p>검은 바탕에 라임 하나를 강조색으로 써요. 상태색은 글자색·옅은 배경·테두리 세 단계로 씁니다.</p>
+    <div class="g-grid">
+      <div class="g-swatch"><i style="background:var(--ds-bg)"></i><div><b>bg</b><code>--ds-bg</code></div></div>
+      <div class="g-swatch"><i style="background:var(--ds-surface)"></i><div><b>surface</b><code>--ds-surface</code></div></div>
+      <div class="g-swatch"><i style="background:var(--ds-surface-raised)"></i><div><b>raised</b><code>--ds-surface-raised</code></div></div>
+      <div class="g-swatch"><i style="background:var(--ds-surface-sunken)"></i><div><b>sunken</b><code>--ds-surface-sunken</code></div></div>
+      <div class="g-swatch"><i style="background:var(--ds-accent)"></i><div><b>accent</b><code>--ds-accent</code></div></div>
+      <div class="g-swatch"><i style="background:var(--ds-success)"></i><div><b>success</b><code>--ds-success</code></div></div>
+      <div class="g-swatch"><i style="background:var(--ds-warning)"></i><div><b>warning</b><code>--ds-warning</code></div></div>
+      <div class="g-swatch"><i style="background:var(--ds-danger)"></i><div><b>danger</b><code>--ds-danger</code></div></div>
+      <div class="g-swatch"><i style="background:var(--ds-info)"></i><div><b>info</b><code>--ds-info</code></div></div>
+      <div class="g-swatch"><i style="background:var(--ds-text)"></i><div><b>text</b><code>--ds-text</code></div></div>
+      <div class="g-swatch"><i style="background:var(--ds-text-2)"></i><div><b>text-2</b><code>--ds-text-2</code></div></div>
+      <div class="g-swatch"><i style="background:var(--ds-text-3)"></i><div><b>text-3</b><code>--ds-text-3</code></div></div>
+    </div>
+  </section>
+
+  <section class="g" aria-labelledby="g-type">
+    <h2 id="g-type">글자</h2><p>가장 작은 글자는 12px이에요(대문자 라벨만 11px). 휴대폰 입력칸은 16px이라 확대되지 않아요.</p>
+    <div class="g-type">
+      <div><code>3xl · 30</code><span style="font:800 var(--ds-text-3xl)/1.2 var(--ds-font)">상상을 플레이하다</span></div>
+      <div><code>2xl · 24</code><span style="font:800 var(--ds-text-2xl)/1.3 var(--ds-font)">모달 제목</span></div>
+      <div><code>xl · 20</code><span style="font:700 var(--ds-text-xl)/1.3 var(--ds-font)">섹션 제목</span></div>
+      <div><code>md · 15</code><span>본문 텍스트 — 바이브 코딩으로 만든 작품을 소개해요.</span></div>
+      <div><code>sm · 13</code><span style="font-size:var(--ds-text-sm)">라벨, 버튼, 보조 설명</span></div>
+      <div><code>xs · 12</code><span class="ds-hint">힌트, 메타 정보, 배지</span></div>
+      <div><code>kicker · 11</code><span class="ds-kicker">SECTION KICKER</span></div>
+    </div>
+  </section>
+
+  <section class="g" aria-labelledby="g-btn">
+    <h2 id="g-btn">버튼</h2><p><code>.btn</code> + 종류(primary · danger · ghost · link · icon) + 크기(small 36 · 기본 44 · large 52). 터치 화면에서 small은 40px이 돼요.</p>
+    <div class="g-label">종류</div>
+    <div class="g-row"><button class="btn primary">공개 등록하기</button><button class="btn">임시 저장</button><button class="btn ghost">건너뛰기</button><button class="btn danger">숨기기</button><button class="btn primary danger">영구 삭제</button><button class="btn link">더 보기</button><button class="btn icon" aria-label="검색"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8" stroke="currentColor" stroke-width="1.6"/><path d="m16 16 4.5 4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button></div>
+    <div class="g-label">크기</div>
+    <div class="g-row"><button class="btn primary small">small</button><button class="btn primary">기본</button><button class="btn primary large">large</button></div>
+    <div class="g-label">상태</div>
+    <div class="g-row"><button class="btn" aria-pressed="true">✓ 찜했어요</button><button class="btn" aria-pressed="false">＋ 찜하기</button><button class="btn primary" disabled>비활성</button></div>
+    <div class="g-label">블록 (모달·폼의 단일 주 버튼)</div>
+    <div class="g-card" style="max-width:420px"><button class="btn primary large block">Google로 계속하기</button></div>
+  </section>
+
+  <section class="g" aria-labelledby="g-form">
+    <h2 id="g-form">입력</h2><p>모달·<code>.field</code> 안의 입력칸. 포커스는 라임 테두리와 옅은 링, 오류는 빨간 테두리와 메시지.</p>
+    <form class="g-card field g-form" onsubmit="event.preventDefault()">
+      <label>작품 이름 <small>필수</small><input placeholder="어떤 작품을 만드셨나요?"></label>
+      <label>카테고리<select><option>웹사이트</option><option>게임</option><option>앱</option></select></label>
+      <label>작품 링크<input aria-invalid="true" value="localhost:3000"><span class="ds-error">누구나 접속할 수 있는 공개 주소만 등록할 수 있어요.</span></label>
+      <label>비활성<input disabled value="수정할 수 없어요"></label>
+      <label style="grid-column:1/-1">소개<textarea placeholder="카드와 상세 페이지 맨 위에 보이는 소개예요."></textarea><span class="ds-hint">0 / 1,000자</span></label>
+      <label class="consent-line"><input type="checkbox" checked> 이용약관과 개인정보처리방침에 동의합니다.</label>
+    </form>
+  </section>
+
+  <section class="g" aria-labelledby="g-chip">
+    <h2 id="g-chip">칩 · 배지</h2><p>칩은 누르는 것(하나만 고르면 꽉 찬 라임, 여러 개 고르면 옅은 라임), 배지는 보기만 하는 라벨이에요.</p>
+    <div class="g-label">칩 — 하나만 선택</div>
+    <div class="g-row" role="group" aria-label="카테고리"><button class="chip-btn" aria-current="true">전체</button><button class="chip-btn">웹사이트</button><button class="chip-btn">게임</button><button class="chip-btn">소설</button></div>
+    <div class="g-label">칩 — 여러 개 선택</div>
+    <div class="g-row" role="group" aria-label="장르"><button class="chip-btn" aria-pressed="true">✓ 힐링</button><button class="chip-btn" aria-pressed="true">✓ 수집</button><button class="chip-btn" aria-pressed="false">퍼즐</button></div>
+    <div class="g-label">배지</div>
+    <div class="g-row"><span class="badge">기본</span><span class="badge accent">✓ 해결됨</span><span class="badge success">공개</span><span class="badge warning">성인 소재</span><span class="badge danger">버그 제보</span><span class="badge info">피드백</span></div>
+  </section>
+
+  <section class="g" aria-labelledby="g-tabs">
+    <h2 id="g-tabs">탭</h2><p>2~4개를 바꾸는 <code>.segmented</code>, 화면 영역을 바꾸는 <code>.tabs</code>.</p>
+    <div class="g-row"><div class="segmented" role="tablist" aria-label="로그인 방식"><button role="tab" aria-selected="true">로그인</button><button role="tab" aria-selected="false">회원가입</button></div></div>
+    <div class="tabs" role="tablist" aria-label="내 활동" style="margin-top:16px"><button role="tab" aria-selected="true">내 작품 7</button><button role="tab" aria-selected="false">내 이야기 5</button><button role="tab" aria-selected="false">내 댓글 3</button></div>
+  </section>
+
+  <section class="g" aria-labelledby="g-alert">
+    <h2 id="g-alert">알림 · 토스트</h2><p>페이지 안의 안내는 <code>.alert</code>, 잠깐 뜨는 결과는 <code>DS.toast()</code> — 열린 모달 위에도 보여요.</p>
+    <div style="display:grid;gap:10px"><div class="alert">일반 안내예요.</div><div class="alert accent">작품이 공개되었어요.</div><div class="alert warning">작품 목록을 불러오지 못했어요. 기본 서비스는 계속 이용할 수 있어요.</div><div class="alert danger">요청을 처리하지 못했어요. 잠시 후 다시 시도해주세요.</div></div>
+    <div class="g-row"><button class="btn" id="demo-toast">토스트 띄우기</button><button class="btn" id="demo-toast-danger">오류 토스트</button></div>
+  </section>
+
+  <section class="g" aria-labelledby="g-modal">
+    <h2 id="g-modal">모달</h2><p>데스크톱은 가운데 카드, 640px 이하에서는 아래에서 올라오는 시트(손잡이를 끌어내리면 닫힘). 폭: sm 440 · 기본 560 · lg 720 · xl 880. 긴 폼은 하단 버튼이 고정돼요.</p>
+    <div class="g-row"><button class="btn" data-open="demo-sm">작은 모달 (sm)</button><button class="btn" data-open="demo-form">폼 모달 (lg · 고정 하단)</button><button class="btn" id="demo-confirm">확인 대화상자</button><button class="btn" id="demo-danger">위험한 확인</button></div>
+  </section>
+</main>
+
+<dialog class="modal modal-sm" id="demo-sm" aria-labelledby="demo-sm-title">
+  <button class="modal-close" aria-label="닫기" data-close></button>
+  <span class="ds-kicker">A BETTER PLACE TOGETHER</span>
+  <h2 id="demo-sm-title">이 콘텐츠를 신고할까요?</h2>
+  <p>운영자가 내용을 확인해요. 신고한 사람은 공개되지 않아요.</p>
+  <form method="dialog">
+    <label>어떤 문제인가요?<select><option>스팸·광고</option><option>도용·저작권 침해</option><option>기타</option></select></label>
+    <label>자세한 내용 <small>선택</small><textarea placeholder="상황을 알려주세요."></textarea></label>
+    <div class="modal-actions"><button class="btn" value="cancel" type="button" data-close>취소</button><button class="btn primary" value="ok">신고 접수하기</button></div>
+  </form>
+</dialog>
+<dialog class="modal modal-lg" id="demo-form" data-guard-unsaved aria-labelledby="demo-form-title">
+  <button class="modal-close" aria-label="닫기" data-close></button>
+  <span class="ds-kicker">LET YOUR VIBE OUT</span>
+  <h2 id="demo-form-title">당신의 작품을 소개해주세요.</h2>
+  <p>내용을 쓰고 닫으면 정말 닫을지 물어봐요(<code>data-guard-unsaved</code>).</p>
+  <form method="dialog">
+    <label>작품 이름 *<input placeholder="어떤 작품을 만드셨나요?"></label>
+    <label>카테고리<select><option>웹사이트</option><option>게임</option></select></label>
+    <label>작품 링크<input placeholder="https://"></label>
+    <label>소개<textarea rows="6"></textarea></label>
+    <label>본문<textarea rows="10"></textarea></label>
+    <div class="form-submit-row"><small class="form-footnote">등록하면 작품마다 상세 페이지가 만들어져요.</small><button type="button" class="btn" data-close>임시 저장</button><button class="btn primary">공개 등록하기</button></div>
+  </form>
+</dialog>
+<script>
+document.addEventListener('click', async event => {
+  const opener = event.target.closest('[data-open]'); if (opener) document.getElementById(opener.dataset.open).showModal();
+  if (event.target.closest('#demo-toast')) DS.toast('나만의 바이브 컬렉션에 추가했어요.');
+  if (event.target.closest('#demo-toast-danger')) DS.toast('네트워크 연결을 확인해주세요.', { tone: 'danger' });
+  if (event.target.closest('#demo-confirm')) DS.toast(await DS.confirm({ title: '첫 작품을 올렸어요! 피드백을 받아볼까요?', message: '커뮤니티에 피드백 요청 글을 미리 채워드릴게요.', confirmLabel: '피드백 요청 글 쓰기' }) ? '확인을 눌렀어요.' : '취소했어요.');
+  if (event.target.closest('#demo-danger')) DS.toast(await DS.confirm({ title: '이 회차를 삭제할까요?', message: '댓글과 이미지도 함께 지워지고 되돌릴 수 없어요.', confirmLabel: '삭제', tone: 'danger' }) ? '삭제했어요.' : '취소했어요.');
+});
+</script>
+</body>
+</html>

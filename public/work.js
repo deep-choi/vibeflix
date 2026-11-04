@@ -6,8 +6,7 @@
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const cfg=JSON.parse($('#work-config')?.textContent||'{}');
   const time=t=>{const d=Math.round((Date.now()-Number(t))/60000);return d<1?'방금':d<60?`${d}분 전`:d<1440?`${Math.round(d/60)}시간 전`:new Date(Number(t)).toLocaleDateString('ko-KR');};
-  let toastTimer;
-  function toast(message){let t=$('.work-toast');if(!t){t=document.createElement('div');t.className='work-toast';t.setAttribute('role','status');document.body.append(t);}t.textContent=message;t.hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>{t.hidden=true;},2600);}
+  const toast=message=>window.DS?.toast(message);
   const loginUrl=()=>`/?login=1&next=${encodeURIComponent(location.pathname+location.hash)}`;
   /** JSON call to the site API; sends people to sign in on 401 and explains other failures. */
   async function api(path,method='GET',payload){
@@ -184,7 +183,7 @@
     editor.set(entry?.content||[]);$('[data-entry-delete]').hidden=!entry;dialog.showModal();
   }
   $('[data-new-entry]')?.addEventListener('click',()=>openEntry(null));
-  $('[data-entry-cancel]')?.addEventListener('click',()=>dialog.close());
+  $('[data-entry-cancel]')?.addEventListener('click',()=>window.DS.requestClose(dialog));
   // owners can open an existing entry for editing straight from the list
   if(cfg.owner)$$('[data-entry]').forEach(a=>{const b=document.createElement('button');b.className='link entry-edit';b.textContent='수정';b.addEventListener('click',async event=>{event.preventDefault();try{const r=await api(workApi(`/entries/${encodeURIComponent(a.dataset.entry)}`));openEntry(r.entry);}catch(error){toast(error.message);}});a.parentElement.append(b);});
   $('#entry-form')?.addEventListener('submit',async event=>{
@@ -196,7 +195,7 @@
     catch(error){$('#entry-error').textContent=error.message;$('#entry-error').hidden=false;}finally{button.disabled=false;}
   });
   $('[data-entry-delete]')?.addEventListener('click',async()=>{
-    if(!editingEntry||!confirm('이 회차·소식을 삭제할까요? 되돌릴 수 없어요.'))return;
+    if(!editingEntry||!await window.DS.confirm({title:'이 회차·소식을 삭제할까요?',message:'댓글과 이미지도 함께 지워지고 되돌릴 수 없어요.',confirmLabel:'삭제',tone:'danger'}))return;
     try{await api(workApi(`/entries/${encodeURIComponent(editingEntry)}`),'DELETE');dialog.close();location.reload();}catch(error){toast(error.message);}
   });
 

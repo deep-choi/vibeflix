@@ -1,3 +1,6 @@
+/* Page layout styles. They sit in the `page` layer, under the design system (public/ds.css), which owns how components look. */
+@layer page, ds;
+@layer page {
 :root{color-scheme:dark;--bg:#000;--panel:#121212;--panel-2:#1a1a1a;--line:#ffffff14;--line-2:#ffffff24;--text:#f2f2f2;--muted:#a1a1a1;--faint:#6f6f6f;--lime:#c3f568;--bar:#70a324;--danger:#ff7a6b;--font:'DM Sans','Noto Sans KR',sans-serif}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 var(--font);-webkit-font-smoothing:antialiased}
@@ -196,3 +199,4 @@ button.ad-tile:hover{background:var(--panel-2)}
 .ad-more{display:flex;justify-content:center;margin:14px 0}
 @media(max-width:700px){.ad-funnel-row{grid-template-columns:1fr 56px}.ad-funnel-row i,.ad-funnel-row small{grid-column:1/-1}}
 .ad-miss .ad-chip{display:inline-flex;align-items:center}
+}

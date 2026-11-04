@@ -1,3 +1,6 @@
+/* Page layout styles. They sit in the `page` layer, under the design system (public/ds.css), which owns how components look. */
+@layer page, ds;
+@layer page {
 /* Shared body block editor (upload form + episode/update editor) */
 .block-editor .be-hint{margin:0 0 8px;font-size:12.5px;color:#8d8d8d}
 .block-editor .be-blocks{display:flex;flex-direction:column;gap:10px;margin:10px 0}
@@ -16,3 +19,4 @@
 .block-editor .be-add button:disabled{opacity:.45;cursor:default}
 .block-editor .be-error{margin:8px 0 0;color:#ff8a7a;font-size:12.5px}
 .block-editor [hidden],.block-editor input[type=file]{display:none!important}
+}
