@@ -1,0 +1,49 @@
+# Static files served by Cloudflare (Worker-rendered pages set their own headers in lib/security.ts).
+
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+
+# Content-hashed build output (vinext only writes this rule when this file is missing, so it is repeated here)
+/_next/static/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Every page links these as /file?v=<build> (lib/security.ts), so a new deploy changes the URL and browsers
+# can keep the old copy for a year. scripts/check-security.mjs fails if a file here is missing from the list.
+/ds.css
+  Cache-Control: public, max-age=31536000, immutable
+/ds.js
+  Cache-Control: public, max-age=31536000, immutable
+/style.css
+  Cache-Control: public, max-age=31536000, immutable
+/community.css
+  Cache-Control: public, max-age=31536000, immutable
+/netflix.css
+  Cache-Control: public, max-age=31536000, immutable
+/block-editor.css
+  Cache-Control: public, max-age=31536000, immutable
+/block-editor.js
+  Cache-Control: public, max-age=31536000, immutable
+/app.js
+  Cache-Control: public, max-age=31536000, immutable
+/community.js
+  Cache-Control: public, max-age=31536000, immutable
+/mobile-safety.js
+  Cache-Control: public, max-age=31536000, immutable
+/leave-guard.js
+  Cache-Control: public, max-age=31536000, immutable
+/admin.css
+  Cache-Control: public, max-age=31536000, immutable
+/admin.js
+  Cache-Control: public, max-age=31536000, immutable
+/work.css
+  Cache-Control: public, max-age=31536000, immutable
+/work.js
+  Cache-Control: public, max-age=31536000, immutable
+/entry.js
+  Cache-Control: public, max-age=31536000, immutable
+
+# Sign-in config: a changed Firebase project has to reach browsers right away
+/firebase-config.json
+  Cache-Control: no-cache

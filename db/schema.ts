@@ -59,7 +59,7 @@ export const posts = sqliteTable('posts', {
   solvedComment:text('solved_comment'), // question posts: the reply the asker accepted as the answer
   created:integer('created').notNull(), updated:integer('updated').notNull(),
   deletedAt:integer('deleted_at'), hiddenAt:integer('hidden_at'),
-}, t=>[index('posts_created_idx').on(t.created),index('posts_owner_idx').on(t.ownerId)]);
+}, t=>[index('posts_created_idx').on(t.created),index('posts_owner_idx').on(t.ownerId),index('posts_category_idx').on(t.category,t.created)]);
 export const comments = sqliteTable('comments', {
   id:text('id').primaryKey(), ownerId:text('owner_id').notNull(), targetKind:text('target_kind').notNull(), targetId:text('target_id').notNull(),
   parentId:text('parent_id'), body:text('body').notNull(), label:text('label').notNull().default(''),
@@ -74,7 +74,7 @@ export const ratings = sqliteTable('ratings', {
 },t=>[primaryKey({columns:[t.userId,t.projectId]}),index('ratings_project_idx').on(t.projectId),check('ratings_score_check',sql`${t.score} between 1 and 5`)]);
 export const bookmarks = sqliteTable('bookmarks', {
   userId:text('user_id').notNull(), projectId:text('project_id').notNull(), created:integer('created').notNull(),
-},t=>[primaryKey({columns:[t.userId,t.projectId]})]);
+},t=>[primaryKey({columns:[t.userId,t.projectId]}),index('bookmarks_project_idx').on(t.projectId)]);
 export const notifications = sqliteTable('notifications', {
   id:text('id').primaryKey(), recipientId:text('recipient_id').notNull(), actorId:text('actor_id').notNull(),
   kind:text('kind').notNull(), targetKind:text('target_kind').notNull(), targetId:text('target_id').notNull(), excerpt:text('excerpt').notNull(),
@@ -84,7 +84,7 @@ export const reports = sqliteTable('reports', {
   id:text('id').primaryKey(), reporterId:text('reporter_id').notNull(), targetKind:text('target_kind').notNull(), targetId:text('target_id').notNull(), reason:text('reason').notNull(),
   category:text('category').notNull().default('other'), // spam | abuse | copyright | privacy | sexual | malicious | other
   status:text('status').notNull().default('pending'), created:integer('created').notNull(), resolvedAt:integer('resolved_at'),
-},t=>[index('reports_status_idx').on(t.status,t.created)]);
+},t=>[index('reports_status_idx').on(t.status,t.created),index('reports_target_idx').on(t.targetKind,t.targetId,t.status)]);
 export const limits = sqliteTable('limits', {
   id:text('id').primaryKey(), windowStart:integer('window_start').notNull(), count:integer('count').notNull(),
 });
@@ -94,7 +94,7 @@ export const settings = sqliteTable('settings', {
 });
 export const adminActions = sqliteTable('admin_actions', {
   id:text('id').primaryKey(), adminId:text('admin_id').notNull(), action:text('action').notNull(), targetKind:text('target_kind').notNull(), targetId:text('target_id').notNull(), note:text('note').notNull().default(''), created:integer('created').notNull(),
-},t=>[index('admin_actions_created_idx').on(t.created)]);
+},t=>[index('admin_actions_created_idx').on(t.created),index('admin_actions_target_idx').on(t.targetId)]);
 export const dailyViews = sqliteTable('daily_views', {
   day:text('day').primaryKey(), views:integer('views').notNull(),
 });
@@ -122,7 +122,7 @@ export const follows = sqliteTable('follows', {
 // Per-work daily counters for creators: detail views and outbound link clicks
 export const workStats = sqliteTable('work_stats', {
   projectId:text('project_id').notNull(), day:text('day').notNull(), views:integer('views').notNull().default(0), clicks:integer('clicks').notNull().default(0),
-},t=>[primaryKey({columns:[t.projectId,t.day]})]);
+},t=>[primaryKey({columns:[t.projectId,t.day]}),index('work_stats_day_idx').on(t.day)]);
 
 // Android release: member controls and explicit content policy consent.
 export const memberBlocks=sqliteTable('member_blocks',{ownerId:text('owner_id').notNull(),targetId:text('target_id').notNull(),created:integer('created').notNull()},t=>[primaryKey({columns:[t.ownerId,t.targetId]})]);
@@ -157,3 +157,8 @@ export const searchMisses=sqliteTable('search_misses',{
 export const dailyErrors=sqliteTable('daily_errors',{
   day:text('day').primaryKey(),count:integer('count').notNull().default(0),lastMessage:text('last_message').notNull().default(''),lastAt:integer('last_at'),
 });
+// One row per (day, counted thing, visitor hash) so a reload or a script cannot inflate views/clicks (lib/stats.ts).
+// Rows older than two days are trimmed; the visitor value is a truncated daily hash, never an IP.
+export const viewDedupe=sqliteTable('view_dedupe',{
+  day:text('day').notNull(),key:text('key').notNull(),visitor:text('visitor').notNull(),
+},t=>[primaryKey({columns:[t.day,t.key,t.visitor]})]);

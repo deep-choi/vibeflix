@@ -1,3 +1,4 @@
+import { waitUntil } from 'cloudflare:workers';
 import { ApiError, body, db, failure, json, limit, origin, pageParams, text } from '../../../../lib/api';
 import { currentUser, digest, publicMember, requireAdmin, requireUser } from '../../../../lib/auth';
 import { NEW_ACCOUNT, accountAge, entity, notify, postSelect, safePost, stats, systemNotify } from '../../../../lib/community';
@@ -114,6 +115,8 @@ async function dispatch(request:Request,context:Context){
       await db().prepare(`UPDATE profiles SET name=?,bio=?,${links?'links=?,':''}updated=? WHERE id=?`).bind(text(b.name,2,30,'닉네임'),text(b.bio||'',0,200,'소개'),...(links?[JSON.stringify(links)]:[]),Date.now(),user.id).run();return json({ok:true});}
   }
   if(resource==='notifications'){
+    // read notifications older than 90 days are trimmed now and then (they otherwise grow forever)
+    if(method==='GET'&&Math.random()<.02)waitUntil(db().prepare('DELETE FROM notifications WHERE read_at IS NOT NULL AND created<?').bind(Date.now()-90*86400000).run().catch(()=>{}));
     const user=await requireUser();if(method==='GET'){const rows=await db().prepare('SELECT n.id,n.kind,n.target_kind,n.target_id,n.excerpt,n.created,n.read_at,u.name AS actor_name FROM notifications n JOIN profiles u ON u.id=n.actor_id WHERE n.recipient_id=? ORDER BY n.created DESC LIMIT 50').bind(user.id).all();const count=await db().prepare('SELECT COUNT(*) AS total FROM notifications WHERE recipient_id=? AND read_at IS NULL').bind(user.id).first();return json({notifications:rows.results,unread:Number(count?.total||0)});}
     if(method==='PATCH'){const b=await body(request);if(b.id)await db().prepare('UPDATE notifications SET read_at=? WHERE id=? AND recipient_id=?').bind(Date.now(),String(b.id),user.id).run();else await db().prepare('UPDATE notifications SET read_at=? WHERE recipient_id=? AND read_at IS NULL').bind(Date.now(),user.id).run();return json({ok:true});}
   }

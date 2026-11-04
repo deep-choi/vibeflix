@@ -8,6 +8,8 @@ import { resolveContent } from '../../../lib/projects';
 import { sampleBlocks, sampleContent, type Scene } from '../../../lib/sample-content';
 import { SCENE_CSS, playerScript, scenePlayer } from '../../../lib/scene-player';
 import { BASE_CSS, embed, esc, fmtDate, htmlResponse, pageHead, renderBlocks, topBar, typeNames, type ViewBlock } from '../../../lib/page-shell';
+import { asset } from '../../../lib/security';
+import { waitUntil } from 'cloudflare:workers';
 import { countWork, workStats, type WorkStats } from '../../../lib/stats';
 
 // One detail page for every work: media → title and actions → category facts and how it was made with AI →
@@ -90,7 +92,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   const parse = <T>(v: unknown, fallback: T): T => { try { return JSON.parse(String(v)) ?? fallback; } catch { return fallback; } };
   const genres = parse<string[]>(row.genres, []), details = parse<Details>(row.details, {});
   const type = String(row.type), image = String(row.image || ''), sample = row.source === 'sample', kind = entryKind(type);
-  if (!owner) await countWork(request, id, 'view');
+  if (!owner) waitUntil(countWork(request, id, 'view'));
   await announceDueEntries(id);
 
   const entries = await listEntries(id, kind, owner);
@@ -125,7 +127,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   const origin = new URL(request.url).origin; const ogImage = image ? new URL(image, origin).href : '';
 
   const html = `${pageHead(`${row.title}${sample ? ' (예시)' : ''}`, `<meta name="description" content="${esc(row.subtitle || row.description)}"><meta property="og:type" content="article"><meta property="og:title" content="${esc(row.title)} · VIBEFLIX"><meta property="og:description" content="${esc(row.subtitle || row.description)}">${ogImage ? `<meta property="og:image" content="${esc(ogImage)}">` : ''}<meta property="og:url" content="${esc(origin)}/works/${esc(id)}">${sample || row.visibility !== 'public' ? '<meta name="robots" content="noindex">' : ''}`)}
-<link rel="stylesheet" href="/work.css">${owner ? '<link rel="stylesheet" href="/block-editor.css">' : ''}<style>@layer page{${BASE_CSS}${SCENE_CSS}}</style></head><body>
+<link rel="stylesheet" href="${asset('/work.css')}">${owner ? `<link rel="stylesheet" href="${asset('/block-editor.css')}">` : ''}<style>@layer page{${BASE_CSS}${SCENE_CSS}}</style></head><body>
 ${topBar()}
 ${sample ? '<div class="notice">화면 구성을 보여주기 위해 운영자가 만든 예시 작품이에요. 실제 작품이 아니에요.</div>' : ''}${row.visibility === 'draft' ? '<div class="notice">임시 저장된 작품이에요. 공개하기 전까지 나만 볼 수 있어요.</div>' : ''}
 <main${mature ? ' class="is-gated"' : ''}>${mature ? '<div class="mature-gate" role="region" aria-label="성인 소재 안내"><b>성인 소재가 포함된 작품이에요</b><p>작가가 성인 소재 경고를 표시했어요. 만 19세 이상이고 내용을 보고 싶을 때만 열어주세요.</p><button class="btn primary" data-mature-ok>확인하고 보기</button></div>' : ''}${media}${details.embed ? `<div class="play-embed" id="play-embed" hidden data-src="${esc(details.embed)}"></div>` : ''}
@@ -143,6 +145,6 @@ ${type === 'art' && details.license ? `<p class="license">© ${esc(row.creator)}
 </main>
 ${owner ? `<dialog class="modal entry-dialog" id="entry-dialog" data-guard-unsaved aria-labelledby="entry-dialog-title"><form id="entry-form" novalidate><h2 id="entry-dialog-title"></h2><div class="entry-grid">${kind === 'episode' ? '<label>회차 <input name="number" type="number" min="1" max="9999" required></label>' : '<label>버전 <input name="version" maxlength="30" placeholder="예: 1.2.0"></label>'}<label class="grow">제목 <input name="title" maxlength="100" required placeholder="${kind === 'episode' ? '예: 첫 번째 별' : '예: 다크 모드 추가'}"></label></div><div class="entry-body" id="entry-body"></div><label>${kind === 'episode' ? '작가의 말' : '덧붙이는 말'} <small>선택</small><textarea name="note" maxlength="1000" rows="2"></textarea></label><div class="entry-grid"><label>공개 <select name="status"><option value="published">공개</option><option value="draft">임시 저장</option></select></label><label class="grow">예약 공개 <small>비우면 지금 공개</small><input name="publishAt" type="datetime-local"></label></div><p class="form-error" id="entry-error" hidden></p><div class="entry-actions"><button type="button" class="btn small" data-entry-delete hidden>삭제</button><span></span><button type="button" class="btn small" data-entry-cancel>취소</button><button class="btn small primary">저장</button></div></form></dialog>` : ''}
 <script type="application/json" id="work-config">${JSON.stringify(config).replace(/</g, '\\u003c')}</script>
-${owner ? '<script src="/block-editor.js" defer></script>' : ''}<script src="/work.js" defer></script><script src="/leave-guard.js" defer></script>${scenes ? `<script>${playerScript}</script>` : ''}</body></html>`;
+${owner ? `<script src="${asset('/block-editor.js')}" defer></script>` : ''}<script src="${asset('/work.js')}" defer></script><script src="${asset('/leave-guard.js')}" defer></script>${scenes ? `<script>${playerScript}</script>` : ''}</body></html>`;
   return htmlResponse(html, sample || row.visibility !== 'public' ? { 'X-Robots-Tag': 'noindex' } : {});
 }

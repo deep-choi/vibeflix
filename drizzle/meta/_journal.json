@@ -120,6 +120,13 @@
       "when": 1793805636603,
       "tag": "0016_persona_pass",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "6",
+      "when": 1793814635197,
+      "tag": "0017_hardening",
+      "breakpoints": true
     }
   ]
 }

@@ -73,7 +73,10 @@ export const CATALOG_TTL=30_000;
 const catalogCache=new Map<string,{at:number;body:string}>();
 export function cachedCatalog(key:string){const hit=catalogCache.get(key);return hit&&Date.now()-hit.at<CATALOG_TTL?hit.body:null;}
 export function storeCatalog(key:string,body:string){if(catalogCache.size>50)catalogCache.clear();catalogCache.set(key,{at:Date.now(),body});}
-export function invalidateCatalog(){catalogCache.clear();}
+let catalogGeneration=0;
+/** Bumped by every catalog write in this isolate; other per-isolate caches built from works (the sitemap) compare it. */
+export const catalogGen=()=>catalogGeneration;
+export function invalidateCatalog(){catalogCache.clear();catalogGeneration++;}
 
 /**
  * Turns validated body blocks into D1 statements: new images are inserted into project_images, kept ones are

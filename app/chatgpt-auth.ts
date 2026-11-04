@@ -1,5 +1,6 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { env } from "cloudflare:workers";
 
 export type ChatGPTUser = {
   userId: string;
@@ -18,8 +19,22 @@ const SIGN_IN_PATH = "/signin-with-chatgpt";
 const SIGN_OUT_PATH = "/signout-with-chatgpt";
 const CALLBACK_PATH = "/callback";
 
+/**
+ * The oai-authenticated-user-* headers are an identity only when a trusted proxy put them there: ChatGPT Sites
+ * (which strips client-supplied copies at its edge) or the local vite dev server (whose mock sign-in does the same).
+ * Anywhere else — Cloudflare Workers in production — any client can send them, so they are ignored. A deployment
+ * behind another trusted proxy can opt in with CHATGPT_SITES_AUTH=1.
+ */
+export function trustsChatGPTHeaders(requestHeaders: Headers): boolean {
+  if (import.meta.env?.DEV) return true;
+  if ((env as { CHATGPT_SITES_AUTH?: string }).CHATGPT_SITES_AUTH === "1") return true;
+  const host = (requestHeaders.get("host") || "").toLowerCase().replace(/:\d+$/, "");
+  return host.endsWith(".chatgpt.site");
+}
+
 export async function getChatGPTUser(): Promise<ChatGPTUser | null> {
   const requestHeaders = await headers();
+  if (!trustsChatGPTHeaders(requestHeaders)) return null;
   const userId = requestHeaders.get(USER_ID_HEADER);
   const email = requestHeaders.get(USER_EMAIL_HEADER);
   if (!userId || !email) return null;

@@ -1,5 +1,6 @@
 import { db } from './api';
 import { kstDay } from './admin';
+import { digest } from './auth';
 
 const BOT = /bot|crawl|spider|slurp|preview|facebookexternalhit|headless|lighthouse/i;
 const human = (request: Request) => { const ua = request.headers.get('user-agent') || ''; return !!ua && !BOT.test(ua) && request.headers.get('purpose') !== 'prefetch'; };
@@ -24,20 +25,33 @@ export function referrerSource(request: Request) {
   } catch { return '알 수 없음'; }
 }
 
-/** Counts a detail view (with where it came from) or an outbound link click for a work (per KST day). Never throws. */
+/**
+ * True the first time today that this visitor counts for `key` (a work view, a work click or an episode view).
+ * Visitors are a daily-rotating hash of IP + browser — never stored raw — so reloading or scripting a page
+ * cannot inflate a work's numbers. Old rows are trimmed now and then.
+ */
+async function firstToday(request: Request, key: string) {
+  const day = kstDay();
+  const visitor = (await digest(`count:${day}:${request.headers.get('cf-connecting-ip') || 'local'}:${request.headers.get('user-agent') || ''}`)).slice(0, 16);
+  const result = await db().prepare('INSERT OR IGNORE INTO view_dedupe (day,key,visitor) VALUES (?,?,?)').bind(day, key, visitor).run();
+  if (Math.random() < .01) await db().prepare('DELETE FROM view_dedupe WHERE day < ?').bind(kstDay(Date.now() - 2 * 86400000)).run();
+  return result.meta.changes === 1;
+}
+
+/** Counts a detail view (with where it came from) or an outbound link click for a work, once per visitor per KST day. Never throws. */
 export async function countWork(request: Request, projectId: string, kind: 'view' | 'click') {
   try {
-    if (!human(request)) return;
+    if (!human(request) || !await firstToday(request, `${kind === 'view' ? 'v' : 'c'}:${projectId}`)) return;
     const column = kind === 'view' ? 'views' : 'clicks'; const day = kstDay();
     const statements = [db().prepare(`INSERT INTO work_stats (project_id,day,${column}) VALUES (?,?,1) ON CONFLICT(project_id,day) DO UPDATE SET ${column}=${column}+1`).bind(projectId, day)];
     if (kind === 'view') statements.push(db().prepare('INSERT INTO work_referrers (project_id,day,source,views) VALUES (?,?,?,1) ON CONFLICT(project_id,day,source) DO UPDATE SET views=views+1').bind(projectId, day, referrerSource(request)));
     await db().batch(statements);
   } catch {}
 }
-/** Counts one reader opening an episode or update note. Never throws. */
+/** Counts one reader opening an episode or update note, once per visitor per KST day. Never throws. */
 export async function countEntry(request: Request, projectId: string, entryId: string) {
   try {
-    if (!human(request)) return;
+    if (!human(request) || !await firstToday(request, `e:${entryId}`)) return;
     await db().prepare('INSERT INTO entry_stats (project_id,entry_id,day,views) VALUES (?,?,?,1) ON CONFLICT(entry_id,day) DO UPDATE SET views=views+1').bind(projectId, entryId, kstDay()).run();
   } catch {}
 }

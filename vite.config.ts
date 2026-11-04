@@ -52,6 +52,8 @@ export default defineConfig(async ({ command }) => {
   const { cloudflare } = await import("@cloudflare/vite-plugin");
 
   return {
+    // cache-busting token for /ds.css, /app.js … (lib/security.ts → versioned URLs, public/_headers → long cache)
+    define: { __ASSET_VERSION__: JSON.stringify(Date.now().toString(36)) },
     server: {
       ...(managedLinux
         ? { host: "0.0.0.0", allowedHosts: ["terminal.local"] }

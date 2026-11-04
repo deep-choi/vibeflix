@@ -63,13 +63,23 @@ npm start -- --port 5297
 node scripts/check-operator.mjs http://127.0.0.1:5297   # 운영·작가 도구 (0015)
 node scripts/check-personas.mjs http://127.0.0.1:5297   # 페르소나 개선 (0016)
 node scripts/check-community.mjs http://127.0.0.1:5297
+node scripts/check-security.mjs http://127.0.0.1:5297    # 보안 헤더·로그인 위조·캐시·조회수 (0017)
 ```
 
-세 스크립트 모두 로컬 주소에서만 돌고, 만든 임시 회원·작품·글을 끝에 지웁니다. 로컬 wrangler가 가끔 앱까지 가지 않은 503을 즉시 돌려주는데(앱의 503은 항상 JSON 오류와 함께 `daily_errors`에 기록됨), 이런 응답만 두 번까지 다시 시도합니다.
+네 스크립트 모두 로컬 주소에서만 돌고, 만든 임시 회원·작품·글을 끝에 지웁니다. 로컬 wrangler가 가끔 앱까지 가지 않은 503을 즉시 돌려주는데(앱의 503은 항상 JSON 오류와 함께 `daily_errors`에 기록됨), 이런 응답만 두 번까지 다시 시도합니다.
 
-GitHub Actions `CI`(`.github/workflows/ci.yml`)가 push·PR마다 lint, 타입 검사, 빌드, 로컬 D1 마이그레이션, 위 세 스크립트를 실행합니다. Cloudflare 계정이나 비밀값은 필요 없습니다.
+GitHub Actions `CI`(`.github/workflows/ci.yml`)가 push·PR마다 lint, 타입 검사, 빌드, 로컬 D1 마이그레이션, 위 네 스크립트를 실행합니다. Cloudflare 계정이나 비밀값은 필요 없습니다.
 
 새 마이그레이션 `0001`, `0002`는 추가 테이블과 nullable 열만 생성합니다. 기존 작품 레코드는 유지합니다. 테스트 fixture와 OAuth 토큰, Firebase CLI 로그, 실행 상태는 배포 소스에 포함하지 않습니다.
+
+## 보안과 성능 (마이그레이션 0017)
+
+- **ChatGPT 로그인 헤더**: `oai-authenticated-user-*` 헤더는 ChatGPT Sites 플랫폼이 붙여주는 값이라, Sites 주소(`*.chatgpt.site`)로 들어온 요청에서만 믿습니다(`app/chatgpt-auth.ts`). Workers에서는 누구나 이 헤더를 직접 보낼 수 있어서 예전에는 아무 이메일(운영자 이메일 포함)로 로그인한 것처럼 꾸밀 수 있었습니다. 다른 주소에서 Sites 앞단을 쓴다면 비밀이 아닌 변수 `CHATGPT_SITES_AUTH=1`로 직접 켜야 합니다.
+- **보안 헤더** (`lib/security.ts`, 정적 파일은 `public/_headers`): `nosniff`, HSTS, Referrer-Policy, Permissions-Policy, Google 로그인 팝업을 막지 않는 COOP, 그리고 `object-src 'none'; base-uri 'self'; form-action 'self'` CSP. `/admin`은 다른 사이트 안에 넣을 수 없습니다(`frame-ancestors 'none'`). 다음 단계는 인라인 스크립트·스타일을 파일로 옮긴 뒤 `script-src`/`style-src` 허용 목록을 거는 것입니다(Firebase·gstatic·YouTube·Vimeo·itch.io 포함).
+- **조회 수**: 작품 조회·링크 클릭·회차 조회는 같은 방문자(그날의 IP+브라우저 해시)에게서 하루 한 번만 셉니다(`view_dedupe`, 이틀 뒤 삭제). 작가 본인이 자기 작품을 열어도 세지 않고, 숫자를 올리려는 반복 요청은 무시됩니다. 집계는 `waitUntil`로 응답 뒤에 처리해 페이지를 늦추지 않습니다.
+- **캐시**: 페이지가 링크하는 `/ds.css`·`/app.js` 같은 파일에는 빌드마다 바뀌는 `?v=`가 붙고(vite `define` → `__ASSET_VERSION__`), 브라우저는 1년 동안 다시 받지 않습니다. `public/`에 CSS·JS를 추가하면 `public/_headers`에도 한 줄 넣으세요(`check-security`가 빠진 것을 잡습니다). 사이트맵은 Worker마다 10분 보관하고, 같은 Worker에서 작품이 바뀌면 바로 새로 만듭니다.
+- **인덱스**: 찜(작품별), 신고(대상별), 운영 기록(대상별), 작품 통계(날짜별), 게시글(분류별) 조회에 인덱스를 더했습니다. 읽은 지 90일 지난 알림은 가끔 정리됩니다.
+- **의존성**: `next` 16.4.5(ImageResponse 원격 코드 실행·Draft Mode 노출 수정), React 19.2.8(Server Functions DoS), sharp 0.35.5, zod 4, 그 밖의 간접 의존성을 패치했습니다. `npm audit --omit=dev`는 0건입니다. 남은 경고는 개발 도구(wrangler의 esbuild 개발 서버, eslint의 minimatch, vinext의 image-size·satori)뿐이라 운영 Worker에는 들어가지 않으며, vinext 1.x 정식 버전으로 올릴 때 함께 정리합니다.
 
 ## 배포
 
