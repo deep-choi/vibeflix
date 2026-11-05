@@ -39,16 +39,16 @@
     }finally{URL.revokeObjectURL(url);}
   }
 
-  function create(root,{hint=''}={}){
-    let blocks=[];
+  function create(root,{hint='',kinds=['heading','text','image','video'],lockFirst=false,firstPlaceholder=''}={}){
+    let blocks=lockFirst?[{type:'text',text:''}]:[];
     root.classList.add('block-editor');
-    root.innerHTML=`<p class="be-hint"></p><div class="be-blocks"></div><div class="be-add"><button type="button" data-add="heading">＋ 소제목</button><button type="button" data-add="text">＋ 글</button><button type="button" data-add="image">＋ 이미지</button><button type="button" data-add="video">＋ 영상</button></div><input type="file" accept="image/png,image/jpeg,image/webp" multiple hidden><p class="be-error" role="alert" hidden></p>`;
+    root.innerHTML=`<p class="be-hint"></p><div class="be-blocks"></div><div class="be-add">${kinds.map(k=>`<button type="button" data-add="${k}">＋ ${names[k]}</button>`).join('')}</div><input type="file" accept="image/png,image/jpeg,image/webp" multiple hidden><p class="be-error" role="alert" hidden></p>`;
     const list=root.querySelector('.be-blocks'),file=root.querySelector('input[type=file]'),err=root.querySelector('.be-error'),imageButton=root.querySelector('[data-add=image]');
     const error=message=>{err.textContent=message||'';err.hidden=!message;};
     const setHint=text=>{root.querySelector('.be-hint').textContent=text||'';root.querySelector('.be-hint').hidden=!text;};
     setHint(hint);
     function render(){
-      list.innerHTML=blocks.map((b,i)=>`<div class="cblock cblock-${b.type}" data-i="${i}"><div class="cblock-bar"><span>${names[b.type]}</span><button type="button" data-move="-1" aria-label="위로" ${i===0?'disabled':''}>↑</button><button type="button" data-move="1" aria-label="아래로" ${i===blocks.length-1?'disabled':''}>↓</button><button type="button" data-remove aria-label="${names[b.type]} 삭제">✕</button></div>${
+      list.innerHTML=blocks.map((b,i)=>lockFirst&&i===0&&b.type==='text'?`<div class="cblock cblock-text cblock-intro" data-i="0"><textarea data-field="text" rows="10" maxlength="5000" aria-label="작품 소개" placeholder="${esc(firstPlaceholder)}">${esc(b.text)}</textarea></div>`:`<div class="cblock cblock-${b.type}" data-i="${i}"><div class="cblock-bar"><span>${names[b.type]}</span><button type="button" data-move="-1" aria-label="위로" ${i===0?'disabled':''}>↑</button><button type="button" data-move="1" aria-label="아래로" ${i===blocks.length-1?'disabled':''}>↓</button><button type="button" data-remove aria-label="${names[b.type]} 삭제">✕</button></div>${
         b.type==='heading'?`<input data-field="text" maxlength="100" placeholder="소제목 (예: 1화 · 시작)" value="${esc(b.text)}">`:
         b.type==='text'?`<textarea data-field="text" rows="6" maxlength="5000" placeholder="내용을 입력하세요.">${esc(b.text)}</textarea>`:
         b.type==='video'?`<input data-field="url" maxlength="2000" placeholder="YouTube 또는 Vimeo 링크" value="${esc(b.url)}">`:
@@ -77,7 +77,7 @@
     });
     render();
     return {
-      set(next){blocks=(next||[]).map(b=>b.type==='image'?{type:'image',id:b.id,data:b.data,src:b.src||b.data,caption:b.caption||''}:b.type==='video'?{type:'video',url:b.url||''}:{type:b.type,text:b.text||''});error('');render();},
+      set(next){blocks=(next||[]).map(b=>b.type==='image'?{type:'image',id:b.id,data:b.data,src:b.src||b.data,caption:b.caption||''}:b.type==='video'?{type:'video',url:b.url||''}:{type:b.type,text:b.text||''});if(lockFirst&&blocks[0]?.type!=='text')blocks.unshift({type:'text',text:''});error('');render();},
       /** Blocks ready to send; returns null (and shows why) if a video link is invalid. */
       get(){
         const bad=blocks.find(b=>b.type==='video'&&b.url.trim()&&!videoOk(b.url));if(bad){error('영상 블록에는 YouTube 또는 Vimeo 링크를 넣어주세요.');return null;}

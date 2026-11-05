@@ -31,7 +31,7 @@ try{
   assert.equal(await location('/works/new'),'/?login=1&next=%2Fworks%2Fnew');
   assert.equal(await location('/posts/new'),'/?login=1&next=%2Fposts%2Fnew');
   assert.equal(await location('/works/koiworld/edit'),'/?login=1&next=%2Fworks%2Fkoiworld%2Fedit');
-  const form=await request(C,'/works/new');assert.equal(form.status,200);assert.ok(form.data.includes('id="work-form"')&&form.data.includes('id="editor-config"')&&form.data.includes('/work-editor.js'));assert.equal(form.headers.get('x-robots-tag'),'noindex');
+  const form=await request(C,'/works/new');assert.equal(form.status,200);assert.ok(form.data.includes('id="work-form"')&&form.data.includes('id="editor-config"')&&form.data.includes('/work-editor.js'));assert.equal(form.headers.get('x-robots-tag'),'noindex');assert.ok(!form.data.includes('name="creator"')&&form.data.includes('id="work-upcoming"'),'the nickname is applied on its own and status is one checkbox');
   await expect(request(C,'/works/koiworld/edit'),404);
   console.log('PASS: writing pages send visitors to sign in and curated works stay out of the member editor.');
 
