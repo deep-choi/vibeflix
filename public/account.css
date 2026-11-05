@@ -1,0 +1,29 @@
+﻿body.account-page { background:#0b0d0a; color:#f3f5ef; }
+body.account-page > .header, body.account-page > #home-main, body.account-page > footer, body.account-page > .site-notice { display:none !important; }
+.account-shell { max-width:1200px; margin:0 auto; padding:42px 32px 100px; min-height:100vh; }
+.account-top { padding-bottom:28px; border-bottom:1px solid #30362b; }
+.account-top a { color:#b9cd98; font-size:14px; text-decoration:none; }
+.account-top h1 { margin:24px 0 6px; font-size:32px; letter-spacing:-1px; }
+.account-top p { margin:0; color:#9aa598; }
+.account-page #profile-content > .profile-heading { margin:30px 0 24px; }
+.account-layout { display:grid; grid-template-columns:220px minmax(0,1fr); gap:40px; align-items:start; }
+.account-nav { display:flex; flex-direction:column; gap:4px; }
+.account-nav p { margin:24px 12px 8px; color:#83917b; font-size:12px; font-weight:700; }
+.account-nav button, .account-nav a { display:block; width:100%; border:0; border-radius:9px; padding:12px 14px; text-align:left; background:transparent; color:#b3beaa; font:inherit; text-decoration:none; cursor:pointer; }
+.account-nav button:hover, .account-nav a:hover { background:#ffffff0c; color:white; }
+.account-nav button.active { background:#c3f5681c; color:#d3f59e; font-weight:700; }
+.account-panel { min-width:0; padding:28px; border:1px solid #30362b; border-radius:16px; background:#141714; }
+.account-panel [hidden] { display:none !important; }
+.account-panel #profile-form { max-width:680px; }
+.account-panel #profile-form label { display:block; margin-bottom:20px; font-weight:600; }
+.account-panel #profile-form small { color:#94a28d; font-size:12px; font-weight:400; }
+.account-panel #profile-form input, .account-panel #profile-form textarea { display:block; width:100%; margin-top:8px; padding:13px 14px; border:1px solid #394136; border-radius:8px; background:#090b09; color:#f3f5ef; font:inherit; }
+.account-panel #profile-form textarea { min-height:100px; resize:vertical; }
+.account-panel #profile-form button { margin-bottom:22px; }
+.account-panel .activity-row { display:flex; justify-content:space-between; align-items:center; gap:12px; }
+.account-panel .activity-item { display:flex; flex-direction:column; align-items:flex-start; flex:1; padding:16px 0; border-bottom:1px solid #30362b; text-align:left; }
+.account-panel .activity-item span, .account-panel .activity-item small { color:#94a28d; margin-top:5px; }
+.account-panel .profile-footer { margin-top:28px; }
+.account-panel .safety-controls { display:flex; flex-wrap:wrap; gap:16px; margin-top:24px; }
+.account-login { padding:48px 0; }
+@media(max-width:700px) { .account-shell { padding:24px 18px 70px; } .account-layout { display:block; } .account-nav { flex-direction:row; overflow-x:auto; padding-bottom:12px; margin-bottom:16px; } .account-nav p { display:none; } .account-nav button, .account-nav a { flex:0 0 auto; width:auto; white-space:nowrap; } .account-panel { padding:20px; } }

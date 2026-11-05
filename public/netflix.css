@@ -551,3 +551,6 @@ body:not(.nf-home) .project-row{margin-right:0}
   .nf-home .nf-row{margin-bottom:64px}
 }
 }
+
+/* Reserve space for the title caption before the separate continue link. */
+@media (min-width:851px) and (hover:hover) and (pointer:fine){.nf-home .nf-recent .project-card{margin-bottom:32px}}
