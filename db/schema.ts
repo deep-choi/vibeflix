@@ -26,6 +26,7 @@ export const projects = sqliteTable('projects', {
   // Category-specific fields (website features, app stores, game controls, video duration, novel status…)
   details: text('details').notNull().default('{}'),
   visibility: text('visibility').notNull().default('public'), // 'draft' = saved but only the owner can see it
+  verifiedAt: integer('verified_at'), // an operator checked the outbound link; cleared when the owner changes it
 
   featured: integer('featured').notNull().default(0),
   sort: integer('sort').notNull().default(0),
@@ -43,8 +44,10 @@ export const projectImages = sqliteTable('project_images', {
 export const profiles = sqliteTable('profiles', {
   id:text('id').primaryKey(), publicId:text('public_id').notNull().unique(),
   name:text('name').notNull(), bio:text('bio').notNull().default(''), avatar:text('avatar').notNull().default(''),
+  links:text('links').notNull().default('[]'), // up to 3 public http(s) links (portfolio, GitHub, shop) shown on the creator page
   role:text('role').notNull().default('member'), suspended:integer('suspended').notNull().default(0),
   loginProvider:text('login_provider').notNull().default(''), // 'google' | 'email' | 'chatgpt' — last sign-in method
+  suspendedUntil:integer('suspended_until'), // set with suspended=1 for a temporary suspension; null = until lifted
   created:integer('created').notNull(), updated:integer('updated').notNull(),
 });
 export const sessions = sqliteTable('sessions', {
@@ -52,12 +55,16 @@ export const sessions = sqliteTable('sessions', {
 }, t=>[index('sessions_user_idx').on(t.userId), index('sessions_expiry_idx').on(t.expires)]);
 export const posts = sqliteTable('posts', {
   id:text('id').primaryKey(), ownerId:text('owner_id').notNull(), title:text('title').notNull(), body:text('body').notNull(),
-  category:text('category').notNull().default('general'), projectId:text('project_id'), created:integer('created').notNull(), updated:integer('updated').notNull(),
+  category:text('category').notNull().default('general'), projectId:text('project_id'),
+  solvedComment:text('solved_comment'), // question posts: the reply the asker accepted as the answer
+  created:integer('created').notNull(), updated:integer('updated').notNull(),
   deletedAt:integer('deleted_at'), hiddenAt:integer('hidden_at'),
-}, t=>[index('posts_created_idx').on(t.created),index('posts_owner_idx').on(t.ownerId)]);
+}, t=>[index('posts_created_idx').on(t.created),index('posts_owner_idx').on(t.ownerId),index('posts_category_idx').on(t.category,t.created)]);
 export const comments = sqliteTable('comments', {
   id:text('id').primaryKey(), ownerId:text('owner_id').notNull(), targetKind:text('target_kind').notNull(), targetId:text('target_id').notNull(),
-  parentId:text('parent_id'), body:text('body').notNull(), label:text('label').notNull().default(''), created:integer('created').notNull(), updated:integer('updated').notNull(), deletedAt:integer('deleted_at'), hiddenAt:integer('hidden_at'),
+  parentId:text('parent_id'), body:text('body').notNull(), label:text('label').notNull().default(''),
+  // creator triage of feedback/bug comments: '' (new) | 'ack' | 'fixed'; statusEntry = the update note that fixed it
+  status:text('status').notNull().default(''), statusEntry:text('status_entry'), created:integer('created').notNull(), updated:integer('updated').notNull(), deletedAt:integer('deleted_at'), hiddenAt:integer('hidden_at'),
 }, t=>[index('comments_target_idx').on(t.targetKind,t.targetId,t.created),index('comments_owner_idx').on(t.ownerId)]);
 export const reactions = sqliteTable('reactions', {
   userId:text('user_id').notNull(), targetKind:text('target_kind').notNull(), targetId:text('target_id').notNull(), created:integer('created').notNull(),
@@ -67,7 +74,7 @@ export const ratings = sqliteTable('ratings', {
 },t=>[primaryKey({columns:[t.userId,t.projectId]}),index('ratings_project_idx').on(t.projectId),check('ratings_score_check',sql`${t.score} between 1 and 5`)]);
 export const bookmarks = sqliteTable('bookmarks', {
   userId:text('user_id').notNull(), projectId:text('project_id').notNull(), created:integer('created').notNull(),
-},t=>[primaryKey({columns:[t.userId,t.projectId]})]);
+},t=>[primaryKey({columns:[t.userId,t.projectId]}),index('bookmarks_project_idx').on(t.projectId)]);
 export const notifications = sqliteTable('notifications', {
   id:text('id').primaryKey(), recipientId:text('recipient_id').notNull(), actorId:text('actor_id').notNull(),
   kind:text('kind').notNull(), targetKind:text('target_kind').notNull(), targetId:text('target_id').notNull(), excerpt:text('excerpt').notNull(),
@@ -75,8 +82,9 @@ export const notifications = sqliteTable('notifications', {
 },t=>[index('notifications_recipient_idx').on(t.recipientId,t.created)]);
 export const reports = sqliteTable('reports', {
   id:text('id').primaryKey(), reporterId:text('reporter_id').notNull(), targetKind:text('target_kind').notNull(), targetId:text('target_id').notNull(), reason:text('reason').notNull(),
+  category:text('category').notNull().default('other'), // spam | abuse | copyright | privacy | sexual | malicious | other
   status:text('status').notNull().default('pending'), created:integer('created').notNull(), resolvedAt:integer('resolved_at'),
-},t=>[index('reports_status_idx').on(t.status,t.created)]);
+},t=>[index('reports_status_idx').on(t.status,t.created),index('reports_target_idx').on(t.targetKind,t.targetId,t.status)]);
 export const limits = sqliteTable('limits', {
   id:text('id').primaryKey(), windowStart:integer('window_start').notNull(), count:integer('count').notNull(),
 });
@@ -86,7 +94,7 @@ export const settings = sqliteTable('settings', {
 });
 export const adminActions = sqliteTable('admin_actions', {
   id:text('id').primaryKey(), adminId:text('admin_id').notNull(), action:text('action').notNull(), targetKind:text('target_kind').notNull(), targetId:text('target_id').notNull(), note:text('note').notNull().default(''), created:integer('created').notNull(),
-},t=>[index('admin_actions_created_idx').on(t.created)]);
+},t=>[index('admin_actions_created_idx').on(t.created),index('admin_actions_target_idx').on(t.targetId)]);
 export const dailyViews = sqliteTable('daily_views', {
   day:text('day').primaryKey(), views:integer('views').notNull(),
 });
@@ -99,6 +107,7 @@ export const banners = sqliteTable('banners', {
   buttonLabel:text('button_label').notNull().default(''), buttonIcon:text('button_icon').notNull().default('none'), url:text('url').notNull().default(''),
   theme:text('theme').notNull().default('custom'), image:text('image').notNull().default(''),
   sort:integer('sort').notNull().default(0), enabled:integer('enabled').notNull().default(1), created:integer('created').notNull(), updated:integer('updated').notNull(),
+  startsAt:integer('starts_at'), endsAt:integer('ends_at'), // optional schedule; null = no limit
 },t=>[index('banners_sort_idx').on(t.sort)]);
 // Episodes (novel/webtoon/video series) and update notes (app/game/website)
 export const entries = sqliteTable('entries', {
@@ -113,9 +122,43 @@ export const follows = sqliteTable('follows', {
 // Per-work daily counters for creators: detail views and outbound link clicks
 export const workStats = sqliteTable('work_stats', {
   projectId:text('project_id').notNull(), day:text('day').notNull(), views:integer('views').notNull().default(0), clicks:integer('clicks').notNull().default(0),
-},t=>[primaryKey({columns:[t.projectId,t.day]})]);
+},t=>[primaryKey({columns:[t.projectId,t.day]}),index('work_stats_day_idx').on(t.day)]);
 
 // Android release: member controls and explicit content policy consent.
 export const memberBlocks=sqliteTable('member_blocks',{ownerId:text('owner_id').notNull(),targetId:text('target_id').notNull(),created:integer('created').notNull()},t=>[primaryKey({columns:[t.ownerId,t.targetId]})]);
 export const policyAcceptances=sqliteTable('policy_acceptances',{userId:text('user_id').primaryKey(),version:text('version').notNull(),accepted:integer('accepted').notNull()});
 export const deletionRequests=sqliteTable('deletion_requests',{userId:text('user_id').primaryKey(),requested:integer('requested').notNull()});
+
+// Operator tools (0015): graduated sanctions, appeals against hidden content, curated collections,
+// creator analytics (episode views, where views come from), zero-result searches and server error counts.
+export const sanctions=sqliteTable('sanctions',{
+  id:text('id').primaryKey(),userId:text('user_id').notNull(),kind:text('kind').notNull(), // warning | suspend | ban | lift
+  until:integer('until'),note:text('note').notNull().default(''),adminId:text('admin_id').notNull(),created:integer('created').notNull(),
+},t=>[index('sanctions_user_idx').on(t.userId,t.created)]);
+export const appeals=sqliteTable('appeals',{
+  id:text('id').primaryKey(),userId:text('user_id').notNull(),targetKind:text('target_kind').notNull(),targetId:text('target_id').notNull(),
+  reason:text('reason').notNull(),status:text('status').notNull().default('pending'),response:text('response').notNull().default(''),
+  created:integer('created').notNull(),resolvedAt:integer('resolved_at'),
+},t=>[index('appeals_status_idx').on(t.status,t.created),index('appeals_user_idx').on(t.userId)]);
+export const collections=sqliteTable('collections',{
+  id:text('id').primaryKey(),title:text('title').notNull(),description:text('description').notNull().default(''),
+  projectIds:text('project_ids').notNull().default('[]'),sort:integer('sort').notNull().default(0),enabled:integer('enabled').notNull().default(1),
+  startsAt:integer('starts_at'),endsAt:integer('ends_at'),created:integer('created').notNull(),updated:integer('updated').notNull(),
+},t=>[index('collections_sort_idx').on(t.sort)]);
+export const entryStats=sqliteTable('entry_stats',{
+  projectId:text('project_id').notNull(),entryId:text('entry_id').notNull(),day:text('day').notNull(),views:integer('views').notNull().default(0),
+},t=>[primaryKey({columns:[t.entryId,t.day]}),index('entry_stats_project_idx').on(t.projectId)]);
+export const workReferrers=sqliteTable('work_referrers',{
+  projectId:text('project_id').notNull(),day:text('day').notNull(),source:text('source').notNull(),views:integer('views').notNull().default(0),
+},t=>[primaryKey({columns:[t.projectId,t.day,t.source]})]);
+export const searchMisses=sqliteTable('search_misses',{
+  day:text('day').notNull(),query:text('query').notNull(),count:integer('count').notNull().default(0),
+},t=>[primaryKey({columns:[t.day,t.query]})]);
+export const dailyErrors=sqliteTable('daily_errors',{
+  day:text('day').primaryKey(),count:integer('count').notNull().default(0),lastMessage:text('last_message').notNull().default(''),lastAt:integer('last_at'),
+});
+// One row per (day, counted thing, visitor hash) so a reload or a script cannot inflate views/clicks (lib/stats.ts).
+// Rows older than two days are trimmed; the visitor value is a truncated daily hash, never an IP.
+export const viewDedupe=sqliteTable('view_dedupe',{
+  day:text('day').notNull(),key:text('key').notNull(),visitor:text('visitor').notNull(),
+},t=>[primaryKey({columns:[t.day,t.key,t.visitor]})]);

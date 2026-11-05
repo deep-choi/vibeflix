@@ -1,24 +1,10 @@
 'use strict';
 // Behaviour for the server-rendered work, episode and creator pages: follow, save, recommend, share,
-// ratings and comments, the owner's episode/update editor, in-page play, reading position and click stats.
+// ratings and comments (public/social.js), in-page play, reading position and click stats.
 (function(){
-  const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)];
-  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const {$,$$,esc,time,toast,api,needLogin}=window.Social;
   const cfg=JSON.parse($('#work-config')?.textContent||'{}');
-  const time=t=>{const d=Math.round((Date.now()-Number(t))/60000);return d<1?'방금':d<60?`${d}분 전`:d<1440?`${Math.round(d/60)}시간 전`:new Date(Number(t)).toLocaleDateString('ko-KR');};
-  let toastTimer;
-  function toast(message){let t=$('.work-toast');if(!t){t=document.createElement('div');t.className='work-toast';t.setAttribute('role','status');document.body.append(t);}t.textContent=message;t.hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>{t.hidden=true;},2600);}
-  const loginUrl=()=>`/?login=1&next=${encodeURIComponent(location.pathname+location.hash)}`;
-  /** JSON call to the site API; sends people to sign in on 401 and explains other failures. */
-  async function api(path,method='GET',payload){
-    const response=await fetch(path,{method,headers:payload?{'Content-Type':'application/json'}:{},body:payload?JSON.stringify(payload):undefined});
-    const data=await response.json().catch(()=>({}));
-    if(response.status===401){location.href=loginUrl();throw Error('로그인이 필요해요.');}
-    if(response.status===428){toast(data.error||'내 프로필에서 이용약관에 동의한 뒤 작성해주세요.');throw Error('consent');}
-    if(!response.ok)throw Error(data.error||'요청을 처리하지 못했어요.');
-    return data;
-  }
-  const needLogin=()=>{if(cfg.loggedIn)return false;location.href=loginUrl();return true;};
+  window.Social.setMember(cfg.loggedIn);
   const workApi=p=>`/api/projects/${encodeURIComponent(cfg.id)}${p||''}`;
 
   /* ───── Follow (work and creator pages) ───── */
@@ -29,10 +15,15 @@
   }));
   if(cfg.creatorPage)return;
 
+  /* ───── Remember this work for the home page's "이어서 볼 작품" row (this device only) ───── */
+  try{const key='vibeflix.recent';const list=JSON.parse(localStorage.getItem(key)||'[]').filter(x=>x&&x.id!==cfg.id);const prev=JSON.parse(localStorage.getItem(key)||'[]').find(x=>x&&x.id===cfg.id)||{};list.unshift({...prev,id:cfg.id,at:Date.now()});localStorage.setItem(key,JSON.stringify(list.slice(0,20)));}catch{}
+
   /* ───── Save, recommend, share ───── */
   $('[data-save]')?.addEventListener('click',async event=>{
     const b=event.currentTarget;if(needLogin())return;b.disabled=true;
-    try{await api('/api/community/bookmarks','PUT',{projectId:cfg.id,active:!cfg.saved});cfg.saved=!cfg.saved;b.classList.toggle('on',cfg.saved);b.textContent=cfg.saved?'✓ 찜했어요':'＋ 찜하기';toast(cfg.saved?'찜했어요. 새 회차와 업데이트를 알려드릴게요.':'찜을 취소했어요.');}
+    try{await api('/api/community/bookmarks','PUT',{projectId:cfg.id,active:!cfg.saved});cfg.saved=!cfg.saved;b.classList.toggle('on',cfg.saved);
+      if(cfg.upcoming){b.textContent=cfg.saved?'✓ 출시 알림 신청함':'＋ 출시 알림 받기';toast(cfg.saved?'공개되면 알림으로 알려드릴게요.':'출시 알림을 취소했어요.');}
+      else{b.textContent=cfg.saved?'✓ 찜했어요':'＋ 찜하기';toast(cfg.saved?'찜했어요. 새 회차와 업데이트를 알려드릴게요.':'찜을 취소했어요.');}}
     catch(error){toast(error.message);}finally{b.disabled=false;}
   });
   $('[data-recommend]')?.addEventListener('click',async event=>{
@@ -46,7 +37,40 @@
   });
 
   /* ───── Click stats: outbound links on this page ───── */
-  document.addEventListener('click',event=>{if(event.target.closest('[data-track-click]'))fetch(workApi('/hit?kind=click'),{method:'POST',keepalive:true}).catch(()=>{});});
+  const countClick=()=>fetch(workApi('/hit?kind=click'),{method:'POST',keepalive:true}).catch(()=>{});
+  document.addEventListener('click',event=>{if(event.target.closest('[data-track-click]'))countClick();});
+  // guarded links (public/leave-guard.js) count once the visitor confirms leaving
+  document.addEventListener('vibe:leave',event=>{if(event.detail?.closest?.('[data-track-click]'))countClick();});
+
+  /* ───── 성인 소재: blurred until the visitor opts in (remembered for this visit) ───── */
+  if(cfg.mature){
+    const okKey='vibeflix.mature-ok';const seen=()=>{try{return JSON.parse(sessionStorage.getItem(okKey)||'[]');}catch{return [];}};
+    const open=()=>{$('main')?.classList.remove('is-gated');$('.mature-gate')?.remove();};
+    if(seen().includes(cfg.id))open();
+    $('[data-mature-ok]')?.addEventListener('click',()=>{try{sessionStorage.setItem(okKey,JSON.stringify([...seen(),cfg.id]));}catch{}open();});
+  }
+
+  /* ───── Video chapters jump the player to that moment ───── */
+  document.addEventListener('click',event=>{
+    const b=event.target.closest('[data-seek]');if(!b)return;const frame=$('.frame iframe');if(!frame){toast('영상을 재생할 수 없어요.');return;}
+    const t=Number(b.dataset.seek)||0;const url=new URL(frame.src);
+    if(url.hostname.includes('vimeo')){url.searchParams.set('autoplay','1');url.hash=`t=${t}s`;}else{url.searchParams.set('start',String(t));url.searchParams.set('autoplay','1');}
+    frame.src=url.href;frame.closest('.frame')?.scrollIntoView({behavior:'smooth',block:'center'});
+  });
+
+  /* ───── Back from playing/using it? Ask for a rating while the experience is fresh ───── */
+  let leftAt=0;
+  const markLeft=()=>{leftAt=Date.now();};
+  document.addEventListener('click',event=>{if(event.target.closest('[data-track-click]:not([data-leave-guard])'))markLeft();});
+  document.addEventListener('vibe:leave',markLeft);
+  document.addEventListener('visibilitychange',()=>{
+    if(document.visibilityState!=='visible'||!leftAt||Date.now()-leftAt<20000||!cfg.canRate||cfg.myRating||$('.after-play'))return;
+    leftAt=0;const bar=document.createElement('div');bar.className='after-play';bar.setAttribute('role','status');
+    bar.innerHTML=`<span><b>${cfg.type==='game'?'플레이해보니 어땠나요?':'써보니 어땠나요?'}</b> 별점과 한 줄 리뷰가 다음 사람에게 큰 도움이 돼요.</span><button class="btn small primary" data-rate-now>별점 남기기</button><button class="close" aria-label="닫기">✕</button>`;
+    document.body.append(bar);
+    bar.querySelector('.close').addEventListener('click',()=>bar.remove());
+    bar.querySelector('[data-rate-now]').addEventListener('click',()=>{bar.remove();$('#discussion')?.scrollIntoView({behavior:'smooth'});setTimeout(()=>$('#rating-box [data-star="5"]')?.focus(),500);});
+  });
 
   /* ───── In-page play (itch.io HTML5 embed) ───── */
   $('[data-play-embed]')?.addEventListener('click',()=>{
@@ -65,80 +89,48 @@
   $$('.body.phones img').forEach(img=>{const mark=()=>{if(img.naturalHeight>img.naturalWidth*1.3)img.classList.add('portrait');};img.complete?mark():img.addEventListener('load',mark);});
 
   /* ───── Ratings and reviews ───── */
-  const box=$('#rating-box');
+  const box=$('#rating-box');let nextReview=null;
   function ratingForm(){
     if(!box)return;
+    if(cfg.owner){box.innerHTML='<p class="muted">내 작품에는 별점을 남길 수 없어요. 받은 평가는 아래에서 볼 수 있어요.</p>';return;}
     if(!cfg.canRate){box.innerHTML='<p class="muted">공개된 작품만 평가할 수 있어요.</p>';return;}
-    box.innerHTML=`<form class="rating-form"><div class="stars" role="radiogroup" aria-label="별점">${[1,2,3,4,5].map(n=>`<button type="button" role="radio" aria-checked="${n===cfg.myRating}" aria-label="${n}점" data-star="${n}" class="${n<=cfg.myRating?'on':''}">★</button>`).join('')}</div><input name="review" maxlength="1000" placeholder="${cfg.loggedIn?'한 줄 리뷰 (선택)':'로그인하면 별점을 남길 수 있어요.'}" value="${esc(cfg.myReview)}"><button class="btn small primary">${cfg.myRating?'수정':'남기기'}</button>${cfg.myRating?'<button type="button" class="btn small" data-rating-delete>삭제</button>':''}</form>`;
+    if(!cfg.loggedIn){box.innerHTML=`<a class="btn small login-prompt" href="${esc(window.Social.loginUrl())}">로그인하고 별점 남기기</a>`;return;}
+    box.innerHTML=`<form class="rating-form"><div class="stars" role="radiogroup" aria-label="별점">${[1,2,3,4,5].map(n=>`<button type="button" role="radio" aria-checked="${n===cfg.myRating}" aria-label="${n}점" data-star="${n}" class="${n<=cfg.myRating?'on':''}">★</button>`).join('')}</div><div class="rating-more"${cfg.myRating?'':' hidden'}><input name="review" maxlength="1000" aria-label="한 줄 리뷰" placeholder="한 줄 리뷰 (선택)" value="${esc(cfg.myReview)}"><button class="btn small primary">${cfg.myRating?'수정':'남기기'}</button>${cfg.myRating?'<button type="button" class="btn small" data-rating-delete>삭제</button>':''}</div></form>`;
     let score=cfg.myRating;const form=$('form',box);
-    $$('[data-star]',form).forEach(star=>star.addEventListener('click',()=>{score=Number(star.dataset.star);$$('[data-star]',form).forEach(s=>{const n=Number(s.dataset.star);s.classList.toggle('on',n<=score);s.setAttribute('aria-checked',String(n===score));});}));
+    $$('[data-star]',form).forEach(star=>star.addEventListener('click',()=>{score=Number(star.dataset.star);$$('[data-star]',form).forEach(s=>{const n=Number(s.dataset.star);s.classList.toggle('on',n<=score);s.setAttribute('aria-checked',String(n===score));});$('.rating-more',form).hidden=false;}));
     form.addEventListener('submit',async event=>{event.preventDefault();if(needLogin())return;if(!score){toast('별점을 골라주세요.');return;}
       try{const s=await api(`/api/community/ratings/${encodeURIComponent(cfg.id)}`,'PUT',{score,review:form.review.value.trim()});cfg.myRating=s.myRating;cfg.myReview=s.myReview||'';summary(s);toast('별점을 남겼어요.');ratingForm();loadReviews();}catch(error){if(error.message!=='consent')toast(error.message);}});
     $('[data-rating-delete]',form)?.addEventListener('click',async()=>{try{const s=await api(`/api/community/ratings/${encodeURIComponent(cfg.id)}`,'DELETE');cfg.myRating=0;cfg.myReview='';summary(s);ratingForm();loadReviews();}catch(error){toast(error.message);}});
   }
   const summary=s=>{const el=$('[data-rating-summary]');if(el)el.textContent=s.ratingCount?`★ ${Number(s.rating).toFixed(1)} · ${s.ratingCount}명`:'첫 평가를 기다려요';};
   async function loadReviews(){
-    const list=$('#reviews');if(!list||!cfg.canRate)return;
-    try{const r=await api(`/api/community/ratings/${encodeURIComponent(cfg.id)}`);const rows=r.reviews.filter(x=>x.review);
-      list.innerHTML=rows.length?`<ul class="reviews">${rows.map(x=>`<li><span class="stars-read">${'★'.repeat(x.score)}${'☆'.repeat(5-x.score)}</span><p>${esc(x.review)}</p><small>${esc(x.author_name)} · ${time(x.updated)}</small></li>`).join('')}</ul>`:'';}catch{}
+    const list=$('#reviews');if(!list||!(cfg.canRate||cfg.owner))return;
+    try{const r=await api(`/api/community/ratings/${encodeURIComponent(cfg.id)}`);const rows=r.reviews.filter(x=>x.review);nextReview=r.next;
+      // how the scores spread, so one 5★ doesn't read like a consensus
+      const total=(r.distribution||[]).reduce((n,x)=>n+x,0);const top=Math.max(1,...(r.distribution||[0]));
+      const dist=total>=2?`<ul class="dist" aria-label="별점 분포">${[5,4,3,2,1].map(n=>`<li><span>${n}★</span><i style="--w:${Math.round((r.distribution[n-1]/top)*100)}%"></i><em>${r.distribution[n-1]}</em></li>`).join('')}</ul>`:'';
+      list.innerHTML=dist+(rows.length?`<ul class="reviews">${rows.map(reviewItem).join('')}</ul>`:'')+(nextReview===null?'':'<button type="button" class="link" data-reviews-more>평가 더 보기 ↓</button>');}catch{}
   }
+  const reviewItem=x=>`<li><span class="stars-read">${'★'.repeat(x.score)}${'☆'.repeat(5-x.score)}</span><p>${esc(x.review)}</p><small>${esc(x.author_name)} · ${time(x.updated)}</small>${cfg.loggedIn&&!x.owned?`<div class="comment-actions"><button type="button" class="link" data-report-review-user="${esc(x.author_id)}">작성자 신고</button><button type="button" class="link" data-block-review-user="${esc(x.author_id)}">작성자 차단</button></div>`:''}</li>`;
+  $('#reviews')?.addEventListener('click',async event=>{
+    const button=event.target.closest('[data-reviews-more]');if(!button)return;button.disabled=true;
+    try{const r=await api(`/api/community/ratings/${encodeURIComponent(cfg.id)}?offset=${nextReview}`);nextReview=r.next;let ul=$('#reviews .reviews');if(!ul){button.insertAdjacentHTML('beforebegin','<ul class="reviews"></ul>');ul=$('#reviews .reviews');}ul.insertAdjacentHTML('beforeend',r.reviews.filter(x=>x.review).map(reviewItem).join(''));if(nextReview===null)button.remove();else button.disabled=false;}
+    catch(error){toast(error.message);button.disabled=false;}
+  });
 
   /* ───── Comments (with feedback / bug report labels on apps, games and websites) ───── */
-  let comments=[],filter='';
-  const labelName={feedback:'피드백',bug:'버그 제보'};
-  function drawComments(){
-    const list=$('#comments');if(!list)return;
-    const top=comments.filter(c=>!c.parent_id&&(!filter||c.label===filter));const replies=id=>comments.filter(c=>c.parent_id===id);
-    const item=(c,reply)=>`<li class="comment${reply?' reply':''}" data-comment="${esc(c.id)}"><div class="comment-head"><b>${esc(c.author_name)}</b>${c.label?`<em class="chip label-${esc(c.label)}">${labelName[c.label]||''}</em>`:''}<small>${time(c.created)}</small></div><p>${esc(c.body)}</p>${!reply&&!c.removed?'<button class="link" data-reply>답글</button>':''}${c.owned&&!c.removed?'<button class="link" data-delete-comment>삭제</button>':''}</li>`;
-    list.innerHTML=top.length?`<ul class="comments">${top.map(c=>item(c,false)+replies(c.id).map(r=>item(r,true)).join('')).join('')}</ul>`:`<p class="muted">${filter?'이 분류의 댓글이 아직 없어요.':'첫 댓글을 남겨보세요.'}</p>`;
-    const count=$('[data-comment-count]');const n=comments.filter(c=>!c.removed).length;if(count)count.textContent=n?`${n}개`:'';
-  }
-  async function loadComments(){try{const r=await api(`/api/community/comments?kind=project&id=${encodeURIComponent(cfg.id)}`);comments=r.comments;drawComments();}catch{}}
-  $$('[data-comment-filter]').forEach(b=>b.addEventListener('click',()=>{filter=b.dataset.commentFilter;$$('[data-comment-filter]').forEach(x=>x.classList.toggle('on',x===b));drawComments();}));
-  $('#comment-form')?.addEventListener('submit',async event=>{
-    event.preventDefault();const form=event.currentTarget;if(needLogin())return;const text=form.body.value.trim();if(!text)return;
-    const button=$('button',form);button.disabled=true;
-    try{await api('/api/community/comments','POST',{kind:'project',targetId:cfg.id,body:text,label:form.label?.value||''});form.body.value='';await loadComments();toast('댓글을 남겼어요.');}catch(error){if(error.message!=='consent')toast(error.message);}finally{button.disabled=false;}
-  });
-  $('#comments')?.addEventListener('click',async event=>{
-    const li=event.target.closest('[data-comment]');if(!li)return;const id=li.dataset.comment;
-    if(event.target.closest('[data-delete-comment]')){try{await api(`/api/community/comments/${encodeURIComponent(id)}`,'DELETE');await loadComments();}catch(error){toast(error.message);}return;}
-    if(event.target.closest('[data-reply]')){
-      if(needLogin())return;if($('.reply-form',li))return;
-      li.insertAdjacentHTML('beforeend','<form class="reply-form"><textarea maxlength="2000" rows="2" placeholder="답글을 입력하세요."></textarea><button class="btn small primary">답글 남기기</button></form>');
-      const form=$('.reply-form',li);$('textarea',form).focus();
-      form.addEventListener('submit',async e=>{e.preventDefault();const text=$('textarea',form).value.trim();if(!text)return;try{await api('/api/community/comments','POST',{kind:'project',targetId:cfg.id,parentId:id,body:text});await loadComments();}catch(error){if(error.message!=='consent')toast(error.message);}});
+  window.Social.discussion($('#comments'),{kind:'project',id:cfg.id,workId:cfg.id,labels:cfg.labels,owner:cfg.owner,updates:cfg.updates||[],placeholder:cfg.loggedIn?'이 작품에 대한 이야기를 남겨주세요.':'로그인하면 댓글을 남길 수 있어요.'});
+
+  /* ───── Owner: edit links next to each episode ───── */
+  if(cfg.owner)$$('[data-entry]').forEach(a=>{const edit=document.createElement('a');edit.className='link entry-edit';edit.textContent='수정';edit.href=`${a.getAttribute('href')}/edit`;a.parentElement.append(edit);});
+
+  /* ───── After a first work goes live: offer a ready-made 피드백 요청 post ───── */
+  try{
+    if(sessionStorage.getItem('vibeflix.ask-feedback')===cfg.id){
+      sessionStorage.removeItem('vibeflix.ask-feedback');
+      setTimeout(async()=>{if(await window.DS.confirm({title:'첫 작품을 올렸어요! 피드백을 받아볼까요?',message:'커뮤니티에 ‘피드백 요청’ 글을 쓰면 다른 바이브 코더들이 써보고 의견을 남겨줘요. 글은 미리 채워둘게요.',confirmLabel:'피드백 요청 글 쓰기',cancelLabel:'나중에'}))location.href=`/posts/new?feedback=${encodeURIComponent(cfg.id)}`;},900);
     }
-  });
+  }catch{}
 
-  /* ───── Owner: write an episode or an update note ───── */
-  const dialog=$('#entry-dialog');let editor=null,editingEntry='';
-  function openEntry(entry){
-    if(!dialog)return;
-    editor||=window.BlockEditor.create($('#entry-body'),{hint:cfg.kind==='episode'?'이번 화의 글과 그림을 순서대로 넣어주세요.':'바뀐 점을 글로 정리하고, 필요하면 스크린샷을 넣어주세요.'});
-    const form=$('#entry-form');form.reset();editingEntry=entry?.id||'';$('#entry-error').hidden=true;
-    $('#entry-dialog-title').textContent=entry?(cfg.kind==='episode'?'회차 수정':'소식 수정'):(cfg.kind==='episode'?'새 회차 쓰기':'업데이트 소식 쓰기');
-    if(cfg.kind==='episode')form.number.value=entry?.number||cfg.nextNumber;else form.version.value=entry?.version||'';
-    form.title.value=entry?.title||'';form.note.value=entry?.note||'';form.status.value=entry?.status||'published';
-    if(entry&&Number(entry.published_at)>Date.now()){const d=new Date(Number(entry.published_at)-new Date().getTimezoneOffset()*60000);form.publishAt.value=d.toISOString().slice(0,16);}
-    editor.set(entry?.content||[]);$('[data-entry-delete]').hidden=!entry;dialog.showModal();
-  }
-  $('[data-new-entry]')?.addEventListener('click',()=>openEntry(null));
-  $('[data-entry-cancel]')?.addEventListener('click',()=>dialog.close());
-  // owners can open an existing entry for editing straight from the list
-  if(cfg.owner)$$('[data-entry]').forEach(a=>{const b=document.createElement('button');b.className='link entry-edit';b.textContent='수정';b.addEventListener('click',async event=>{event.preventDefault();try{const r=await api(workApi(`/entries/${encodeURIComponent(a.dataset.entry)}`));openEntry(r.entry);}catch(error){toast(error.message);}});a.parentElement.append(b);});
-  $('#entry-form')?.addEventListener('submit',async event=>{
-    event.preventDefault();const form=event.currentTarget;const content=editor.get();if(!content)return;
-    const payload={title:form.title.value.trim(),note:form.note.value.trim(),status:form.status.value,content,publishAt:form.publishAt.value?new Date(form.publishAt.value).toISOString():''};
-    if(cfg.kind==='episode')payload.number=Number(form.number.value);else payload.version=form.version.value.trim();
-    const button=$('button.primary',form);button.disabled=true;$('#entry-error').hidden=true;
-    try{await api(workApi(`/entries${editingEntry?`/${encodeURIComponent(editingEntry)}`:''}`),editingEntry?'PATCH':'POST',payload);dialog.close();toast(payload.status==='draft'?'임시 저장했어요.':'공개했어요. 찜한 사람과 팔로워에게 알림이 가요.');setTimeout(()=>location.reload(),600);}
-    catch(error){$('#entry-error').textContent=error.message;$('#entry-error').hidden=false;}finally{button.disabled=false;}
-  });
-  $('[data-entry-delete]')?.addEventListener('click',async()=>{
-    if(!editingEntry||!confirm('이 회차·소식을 삭제할까요? 되돌릴 수 없어요.'))return;
-    try{await api(workApi(`/entries/${encodeURIComponent(editingEntry)}`),'DELETE');dialog.close();location.reload();}catch(error){toast(error.message);}
-  });
-
-  ratingForm();loadReviews();loadComments();
+  ratingForm();loadReviews();
 })();

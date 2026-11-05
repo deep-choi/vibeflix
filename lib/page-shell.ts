@@ -1,8 +1,12 @@
 import { parseVideoUrl } from './project-input';
+import { SECURITY_HEADERS, asset } from './security';
 
 // Shared bits for the server-rendered pages (/works, /works/:id/e/:entry, /creators).
 export const esc = (v: unknown) => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 export const typeNames: Record<string, string> = { website: '웹사이트', game: '게임', app: '앱', art: '그림·만화', video: '영상', novel: '소설' };
+/** A work without a cover: gradient + category icon (ds.css .cover-ph), never the title in a big font. Same tone as public/app.js. */
+export const coverPlaceholder = (id: unknown, type: unknown, extraClass = '') =>
+  `<div class="cover-ph${extraClass ? ' ' + extraClass : ''}" data-type="${esc(type)}" data-tone="${[...String(id ?? '')].reduce((n, c) => n + c.charCodeAt(0), 0) % 6}" aria-hidden="true"></div>`;
 export const fmtDate = (t: unknown) => new Date(Number(t) + 9 * 3600000).toISOString().slice(0, 10).replace(/-/g, '.');
 
 export function embed(url: string, title: string) {
@@ -34,7 +38,21 @@ main{max-width:1000px;margin:0 auto;padding:32px clamp(16px,4vw,40px) 96px}
 .section-title{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:48px 0 14px}.section-title h2{margin:0;font-size:20px;color:#fff}.section-title span{font-size:13px;color:#8d8d8d}
 .muted{color:#8d8d8d}.chip{display:inline-flex;font-style:normal;font-size:12.5px;font-weight:600;padding:3px 10px;border-radius:999px;background:#ffffff12;border:1px solid #ffffff1f}`;
 
-export const FONTS = '<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@500;700&family=Noto+Sans+KR:wght@400;500;700;800&family=Noto+Serif+KR:wght@400;600&display=swap" rel="stylesheet">';
-export const pageHead = (title: string, extra = '') => `<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#000000"><title>${esc(title)} · VIBEFLIX</title>${FONTS}${extra}`;
+export const FONTS = '<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Noto+Sans+KR:wght@400;500;600;700;800&family=Noto+Serif+KR:wght@400;600&display=swap" rel="stylesheet">';
+export const pageHead = (title: string, extra = '') => `<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#000000"><title>${esc(title)} · VIBEFLIX</title><link rel="stylesheet" href="${asset('/ds.css')}"><script src="${asset('/ds.js')}" defer></script>${FONTS}${extra}`;
 export const topBar = (back = '/', label = '사이트로 돌아가기') => `<header class="top"><a class="brand" href="/">VIBEFLIX</a><a class="back" href="${esc(back)}">← ${esc(label)}</a></header>`;
-export const htmlResponse = (html: string, headers: Record<string, string> = {}) => new Response(html, { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache', 'X-Content-Type-Options': 'nosniff', ...headers } });
+export const htmlResponse = (html: string, headers: Record<string, string> = {}) => new Response(html, { headers: { ...SECURITY_HEADERS, 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache', ...headers } });
+
+/** Pages that need a member: back here after signing in on the home page (/?login=1&next=…, see public/app.js). */
+export const loginRedirect = (path: string) => new Response(null, { status: 302, headers: { Location: `/?login=1&next=${encodeURIComponent(path)}`, 'Cache-Control': 'no-store' } });
+/** A readable dead end (removed post, someone else's editor) with a way back. */
+export const messagePage = (title: string, message: string, status = 404, back = '/', label = '사이트로 돌아가기') => new Response(`${pageHead(title, '<meta name="robots" content="noindex">')}<style>@layer page{${BASE_CSS}.message{max-width:560px;margin:12vh auto 0;text-align:center}.message h1{margin:0 0 10px;font-size:26px;color:#fff}.message p{margin:0 0 24px;color:#a8a8a8}}</style></head><body>${topBar(back, label)}<main><section class="message"><h1>${esc(title)}</h1><p>${esc(message)}</p><a class="btn" href="${esc(back)}">${esc(label)}</a></section></main></body></html>`, { status, headers: { ...SECURITY_HEADERS, 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex' } });
+
+export type FormPage = { title: string; back: string; backLabel: string; kicker: string; heading: string; lead?: string; sections?: [id: string, label: string][]; form: string; config: unknown; scripts: string[]; blockEditor?: boolean };
+/** The writing pages (작품, 회차·소식, 이야기): one long form with a section menu and a save bar that stays in reach. */
+export const formPageResponse = (o: FormPage) => htmlResponse(`${pageHead(o.title, '<meta name="robots" content="noindex">')}<link rel="stylesheet" href="${asset('/form-page.css')}">${o.blockEditor ? `<link rel="stylesheet" href="${asset('/block-editor.css')}">` : ''}<style>@layer page{${BASE_CSS}}</style></head><body>
+${topBar(o.back, o.backLabel)}
+<main class="form-page${o.sections ? '' : ' single'}"><header class="fp-head"><span class="ds-kicker">${esc(o.kicker)}</span><h1>${esc(o.heading)}</h1>${o.lead ? `<p>${esc(o.lead)}</p>` : ''}</header>
+<div class="fp-layout${o.sections ? '' : ' single'}">${o.sections ? `<nav class="fp-nav" aria-label="입력 항목">${o.sections.map(([id, label]) => `<a href="#${esc(id)}">${esc(label)}</a>`).join('')}</nav>` : ''}${o.form}</div></main>
+<script type="application/json" id="editor-config">${JSON.stringify(o.config).replace(/</g, '\\u003c')}</script>
+${o.blockEditor ? `<script src="${asset('/block-editor.js')}" defer></script>` : ''}<script src="${asset('/social.js')}" defer></script>${o.scripts.map(s => `<script src="${asset(s)}" defer></script>`).join('')}</body></html>`, { 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex' });

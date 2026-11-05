@@ -1,0 +1,36 @@
+# Lint, typecheck and build every push and pull request, then run the local integration checks
+# against a throwaway local D1 (no Cloudflare account or secrets needed).
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --include=dev --include=optional --no-audit --no-fund
+      - run: npm run lint
+      - run: npx tsc --noEmit
+      - run: npm run build
+      - name: Apply migrations to a local D1
+        run: npm run db:migrate:local
+      - name: Integration checks against the local Worker
+        run: |
+          npm start -- --port 5297 > server.log 2>&1 &
+          for i in $(seq 1 90); do curl -sf http://127.0.0.1:5297/api/session > /dev/null && break; sleep 1; done
+          node scripts/check-operator.mjs http://127.0.0.1:5297
+          node scripts/check-personas.mjs http://127.0.0.1:5297
+          node scripts/check-community.mjs http://127.0.0.1:5297
+          node scripts/check-security.mjs http://127.0.0.1:5297
+      - name: Server log
+        if: failure()
+        run: tail -200 server.log || true

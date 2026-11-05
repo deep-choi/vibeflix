@@ -1,7 +1,8 @@
 import { getSettings } from './admin';
+import { SECURITY_HEADERS } from './security';
 
 const esc=(v:string)=>v.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
-export const EFFECTIVE_DATE='2026년 10월 21일';
+export const EFFECTIVE_DATE='2026년 11월 4일'; // update to the deploy date when publishing changed terms
 
 // Legal pages share one shell; the operator's contact email comes from /admin settings.
 export async function legalPage(title:string,body:(contact:string)=>string){
@@ -16,5 +17,5 @@ h2{font-size:17px;margin:36px 0 10px;color:#fff}p,li{color:#cfcfcf}ul{padding-le
 footer{max-width:760px;margin:0 auto;padding:24px 20px 48px;border-top:1px solid #ffffff14;color:#8a8a8a;font-size:13px}footer a{margin-right:16px}</style></head>
 <body><header><a href="/">VIBEFLIX</a></header><main><h1>${title}</h1><p class="date">시행일: ${EFFECTIVE_DATE}</p>${body(contact)}</main>
 <footer><a href="/">홈으로</a><a href="/privacy">개인정보처리방침</a><a href="/terms">이용약관</a></footer></body></html>`;
-  return new Response(html,{headers:{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-cache','X-Content-Type-Options':'nosniff'}});
+  return new Response(html,{headers:{...SECURITY_HEADERS,'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-cache'}});
 }

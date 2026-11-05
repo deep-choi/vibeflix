@@ -2,6 +2,7 @@ import { ApiError, body, db, failure, json, limit, origin, text } from '../../..
 import { requireUser } from '../../../lib/auth';
 import { entity } from '../../../lib/community';
 import { POLICY_VERSION } from '../../../lib/member-safety';
+import { alertNewReport, reportCategory, reportReason } from '../../../lib/moderation';
 
 export const dynamic = 'force-dynamic';
 export async function GET() {
@@ -50,10 +51,12 @@ export async function POST(request: Request) {
       await db().prepare('DELETE FROM member_blocks WHERE owner_id=? AND target_id=?').bind(user.id, targetId).run();
     } else {
       const profile = await db().prepare('SELECT public_id FROM profiles WHERE id=?').bind(targetId).first();
-      const reason = text(input.reason, 5, 500, '신고 사유');
+      const category = reportCategory(input.category);
+      const reason = reportReason(input.reason, category);
       const existing = await db().prepare("SELECT id FROM reports WHERE reporter_id=? AND target_kind='user' AND target_id=? AND status='pending'").bind(user.id, profile!.public_id).first();
       if (existing) throw new ApiError(409, '이미 접수된 이용자 신고입니다.');
-      await db().prepare("INSERT INTO reports(id,reporter_id,target_kind,target_id,reason,created) VALUES(?,?,'user',?,?,?)").bind(crypto.randomUUID(), user.id, profile!.public_id, reason, Date.now()).run();
+      await db().prepare("INSERT INTO reports(id,reporter_id,target_kind,target_id,reason,category,created) VALUES(?,?,'user',?,?,?,?)").bind(crypto.randomUUID(), user.id, profile!.public_id, reason, category, Date.now()).run();
+      await alertNewReport(user.id, 'user', String(profile!.public_id), category);
     }
     return json({ ok: true });
   } catch (error) { return failure(error); }

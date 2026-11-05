@@ -2,8 +2,11 @@ import { db } from './api';
 import { digest } from './auth';
 
 // Site-wide settings the operator edits from /admin. Stored one JSON value per key.
-export type SiteSettings={notice:string;noticeUrl:string;pinned:string[];contactEmail:string};
-export const defaultSettings:SiteSettings={notice:'',noticeUrl:'',pinned:[],contactEmail:''};
+// noticeUntil: epoch ms after which the notice strip hides itself (0 = keep showing)
+export type SiteSettings={notice:string;noticeUrl:string;noticeUntil:number;pinned:string[];contactEmail:string};
+export const defaultSettings:SiteSettings={notice:'',noticeUrl:'',noticeUntil:0,pinned:[],contactEmail:''};
+/** The notice visitors should see right now (empty once its end time has passed). */
+export const activeNotice=(s:SiteSettings,now=Date.now())=>s.notice&&(!s.noticeUntil||now<s.noticeUntil)?{notice:s.notice,noticeUrl:s.noticeUrl}:{notice:'',noticeUrl:''};
 
 export async function getSettings():Promise<SiteSettings>{
   try{
@@ -57,6 +60,7 @@ export async function purgeComments(ids:string[]){
     run("DELETE FROM reactions WHERE target_kind='comment' AND target_id IN (??)",part),
     run("DELETE FROM reports WHERE target_kind='comment' AND target_id IN (??)",part),
     run("DELETE FROM notifications WHERE target_kind='comment' AND target_id IN (??)",part),
+    run("DELETE FROM appeals WHERE target_kind='comment' AND target_id IN (??)",part),
     run('DELETE FROM comments WHERE id IN (??)',part),
   ]);
   return all.size;
@@ -67,11 +71,13 @@ export async function purgePosts(ids:string[]){
     run("DELETE FROM reactions WHERE target_kind='post' AND target_id IN (??)",part),
     run("DELETE FROM reports WHERE target_kind='post' AND target_id IN (??)",part),
     run("DELETE FROM notifications WHERE target_kind='post' AND target_id IN (??)",part),
+    run("DELETE FROM appeals WHERE target_kind='post' AND target_id IN (??)",part),
     run('DELETE FROM posts WHERE id IN (??)',part),
   ]);
 }
 export async function purgeProjects(ids:string[]){
   await purgeComments(await idsWhere("SELECT id FROM comments WHERE target_kind='project' AND target_id IN (??)",ids));
+  await purgeComments(await idsWhere("SELECT id FROM comments WHERE target_kind='entry' AND target_id IN (SELECT id FROM entries WHERE project_id IN (??))",ids));
   for(const part of chunks(ids))await db().batch([
     run('DELETE FROM project_images WHERE project_id IN (??)',part),
     run('DELETE FROM ratings WHERE project_id IN (??)',part),
@@ -83,6 +89,9 @@ export async function purgeProjects(ids:string[]){
     run('UPDATE banners SET project_id=NULL WHERE project_id IN (??)',part),
     run('DELETE FROM entries WHERE project_id IN (??)',part),
     run('DELETE FROM work_stats WHERE project_id IN (??)',part),
+    run('DELETE FROM work_referrers WHERE project_id IN (??)',part),
+    run('DELETE FROM entry_stats WHERE project_id IN (??)',part),
+    run("DELETE FROM appeals WHERE target_kind='project' AND target_id IN (??)",part),
     run('DELETE FROM projects WHERE id IN (??)',part),
     ...part.map(id=>db().prepare("DELETE FROM notifications WHERE target_kind='entry' AND substr(target_id,1,?)=?").bind(id.length+1,`${id}/`)),
   ]);
@@ -106,6 +115,8 @@ export async function purgeUser(userId:string){
     db().prepare('DELETE FROM member_blocks WHERE owner_id=? OR target_id=?').bind(userId,userId),
     db().prepare('DELETE FROM policy_acceptances WHERE user_id=?').bind(userId),
     db().prepare('DELETE FROM deletion_requests WHERE user_id=?').bind(userId),
+    db().prepare('DELETE FROM sanctions WHERE user_id=?').bind(userId),
+    db().prepare('DELETE FROM appeals WHERE user_id=?').bind(userId),
     db().prepare('DELETE FROM profiles WHERE id=?').bind(userId),
   ]);
 }

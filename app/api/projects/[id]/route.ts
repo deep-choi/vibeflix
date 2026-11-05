@@ -2,7 +2,7 @@ import { env } from 'cloudflare:workers';
 import { currentUser, requireUser } from '../../../../lib/auth';
 import { parseProject, parseCover, parseContent, projectProblem, sameOrigin, CONTENT, COVER, GALLERY, PROJECT_BODY_LIMIT } from '../../../../lib/project-input';
 import { body, db, failure, json, limit, origin, ApiError } from '../../../../lib/api';
-import { contentStatements, isCuratedOrigin, resolveContent } from '../../../../lib/projects';
+import { announceLaunch, contentStatements, invalidateCatalog, isCuratedOrigin, resolveContent } from '../../../../lib/projects';
 
 import { assertVisibleAuthor } from '../../../../lib/member-safety';
 export const dynamic = 'force-dynamic';
@@ -27,6 +27,7 @@ export async function DELETE(request: Request, context: { params: Promise<{id:st
   try {
     const result=await env.DB!.prepare('UPDATE projects SET deleted_at = ? WHERE id = ? AND owner_id = ? AND deleted_at IS NULL RETURNING id').bind(Date.now(),id,user.id).all();
     if(!result.results.length)return Response.json({error:'작품을 찾을 수 없거나 수정 권한이 없습니다.'},{status:404});
+    invalidateCatalog();
     return Response.json({ok:true},{headers:{'Cache-Control':'no-store'}});
   } catch { return Response.json({error:'지금은 작품을 내릴 수 없습니다. 잠시 후 다시 시도해주세요.'},{status:503}); }
 }
@@ -37,8 +38,9 @@ export async function PATCH(request:Request,context:{params:Promise<{id:string}>
     const existing=await db().prepare('SELECT * FROM projects WHERE id=? AND owner_id=?').bind(id,user.id).first();if(!existing)throw new ApiError(404,'수정할 작품을 찾을 수 없습니다.');
     const b=await body(request,PROJECT_BODY_LIMIT);
     if(existing.hidden_at)throw new ApiError(403,'운영자가 확인 중인 작품은 직접 다시 공개할 수 없습니다.');
-    if(b.restore===true){await db().prepare('UPDATE projects SET deleted_at=NULL WHERE id=? AND owner_id=? AND hidden_at IS NULL').bind(id,user.id).run();return json({ok:true});}
-    const parsed=parseProject({...b,creator:user.name});if(!parsed)throw new ApiError(400,projectProblem(b));
+    if(b.restore===true){await db().prepare('UPDATE projects SET deleted_at=NULL WHERE id=? AND owner_id=? AND hidden_at IS NULL').bind(id,user.id).run();invalidateCatalog();return json({ok:true});}
+    // status: older clients don't send it, so the work keeps what it had
+    const withStatus={...b,creator:user.name,status:b.status??existing.status};const parsed=parseProject(withStatus);if(!parsed)throw new ApiError(400,projectProblem(withStatus));
     if(parsed.url&&await isCuratedOrigin(parsed.url))throw new ApiError(409,'이미 소개 중인 서비스입니다.');
     // image omitted = keep the current cover, '' = remove it, data URL = replace it
     let image=String(existing.image||'');if(typeof b.image==='string'){if(b.image&&!parseCover(b.image))throw new ApiError(400,`커버 이미지는 ${COVER.width}×${COVER.height}px의 PNG·JPG·WebP, ${COVER.maxBytes/1024}KB 이하만 등록할 수 있어요.`);image=b.image;}
@@ -50,8 +52,15 @@ export async function PATCH(request:Request,context:{params:Promise<{id:string}>
       if(!blocks)throw new ApiError(400,`본문은 블록 ${CONTENT.maxBlocks}개, 이미지 ${CONTENT.maxImages}장(장당 ${GALLERY.maxBytes/1024}KB 이하), 글 ${CONTENT.maxTotalText.toLocaleString('ko-KR')}자까지 쓸 수 있어요.`);
       ({ops,json:content}=await contentStatements(id,blocks));
     }
-    await db().prepare('UPDATE projects SET title=?,description=?,creator=?,type=?,url=?,image=?,genres=?,details=?,content=?,visibility=? WHERE id=? AND owner_id=? AND deleted_at IS NULL').bind(parsed.title,parsed.description,user.name,parsed.type,parsed.url||null,image,JSON.stringify(parsed.genres),JSON.stringify(parsed.details),content,b.draft===true?'draft':b.draft===false?'public':String(existing.visibility||'public'),id,user.id).run();
+    // an operator's link check covers the link they checked: a new link needs checking again
+    const verified=(parsed.url||null)===(existing.url||null)?existing.verified_at??null:null;
+    const status=parsed.status;
+    const visibility=b.draft===true?'draft':b.draft===false?'public':String(existing.visibility||'public');
+    await db().prepare('UPDATE projects SET title=?,description=?,creator=?,type=?,url=?,image=?,genres=?,details=?,content=?,visibility=?,verified_at=?,status=? WHERE id=? AND owner_id=? AND deleted_at IS NULL').bind(parsed.title,parsed.description,user.name,parsed.type,parsed.url||null,image,JSON.stringify(parsed.genres),JSON.stringify(parsed.details),content,visibility,verified,status,id,user.id).run();
     if(ops.length)await db().batch(ops);
+    invalidateCatalog();
+    // the creator just launched a work people were waiting for
+    if(existing.status==='upcoming'&&status==='live'&&visibility==='public')await announceLaunch(id,user.id,parsed.title);
     return json({ok:true});
   }catch(error){if(error instanceof Error&&error.message.includes('UNIQUE'))return json({error:'이미 등록된 링크입니다.'},409);return failure(error);}
 }

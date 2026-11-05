@@ -3,6 +3,7 @@ import { currentUser, requireUser } from '../../../../../../lib/auth';
 import { CONTENT, GALLERY, PROJECT_BODY_LIMIT, parseContent } from '../../../../../../lib/project-input';
 import { contentStatements, resolveContent } from '../../../../../../lib/projects';
 import { ENTRY_LIMITS, announceDueEntries, entryKind, listEntries } from '../../../../../../lib/entries';
+import { purgeComments } from '../../../../../../lib/admin';
 
 export const dynamic = 'force-dynamic';
 type Context = { params: Promise<{ id: string; entry?: string[] }> };
@@ -56,6 +57,7 @@ async function dispatch(request: Request, context: Context) {
   const existing = await db().prepare('SELECT id FROM entries WHERE id=? AND project_id=?').bind(entryId, id).first();
   if (!existing) throw new ApiError(404, '회차를 찾을 수 없습니다.');
   if (method === 'DELETE') {
+    await purgeComments(((await db().prepare("SELECT id FROM comments WHERE target_kind='entry' AND target_id=?").bind(entryId).all()).results).map(r => String(r.id)));
     await db().batch([db().prepare('DELETE FROM project_images WHERE project_id=? AND entry_id=?').bind(id, entryId), db().prepare('DELETE FROM entries WHERE id=?').bind(entryId), db().prepare("DELETE FROM notifications WHERE target_kind='entry' AND target_id=?").bind(`${id}/${entryId}`)]);
     return json({ ok: true });
   }

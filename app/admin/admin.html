@@ -7,7 +7,8 @@
   <meta name="theme-color" content="#000000">
   <title>운영자 대시보드 · VIBEFLIX</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/ds.css">
   <link rel="stylesheet" href="/admin.css">
 </head>
 <body>
@@ -21,17 +22,20 @@
   <div class="ad-shell" id="ad-shell" hidden>
     <nav class="ad-nav" aria-label="운영 메뉴">
       <button data-view="overview">현황</button>
+      <button data-view="reports">신고 <span class="ad-count" id="ad-report-count" hidden></span></button>
+      <button data-view="appeals">이의 제기 <span class="ad-count" id="ad-appeal-count" hidden></span></button>
       <button data-view="projects">작품</button>
       <button data-view="banners">배너</button>
+      <button data-view="collections">기획전</button>
       <button data-view="users">회원</button>
+      <button data-view="deletions">탈퇴 요청 <span class="ad-count" id="ad-deletion-count" hidden></span></button>
       <button data-view="content">게시글 · 댓글</button>
-      <button data-view="reports">신고 <span class="ad-count" id="ad-report-count" hidden></span></button>
       <button data-view="settings">사이트 설정</button>
       <button data-view="log">처리 기록</button>
     </nav>
     <main class="ad-main" id="ad-main" aria-live="polite"></main>
   </div>
-  <dialog class="ad-dialog" id="ad-confirm">
+  <dialog class="modal ad-dialog" id="ad-confirm" aria-labelledby="ad-confirm-title">
     <form method="dialog">
       <h2 id="ad-confirm-title"></h2>
       <p id="ad-confirm-copy"></p>
@@ -40,8 +44,9 @@
       <div class="ad-dialog-actions"><button class="ad-btn" value="cancel">취소</button><button class="ad-btn primary" id="ad-confirm-ok" value="ok">확인</button></div>
     </form>
   </dialog>
-  <dialog class="ad-dialog ad-edit" id="ad-edit"><form id="ad-edit-form" novalidate><h2 id="ad-edit-title"></h2><div id="ad-edit-body"></div><p class="ad-form-error" id="ad-edit-error" role="alert" hidden></p><div class="ad-dialog-actions"><span id="ad-edit-extra"></span><button type="button" class="ad-btn" data-edit-cancel>취소</button><button class="ad-btn primary" id="ad-edit-save">저장</button></div></form></dialog>
-  <div class="ad-toast" id="ad-toast" role="status" hidden></div>
+  <dialog class="modal ad-dialog ad-edit" id="ad-edit" data-guard-unsaved aria-labelledby="ad-edit-title"><form id="ad-edit-form" novalidate><h2 id="ad-edit-title"></h2><div id="ad-edit-body"></div><p class="ad-form-error" id="ad-edit-error" role="alert" hidden></p><div class="ad-dialog-actions"><span id="ad-edit-extra"></span><button type="button" class="ad-btn" data-edit-cancel>취소</button><button class="ad-btn primary" id="ad-edit-save">저장</button></div></form></dialog>
+  
+  <script src="/ds.js" defer></script>
   <script src="/admin.js" defer></script>
 </body>
 </html>

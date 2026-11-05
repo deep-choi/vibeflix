@@ -1,0 +1,535 @@
+/*
+ * VIBEFLIX design system — the single source of truth for tokens and UI components.
+ * Docs: docs/DESIGN_SYSTEM.md · Gallery: /design-system
+ *
+ * Every page loads this file first. Page stylesheets are wrapped in `@layer page`, which always loses to
+ * `@layer ds` — so a component looks the same wherever it appears, even where old CSS had context overrides.
+ * Older class names (.primary-button, .ad-btn, .btn.small …) are mapped onto the components below; new markup
+ * should use the canonical names: .btn (+ .primary .danger .ghost .link .icon .small .large .block), .chip,
+ * .badge, .segmented, .tabs, .alert, .ds-toast, dialog.modal (+ .modal-sm .modal-lg .modal-xl).
+ */
+@layer page, ds;
+
+@layer ds {
+
+/* ───────────────────────── 1. Tokens ───────────────────────── */
+:root {
+  color-scheme: dark;
+  /* surfaces */
+  --ds-bg: #000;
+  --ds-surface: #111310;          /* page panels, cards */
+  --ds-surface-raised: #181a17;   /* modals, menus */
+  --ds-surface-sunken: #0b0c0b;   /* inputs, wells */
+  --ds-fill: #ffffff0f;           /* neutral control fill */
+  --ds-fill-hover: #ffffff1c;
+  --ds-fill-strong: #ffffff2b;
+  --ds-border: #ffffff1a;
+  --ds-border-strong: #ffffff29;
+  --ds-border-hover: #ffffff4d;
+  /* text (all pass WCAG AA on the surfaces above) */
+  --ds-text: #f2f4ee;
+  --ds-text-2: #babfb2;
+  --ds-text-3: #8a9083;
+  /* brand + status */
+  --ds-accent: #c3f568;
+  --ds-accent-hover: #d3ff7c;
+  --ds-on-accent: #131a0b;
+  --ds-accent-soft: #c3f5681c;
+  --ds-accent-line: #c3f56866;
+  --ds-success: #8fd16a;
+  --ds-danger: #ff8a7a;
+  --ds-danger-soft: #ff8a7a1f;
+  --ds-danger-line: #ff8a7a59;
+  --ds-warning: #ffc46b;
+  --ds-warning-soft: #ffb4471f;
+  --ds-warning-line: #ffb44759;
+  --ds-info: #9cc9ff;
+  --ds-info-soft: #7ab8ff1f;
+  --ds-info-line: #7ab8ff59;
+  --ds-backdrop: #000000b8;
+  /* type */
+  --ds-font: 'DM Sans', 'Noto Sans KR', system-ui, sans-serif;
+  --ds-text-xs: 12px;   /* the smallest text anywhere */
+  --ds-text-sm: 13px;
+  --ds-text-md: 15px;
+  --ds-text-lg: 17px;
+  --ds-text-xl: 20px;
+  --ds-text-2xl: 24px;
+  --ds-text-3xl: 30px;
+  --ds-leading: 1.6;
+  --ds-leading-tight: 1.3;
+  /* space: 4px grid */
+  --ds-space-1: 4px; --ds-space-2: 8px; --ds-space-3: 12px; --ds-space-4: 16px;
+  --ds-space-5: 20px; --ds-space-6: 24px; --ds-space-8: 32px; --ds-space-10: 40px;
+  /* shape */
+  --ds-radius-sm: 8px;
+  --ds-radius-md: 12px;
+  --ds-radius-lg: 20px;
+  --ds-radius-pill: 999px;
+  --ds-radius-control: 10px;
+  /* control heights (touch screens get at least 40px, see §12) */
+  --ds-control-sm: 36px;
+  --ds-control-md: 44px;
+  --ds-control-lg: 52px;
+  /* elevation */
+  --ds-shadow-1: 0 8px 24px #0006;
+  --ds-shadow-2: 0 18px 48px #0009;
+  --ds-shadow-3: 0 40px 120px #000c;
+  /* motion */
+  --ds-ease: cubic-bezier(.2, .8, .2, 1);
+  --ds-dur-1: .12s;
+  --ds-dur-2: .24s;
+  /* layout */
+  --ds-gutter: 16px;          /* page side gutter on phones */
+  --ds-sheet-breakpoint: 640px;
+
+  /* Older stylesheets read these names; they now resolve to the system */
+  --lime: var(--ds-accent);
+  --text: var(--ds-text);
+  --muted: var(--ds-text-3);
+  --faint: var(--ds-text-3);
+  --line: var(--ds-border);
+  --line-2: var(--ds-border-strong);
+  --panel: var(--ds-surface);
+  --panel-2: var(--ds-surface-raised);
+  --danger: var(--ds-danger);
+}
+
+/* ───────────────────────── 2. Base ───────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+:focus-visible { outline: 2px solid var(--ds-accent); outline-offset: 2px; }
+::selection { background: #c3f56855; color: #fff; }
+body:has(dialog.modal[open]) { overflow: hidden; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}
+
+/* Small uppercase label above a title */
+:is(.ds-kicker, .section-kicker) {
+  display: block; font: 700 11px/1.4 var(--ds-font); letter-spacing: .14em; text-transform: uppercase; color: var(--ds-text-3);
+}
+
+/* ───────────────────────── 3. Buttons ─────────────────────────
+ * Canonical: <button class="btn primary small">. Sizes: small 36 · default 44 · large 52 (px height).
+ * Variants: default (secondary) · primary · danger (soft) · primary.danger (solid) · ghost · link · icon.
+ * Pressed/selected toggles use aria-pressed="true" (or the older .on/.selected classes).
+ */
+:is(.btn, .primary-button, .secondary-button, .ad-btn, .upload-button, .google-sign-in, .chatgpt-sign-in, .email-submit) {
+  --btn-h: var(--ds-control-md); --btn-px: 20px; --btn-fs: 14px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: var(--btn-h); padding: 0 var(--btn-px); margin: 0;
+  border: 1px solid var(--ds-border-strong); border-radius: var(--ds-radius-pill);
+  background: var(--ds-fill); color: var(--ds-text);
+  font: 700 var(--btn-fs)/1.2 var(--ds-font); letter-spacing: -.005em; white-space: nowrap; text-decoration: none; text-align: center;
+  cursor: pointer; filter: none; backdrop-filter: none; -webkit-tap-highlight-color: transparent;
+  transition: background var(--ds-dur-1), border-color var(--ds-dur-1), color var(--ds-dur-1), transform var(--ds-dur-1);
+}
+:is(.btn, .primary-button, .secondary-button, .ad-btn, .upload-button, .chatgpt-sign-in, .email-submit):hover { background: var(--ds-fill-hover); border-color: var(--ds-border-hover); filter: none; }
+:is(.btn, .primary-button, .secondary-button, .ad-btn, .upload-button, .google-sign-in, .chatgpt-sign-in, .email-submit):active { transform: translateY(1px); }
+:is(.btn, .primary-button, .secondary-button, .ad-btn, .upload-button, .google-sign-in, .chatgpt-sign-in, .email-submit):is(:disabled, [aria-disabled="true"], .disabled) {
+  opacity: .4; cursor: not-allowed; transform: none; pointer-events: none;
+}
+:is(.btn, .primary-button, .secondary-button, .ad-btn) svg { width: 18px; height: 18px; flex: none; }
+
+/* primary */
+:is(.btn.primary, .primary-button, .ad-btn.primary, .upload-button, .email-submit) {
+  background: var(--ds-accent); border-color: var(--ds-accent); color: var(--ds-on-accent);
+}
+:is(.btn.primary, .primary-button, .ad-btn.primary, .upload-button, .email-submit):hover { background: var(--ds-accent-hover); border-color: var(--ds-accent-hover); }
+/* danger: soft for row actions, solid when it is the primary action of a dialog */
+:is(.btn.danger, .ad-btn.danger) { background: var(--ds-danger-soft); border-color: var(--ds-danger-line); color: var(--ds-danger); }
+:is(.btn.danger, .ad-btn.danger):hover { background: #ff8a7a33; border-color: var(--ds-danger); }
+:is(.btn.primary.danger, .modal-actions .btn.danger:last-child, .ad-dialog-actions .ad-btn.danger) { background: var(--ds-danger); border-color: var(--ds-danger); color: #2a0a05; }
+/* ghost */
+:is(.btn.ghost) { background: transparent; border-color: transparent; color: var(--ds-text-2); }
+:is(.btn.ghost):hover { background: var(--ds-fill); color: var(--ds-text); }
+/* pressed / selected toggles (찜, 추천, 팔로우) */
+:is(.btn, .secondary-button):is([aria-pressed="true"], .on, .selected) {
+  background: var(--ds-accent-soft); border-color: var(--ds-accent-line); color: var(--ds-accent);
+}
+/* link-style text buttons */
+:is(.btn.link, .text-button, .link) {
+  display: inline-flex; align-items: center; gap: 4px; min-height: 32px; padding: 4px 6px; margin: 0;
+  border: 0; border-radius: 6px; background: transparent; color: var(--ds-text-2);
+  font: 600 var(--ds-text-sm)/1.3 var(--ds-font); text-decoration: none; cursor: pointer; filter: none;
+}
+:is(.btn.link, .text-button, .link):hover { color: var(--ds-text); background: var(--ds-fill); text-decoration: none; filter: none; }
+:is(.btn.link, .text-button, .link):is([aria-pressed="true"], .selected) { color: var(--ds-accent); background: transparent; }
+:is(.btn.link, .text-button, .link).accent { color: var(--ds-accent); }
+:is(.btn.link, .text-button, .link).danger { color: var(--ds-danger); }
+:is(.btn.link, .text-button, .link):disabled { opacity: .4; cursor: not-allowed; }
+
+/* sizes */
+:is(.btn.small, .ad-btn, .upload-button,
+    .rating-form-actions > .primary-button, .comment-submit-row > .primary-button, .comment-edit-form .primary-button,
+    .moderation-actions > :is(.primary-button, .secondary-button), .load-more-wrap .secondary-button, .cover-actions .secondary-button,
+    .gallery-field .secondary-button, .content-add .secondary-button, .nf-empty-tile .secondary-button,
+    .post-detail-actions .secondary-button, .project-social-actions > .secondary-button, .ad-image-actions .ad-btn) {
+  --btn-h: var(--ds-control-sm); --btn-px: 14px; --btn-fs: 13px;
+}
+:is(.btn.large, .hero-buttons :is(.primary-button, .secondary-button), .creator-banner > .primary-button,
+    .upload-auth .primary-button, .auth-consent-step .primary-button, .google-sign-in, .chatgpt-sign-in, .email-submit) {
+  --btn-h: var(--ds-control-lg); --btn-px: 26px; --btn-fs: 16px;
+}
+:is(.btn.block, .upload-auth .primary-button, .auth-consent-step .primary-button, .google-sign-in, .chatgpt-sign-in, .email-submit) { width: 100%; }
+/* icon-only */
+:is(.btn.icon, .icon-button, .ad-btn.icon) { width: var(--btn-h, 40px); min-width: var(--btn-h, 40px); height: var(--btn-h, 40px); padding: 0; }
+.icon-button { --btn-h: 40px; display: inline-grid; place-items: center; border-radius: var(--ds-radius-pill); background: transparent; color: var(--ds-text-2); border: 0; }
+.icon-button:hover { background: var(--ds-fill); color: var(--ds-text); filter: none; }
+.icon-button svg { width: 20px; height: 20px; }
+
+/* Sign-in providers keep their brand colors but share the button shape */
+.google-sign-in { background: #fff; border-color: #fff; color: #1f1f1f; font-weight: 600; gap: 12px; }
+.google-sign-in:hover { background: #ececec; border-color: #ececec; }
+.chatgpt-sign-in { font-weight: 600; }
+
+/* ───────────────────────── 4. Form controls ─────────────────────────
+ * Text inputs, selects and textareas inside modals, admin fields, comment/rating forms and .field wrappers.
+ * Phones use 16px text so iOS does not zoom into the field.
+ */
+:is(.modal, .ad-field, .field, .form-page, .comment-form, .reply-form, .comment-edit-form, .rating-form, .triage, .ad-toolbar)
+  :is(input:not([type=checkbox], [type=radio], [type=file], [type=range], [type=hidden], [type=submit], [type=button], [type=image], [type=color]), select, textarea) {
+  display: block; width: 100%; min-height: var(--ds-control-md); padding: 10px 14px;
+  font: 400 var(--ds-text-md)/1.5 var(--ds-font); color: var(--ds-text);
+  background-color: var(--ds-surface-sunken); border: 1px solid var(--ds-border-strong); border-radius: var(--ds-radius-control);
+  outline: none; box-shadow: none; transition: border-color var(--ds-dur-1), box-shadow var(--ds-dur-1);
+}
+:is(.modal, .ad-field, .field, .form-page, .comment-form, .reply-form, .comment-edit-form, .rating-form, .triage, .ad-toolbar)
+  :is(input:not([type=checkbox], [type=radio], [type=file], [type=range], [type=hidden]), select, textarea):hover { border-color: var(--ds-border-hover); }
+:is(.modal, .ad-field, .field, .form-page, .comment-form, .reply-form, .comment-edit-form, .rating-form, .triage, .ad-toolbar)
+  :is(input:not([type=checkbox], [type=radio], [type=file], [type=range], [type=hidden]), select, textarea):focus {
+  border-color: var(--ds-accent); box-shadow: 0 0 0 3px var(--ds-accent-soft); outline: none;
+}
+:is(.modal, .ad-field, .field, .form-page, .comment-form, .reply-form, .comment-edit-form, .rating-form, .triage, .ad-toolbar)
+  :is(input, select, textarea):is([aria-invalid="true"], :user-invalid) { border-color: var(--ds-danger); }
+:is(.modal, .ad-field, .field, .form-page, .comment-form, .reply-form, .comment-edit-form, .rating-form, .triage, .ad-toolbar)
+  :is(input, select, textarea):disabled { opacity: .5; cursor: not-allowed; }
+:is(.modal, .ad-field, .field, .form-page, .comment-form, .reply-form, .comment-edit-form, .rating-form, .triage, .ad-toolbar) :is(input, textarea)::placeholder { color: var(--ds-text-3); opacity: 1; }
+:is(.modal, .ad-field, .field, .form-page, .comment-form, .reply-form, .comment-edit-form, .rating-form, .ad-toolbar) textarea:not([hidden]) { min-height: 96px; line-height: 1.7; resize: vertical; }
+:is(.modal, .ad-field, .field, .form-page, .comment-form, .reply-form, .comment-edit-form, .rating-form, .triage, .ad-toolbar) select:not([multiple]) {
+  appearance: none; padding-right: 40px; cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5 6 6.5l5-5' fill='none' stroke='%23babfb2' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 16px center;
+}
+:is(.modal, .ad-field, .field) select option { background: var(--ds-surface-raised); color: var(--ds-text); }
+/* compact controls inside comment rows */
+.triage :is(select, input):not([type=checkbox]) { min-height: var(--ds-control-sm); padding-block: 4px; font-size: var(--ds-text-sm); width: auto; display: inline-block; }
+:is(.reply-form, .comment-edit-form) textarea:not([hidden]) { min-height: 72px; }
+/* a closed comment box is one line; it opens when someone starts writing */
+.comment-form:not(.open) textarea:not([hidden]) { min-height: var(--ds-control-md); resize: none; overflow: hidden; }
+/* report links stay out of the way: present, but never competing with the page */
+.report-line :is(.link, .text-button) { min-height: 0; padding: 4px 10px 4px 0; font-size: var(--ds-text-xs); font-weight: 400; color: var(--ds-text-3); }
+/* a control wrapped by its label sits 8px under the label text */
+:is(.modal, .field, .form-page) label > :is(input:not([type=checkbox], [type=radio]), select, textarea) { margin-top: 8px; }
+
+/* labels, hints, errors */
+:is(.modal, .ad-dialog, .form-page) form label:not(.star-option, .consent-line, .leave-skip, .unsolved-toggle, .detail-checks label, .rating-form label),
+:is(.modal, .ad-dialog, .form-page) :is(.detail-input > span:first-child, .cover-label),
+.ad-field, .field > label {
+  font: 600 var(--ds-text-sm)/1.45 var(--ds-font); color: var(--ds-text); letter-spacing: 0;
+}
+:is(.modal, .ad-dialog, .ad-field, .field, .form-page) :is(label small, .cover-label small, .detail-input small, .ad-field small) {
+  margin-left: 4px; font: 400 var(--ds-text-xs)/1.45 var(--ds-font); color: var(--ds-text-3);
+}
+:is(.field-hint, .char-count, .draft-status, .form-footnote, .gallery-hint, .ds-hint) { font: 400 var(--ds-text-xs)/1.55 var(--ds-font); color: var(--ds-text-3); }
+:is(.form-error, .ad-form-error, .comment-error, .ds-error) { font: 500 var(--ds-text-sm)/1.55 var(--ds-font); color: var(--ds-danger); margin: 8px 0 0; }
+/* checkboxes & radios */
+:is(.modal, .ad-dialog, .field, .form-page, .ad-field) input:is([type=checkbox], [type=radio]) {
+  width: 18px; height: 18px; min-height: 0; padding: 0; flex: none; accent-color: var(--ds-accent); cursor: pointer; vertical-align: -3px;
+}
+:is(.consent-line, .leave-skip, .unsolved-toggle, .detail-checks label) { font: 500 var(--ds-text-sm)/1.5 var(--ds-font); color: var(--ds-text-2); }
+
+/* ───────────────────────── 5. Chips & badges ─────────────────────────
+ * .chip      interactive pill (filters, genres). Single-select active = solid accent; multi-select on = soft accent.
+ * .badge     static label. Tones: .accent .success .warning .danger .info (older names mapped below).
+ */
+:is(.chip-btn, .filter, .community-tabs > button, .genre-chip, .ad-chip, .nf-cat-chips button) {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  min-height: var(--ds-control-sm); padding: 0 14px; margin: 0;
+  border: 1px solid var(--ds-border); border-radius: var(--ds-radius-pill); background: var(--ds-fill); color: var(--ds-text-2);
+  font: 600 var(--ds-text-sm)/1.2 var(--ds-font); white-space: nowrap; cursor: pointer; filter: none;
+  transition: background var(--ds-dur-1), border-color var(--ds-dur-1), color var(--ds-dur-1);
+}
+:is(.chip-btn, .filter, .community-tabs > button, .genre-chip, .ad-chip, .nf-cat-chips button):hover { background: var(--ds-fill-hover); border-color: var(--ds-border-hover); color: var(--ds-text); filter: none; }
+/* single-select (filter bars) */
+:is(.chip-btn[aria-current="true"], .filter.active, .community-tabs > button.active) {
+  background: var(--ds-accent); border-color: var(--ds-accent); color: var(--ds-on-accent); font-weight: 700;
+}
+/* multi-select toggles */
+:is(.chip-btn[aria-pressed="true"], .genre-chip.selected, .ad-chip.on) { background: var(--ds-accent-soft); border-color: var(--ds-accent-line); color: var(--ds-accent); }
+:is(.nf-cat-chips button) span, .filter > span { color: inherit; opacity: .7; font-weight: 600; }
+
+:is(.badge, .chip, .ad-badge, .question-badge, .verified-chip, .accepted-badge, .fact-chips > span, .mature-label, .post-category, .type-label, .new-label) {
+  display: inline-flex; align-items: center; gap: 5px; min-height: 24px; padding: 0 10px; margin: 0;
+  border: 1px solid var(--ds-border); border-radius: var(--ds-radius-pill); background: var(--ds-fill); color: var(--ds-text-2);
+  font: 600 var(--ds-text-xs)/1.2 var(--ds-font); letter-spacing: 0; text-transform: none; white-space: nowrap; font-style: normal; text-decoration: none; vertical-align: middle;
+}
+:is(.badge.accent, .chip.ok, .status-fixed, .question-badge.solved, .verified-chip, .accepted-badge, .ad-badge.pin, .new-label:not(.neutral)) { background: var(--ds-accent-soft); border-color: var(--ds-accent-line); color: var(--ds-accent); }
+:is(.badge.success, .ad-badge.ok) { background: #8fd16a1a; border-color: #8fd16a4d; color: var(--ds-success); }
+:is(.badge.warning, .chip.warn, .mature-label) { background: var(--ds-warning-soft); border-color: var(--ds-warning-line); color: var(--ds-warning); }
+:is(.badge.danger, .ad-badge.off, .label-bug) { background: var(--ds-danger-soft); border-color: var(--ds-danger-line); color: var(--ds-danger); }
+:is(.badge.info, .label-feedback) { background: var(--ds-info-soft); border-color: var(--ds-info-line); color: var(--ds-info); }
+.ad-badge::before { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+a:is(.badge, .chip):hover { border-color: var(--ds-border-hover); }
+
+/* ───────────────────────── 6. Tabs ─────────────────────────
+ * .segmented   contained pill switch (2–4 options). Active: [aria-selected=true] / .active / .on
+ * .tabs        underline tabs for switching panels
+ */
+:is(.segmented, .ad-seg, .comment-tabs, .email-auth-tabs) {
+  display: inline-flex; gap: 2px; padding: 3px; border: 1px solid var(--ds-border); border-radius: var(--ds-radius-pill); background: var(--ds-surface-sunken);
+}
+.email-auth-tabs { display: grid; grid-template-columns: 1fr 1fr; }
+:is(.segmented, .ad-seg, .comment-tabs, .email-auth-tabs) > button {
+  min-height: 34px; padding: 0 14px; border: 0; border-radius: var(--ds-radius-pill); background: transparent; color: var(--ds-text-3);
+  font: 600 var(--ds-text-sm)/1 var(--ds-font); cursor: pointer; white-space: nowrap; filter: none;
+}
+:is(.segmented, .ad-seg, .comment-tabs, .email-auth-tabs) > button:hover { color: var(--ds-text); }
+:is(.segmented, .ad-seg, .comment-tabs, .email-auth-tabs) > button:is([aria-selected="true"], [aria-pressed="true"], .active, .on) { background: var(--ds-fill-strong); color: var(--ds-text); }
+:is(.tabs, .profile-tabs) { display: flex; gap: 20px; border-bottom: 1px solid var(--ds-border); overflow-x: auto; scrollbar-width: none; }
+:is(.tabs, .profile-tabs) > button {
+  position: relative; min-height: 44px; padding: 0 2px; border: 0; background: none; color: var(--ds-text-3);
+  font: 600 var(--ds-text-sm)/1 var(--ds-font); white-space: nowrap; cursor: pointer; filter: none;
+}
+:is(.tabs, .profile-tabs) > button:hover { color: var(--ds-text); }
+:is(.tabs, .profile-tabs) > button:is([aria-selected="true"], .active) { color: var(--ds-text); }
+:is(.tabs, .profile-tabs) > button:is([aria-selected="true"], .active)::after { content: ''; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; border-radius: 2px; background: var(--ds-accent); }
+
+/* ───────────────────────── 7. Alerts ───────────────────────── */
+:is(.alert, .catalog-status, .inline-error, .mature-gate) {
+  padding: 14px 16px; border: 1px solid var(--ds-border-strong); border-radius: var(--ds-radius-md); background: var(--ds-fill); color: var(--ds-text);
+  font: 400 var(--ds-text-sm)/1.6 var(--ds-font);
+}
+:is(.alert.warning, .catalog-status, .mature-gate) { background: var(--ds-warning-soft); border-color: var(--ds-warning-line); }
+:is(.alert.warning, .catalog-status) { color: #f3dcb4; }
+:is(.alert.danger, .inline-error) { background: var(--ds-danger-soft); border-color: var(--ds-danger-line); color: #ffd3cb; }
+:is(.alert.accent) { background: var(--ds-accent-soft); border-color: var(--ds-accent-line); }
+.mature-gate b { color: var(--ds-warning); font-size: var(--ds-text-md); }
+
+/* ───────────────────────── 8. Toast ─────────────────────────
+ * One toast per page, shown by DS.toast() as a popover so it stays visible above open modals.
+ */
+:is(.ds-toast, .toast, .work-toast, .ad-toast) {
+  position: fixed; inset: auto auto calc(24px + env(safe-area-inset-bottom)) 50%; transform: translateX(-50%); z-index: 1000;
+  width: max-content; max-width: min(480px, calc(100vw - 32px)); margin: 0; padding: 12px 18px;
+  border: 0; border-radius: var(--ds-radius-md); background: #f2f4ee; color: #121410; box-shadow: var(--ds-shadow-2);
+  font: 600 var(--ds-text-sm)/1.5 var(--ds-font); text-align: center; overflow-wrap: anywhere;
+}
+.ds-toast.danger { background: #ffd8d1; color: #3a0d06; }
+.ds-toast:popover-open { animation: ds-toast-in var(--ds-dur-2) var(--ds-ease); }
+@keyframes ds-toast-in { from { opacity: 0; transform: translate(-50%, 12px); } }
+
+/* ───────────────────────── 9. Modal ─────────────────────────
+ * <dialog class="modal [modal-sm|modal-lg|modal-xl]">
+ *   <button class="modal-close" data-close aria-label="닫기"></button>
+ *   <span class="ds-kicker">…</span><h2>title</h2><p>description</p>
+ *   …body…
+ *   <div class="modal-actions [sticky]"><button class="btn">취소</button><button class="btn primary">확인</button></div>
+ * </dialog>
+ * Desktop: centered card. ≤640px: bottom sheet (full width, rounded top, drag handle, sticky footer, safe area).
+ * Widths: sm 440 · default 560 · notification 600 · lg 720 · xl 880.
+ */
+dialog.modal {
+  --modal-w: 560px; --modal-pt: 32px; --modal-px: 32px; --modal-pb: 32px;
+  box-sizing: border-box; width: min(var(--modal-w), calc(100vw - 32px)); max-width: none; max-height: min(calc(100dvh - 48px), 920px);
+  margin: auto; padding: var(--modal-pt) var(--modal-px) var(--modal-pb); overflow-y: auto; overscroll-behavior: contain;
+  border: 1px solid var(--ds-border); border-radius: var(--ds-radius-lg); background: var(--ds-surface-raised); color: var(--ds-text);
+  box-shadow: var(--ds-shadow-3); font: 400 var(--ds-text-md)/var(--ds-leading) var(--ds-font); text-align: left;
+  word-break: keep-all; overflow-wrap: anywhere; /* Korean breaks between words; long strings still wrap */
+  scrollbar-width: none;
+}
+dialog.modal::-webkit-scrollbar { display: none; }
+dialog.modal::backdrop { background: var(--ds-backdrop); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+dialog.modal:is(.modal-sm, .auth-modal, .leave-guard, .entry-report, .community-dialog, #ad-confirm) { --modal-w: 440px; }
+dialog.modal.notification-modal { --modal-w: 600px; }
+dialog.modal:is(.modal-lg, .profile-modal, .ad-edit) { --modal-w: 720px; }
+dialog.modal.modal-xl { --modal-w: 880px; --modal-pt: 0px; --modal-px: 0px; --modal-pb: 0px; }
+
+/* header */
+dialog.modal > :is(.section-kicker, .ds-kicker), dialog.modal > form > :is(.section-kicker, .ds-kicker) { margin: 0 0 8px; }
+:is(dialog.modal > h2, dialog.modal > form > h2, .modal-title) {
+  margin: 0 0 8px; padding-right: 0; font: 800 var(--ds-text-2xl)/1.3 var(--ds-font); letter-spacing: -.02em; color: var(--ds-text); text-wrap: balance;
+}
+:is(dialog.modal > p, dialog.modal > form > p.modal-desc, .modal-desc, .form-intro, #ad-confirm-copy) {
+  margin: 0 0 24px; font: 400 14px/1.65 var(--ds-font); color: var(--ds-text-2);
+}
+dialog.modal > :is(.form-error, .email-auth-note) { margin: 12px 0 0; }
+.modal-badge { display: none; }
+/* titles make room for the close button only when there is one */
+dialog.modal:has(> .modal-close) > :is(h2, form > h2) { padding-right: 44px; }
+
+/* close button: pinned to the top-right corner while the dialog scrolls. It is a block pushed right (not a float,
+   which would make covers and other block content shrink around it) and takes no vertical space. */
+.modal-close {
+  /* sticky offsets count from the dialog's content edge (inside its padding), hence 12px minus the padding */
+  position: sticky; top: calc(12px - var(--modal-pt)); float: none; z-index: 6; display: grid; place-items: center;
+  width: 40px; height: 40px; margin: calc(12px - var(--modal-pt)) calc(12px - var(--modal-px)) calc(var(--modal-pt) - 52px) auto; padding: 0;
+  border: 0; border-radius: 50%; background: var(--ds-fill); color: var(--ds-text-2); font-size: 0; cursor: pointer; transform: none; filter: none; backdrop-filter: blur(8px);
+  transition: background var(--ds-dur-1), color var(--ds-dur-1);
+}
+.modal-close:hover { background: var(--ds-fill-hover); color: var(--ds-text); filter: none; }
+.modal-close::before, .modal-close::after { content: ''; position: absolute; inset: 0; margin: auto; width: 14px; height: 1.6px; border-radius: 1px; background: currentColor; transform: rotate(45deg); }
+.modal-close::after { transform: rotate(-45deg); }
+.modal-close { z-index: 7; }
+.sheet-handle { display: none; }
+dialog.modal.about-modal > p { margin-bottom: 12px; }
+dialog.modal.about-modal > .primary-button { margin-top: 12px; }
+
+/* footer */
+:is(.modal-actions, .ad-dialog-actions) {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; margin: 24px 0 0;
+}
+:is(.modal-actions, .ad-dialog-actions) > :is(.form-footnote, .draft-status, .modal-actions-note) { flex: 1 1 200px; margin: 0; text-align: left; }
+/* footer buttons size to their label (older .form-submit buttons were full width) */
+:is(.modal-actions, .ad-dialog-actions) > :is(.btn, .primary-button, .secondary-button, .ad-btn) { width: auto; margin: 0; }
+/* sticky footer for long forms: the main action is always one tap away */
+:is(.modal-actions.sticky, .ad-edit .ad-dialog-actions) {
+  position: sticky; bottom: calc(-1 * var(--modal-pb)); z-index: 5;
+  margin: 24px calc(-1 * var(--modal-px)) calc(-1 * var(--modal-pb)); padding: 16px var(--modal-px) var(--modal-pb);
+  background: var(--ds-surface-raised); border-top: 1px solid var(--ds-border);
+}
+
+/* modals that lay out their own content (cover image, article, discussion) */
+
+/* sign-in keeps its centered layout */
+dialog.modal.auth-modal { text-align: center; --modal-pt: 48px; }
+dialog.modal.auth-modal > h2 h2 { padding-inline: 32px; }
+dialog.modal.auth-modal .modal-badge .modal-badge {
+  display: grid; place-items: center; width: 52px; height: 52px; margin: 0 auto 20px; border-radius: 14px; background: var(--ds-accent-soft); color: var(--ds-accent);
+}
+dialog.modal.auth-modal .email-auth { text-align: left; }
+
+/* enter motion */
+@media (prefers-reduced-motion: no-preference) {
+  dialog.modal[open] { animation: ds-modal-in var(--ds-dur-2) var(--ds-ease); }
+  dialog.modal[open]::backdrop { animation: ds-fade-in var(--ds-dur-2) ease-out; }
+}
+@keyframes ds-modal-in { from { opacity: 0; transform: translateY(12px) scale(.98); } }
+@keyframes ds-sheet-in { from { transform: translateY(100%); } }
+@keyframes ds-fade-in { from { opacity: 0; } }
+
+/* ───────────────────────── 10. Phones: bottom sheets ───────────────────────── */
+@media (max-width: 640px) {
+  dialog.modal {
+    --modal-pt: 28px; --modal-px: 20px; --modal-pb: calc(20px + env(safe-area-inset-bottom));
+    width: 100%; max-width: 100%; max-height: calc(100dvh - 24px); margin: auto 0 0;
+    border-width: 1px 0 0; border-radius: var(--ds-radius-lg) var(--ds-radius-lg) 0 0;
+  }
+  dialog.modal:is(.modal-lg, .modal-xl, .profile-modal, .ad-edit) { max-height: calc(100dvh - 12px); }
+  dialog.modal.modal-xl { --modal-pt: 0px; --modal-px: 0px; --modal-pb: 0px; }
+  /* drag handle: a 28px strip at the top; dragging it down closes the sheet (public/ds.js) */
+  .sheet-handle { display: block; position: absolute; top: 0; left: 0; right: 0; z-index: 6; height: 28px; touch-action: none; cursor: grab; }
+  .sheet-handle::before { content: ''; position: absolute; top: 9px; left: 50%; width: 40px; height: 4px; margin-left: -20px; border-radius: 2px; background: #ffffff47; }
+  dialog.modal.auth-modal { --modal-pt: 44px; }
+  :is(dialog.modal > h2, dialog.modal > form > h2, .modal-title) { font-size: 21px; }
+  .modal-close { top: calc(10px - var(--modal-pt)); }
+  /* dialog buttons share the width */
+  :is(.modal-actions, .ad-dialog-actions) > :is(.btn, .primary-button, .secondary-button, .ad-btn) { flex: 1 1 0; }
+  .form-submit-row > :is(.btn, .primary-button, .secondary-button) { flex: 1 1 0; }
+  :is(.modal-actions) > :is(.form-footnote, .draft-status, .modal-actions-note) { flex-basis: 100%; }
+  .project-community { padding: 0 20px 28px; }
+  .post-detail { padding: 32px 20px 20px; }
+  dialog.modal.post-modal .discussion { padding: 20px 20px 28px; }
+  /* 16px text so iOS does not zoom into fields */
+  :is(.modal, .ad-field, .field, .form-page, .comment-form, .reply-form, .comment-edit-form, .rating-form, .ad-toolbar)
+    :is(input:not([type=checkbox], [type=radio], [type=file], [type=range], [type=hidden]), select, textarea) { font-size: 16px; }
+  :is(.ds-toast, .toast, .work-toast, .ad-toast) { bottom: calc(16px + env(safe-area-inset-bottom)); }
+}
+@media (max-width: 640px) and (prefers-reduced-motion: no-preference) {
+  dialog.modal[open] { animation: ds-sheet-in .28s var(--ds-ease); }
+}
+
+/* ───────────────────────── 11. Context layouts for existing screens ───────────────────────── */
+.hero .secondary-button { background: #ffffff26; border-color: transparent; color: #fff; backdrop-filter: blur(8px); }
+.hero .secondary-button:hover { background: #ffffff38; }
+@media (max-width: 600px) {
+  :is(.hero-buttons :is(.primary-button, .secondary-button), .creator-banner > .primary-button) { --btn-h: var(--ds-control-md); --btn-px: 18px; --btn-fs: 14px; }
+}
+/* phone header: 작품 올리기 collapses to an icon-only + circle (label stays for screen readers via aria-label) */
+@media (max-width: 600px) {
+  .header-actions .upload-button { --btn-h: 40px; --btn-px: 0px; --btn-fs: 0px; width: 40px; min-width: 40px; gap: 0; }
+}
+/* phone home (checked at 360/384/412px — 360 is the Galaxy default width) */
+@media (max-width: 600px) {
+  /* category tabs run to the screen edge and fade out there, so a cut-off last tab reads as "scroll for more" */
+  .header nav { flex: 0 0 auto; width: calc(100% + var(--nf-pad)); margin-right: calc(-1 * var(--nf-pad)); padding-right: 40px;
+    -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 44px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 44px), transparent); }
+  .header .nav-link { flex-shrink: 0; white-space: nowrap; }
+  .nf-cat-chips { margin-right: calc(-1 * var(--nf-pad)); padding-right: 40px;
+    -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 44px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 44px), transparent); }
+
+  /* hero: a tall poster (about 4:5). The picture fills the upper part; the title, copy and actions sit at the bottom
+     over a dark fade, full width. The card grows with its text instead of clipping it (phones with enlarged fonts). */
+  .hero { aspect-ratio: auto; min-height: min(calc((100vw - 32px) * 1.22), 500px); }
+  .hero-content { flex: 1 1 auto; min-width: 0; margin: 0 20px; max-width: none; }
+  .hero h1 { font-size: 32px; }
+  .hero :is(h1, .hero-description) { word-break: keep-all; overflow-wrap: anywhere; }
+  .hero .hero-description { font-size: 13.5px; line-height: 1.6; max-width: none; }
+  .hero .hero-shade { background: linear-gradient(0deg, #000 0%, #000000d9 34%, #0000 64%); }
+  /* the picture: centred in the upper part. Sized by the image itself (not a taller box around it) so its rounded
+     corners and shadow sit on the image; flex (not grid) so the image's % height resolves */
+  .hero .hero-art { left: 0; right: 0; top: 16px; bottom: auto; width: auto; height: 44%; opacity: 1;
+    display: flex; align-items: center; justify-content: center; }
+  .hero .hero-art > img { width: auto; height: 100%; max-width: 80%; max-height: 100%; }
+  .hero[data-feature="cover"] .hero-art > img { width: 84%; height: auto; }
+  /* slides whose photo is the whole backdrop (네모낚시, operator banners) have no separate picture */
+  .hero:is([data-feature="fishing"], [data-feature="custom"]) .hero-art { display: none; }
+  /* actions: the main button takes the row, 자세히 보기 (ⓘ) and 찜 (＋) are matching circles — their names stay for
+     screen readers. Long operator labels such as "서비스 바로가기 ↗" then fit without pushing ＋ to a second row. */
+  .hero .hero-buttons { flex-wrap: wrap; gap: 8px; }
+  .hero .hero-buttons .primary-button { flex: 1 1 0; min-width: 0; --btn-px: 14px; }
+  .hero .hero-buttons #hero-info { flex: 0 0 auto; width: var(--ds-control-md); --btn-px: 0px; --btn-fs: 0px; gap: 0;
+    border-radius: 50%; background: transparent; border: 1px solid #ffffff80; backdrop-filter: none; }
+  .hero .hero-buttons #hero-info:hover { border-color: #fff; background: transparent; }
+  /* the ＋ character stays for screen readers; the drawn cross is the visible icon (the glyph used to show through) */
+  .hero .hero-save { flex: 0 0 auto; width: var(--ds-control-md); height: var(--ds-control-md); font-size: 0; }
+  /* category header action (커뮤니티 "＋ 이야기 쓰기"): beside the title like on desktop, not stacked on the kicker */
+  .nf-cat-head > .nf-cat-action { position: absolute; right: 0; top: 40px; margin: 0; }
+}
+/* touch screens: the title under each poster lines up with the poster, and rows sit closer together */
+@media (hover: none) {
+  .nf-home .card-info { padding: 8px 2px 0; }
+  .nf-home .nf-scroller { padding-bottom: 8px; }
+  .nf-row { margin-bottom: 28px; }
+}
+.post-detail-actions, .project-social-actions { gap: 8px; }
+.comment-actions { gap: 2px; }
+
+/* ───────────────────────── 12. Touch screens ───────────────────────── */
+@media (pointer: coarse) {
+  :is(.btn.small, .ad-btn, .upload-button, .rating-form-actions > .primary-button, .comment-submit-row > .primary-button,
+      .moderation-actions > *, .post-detail-actions .secondary-button, .project-social-actions > .secondary-button) { --btn-h: 40px; }
+  :is(.chip-btn, .filter, .community-tabs > button, .genre-chip, .ad-chip, .nf-cat-chips button) { min-height: 40px; }
+  :is(.btn.link, .text-button, .link) { min-height: 36px; }
+  :is(.segmented, .ad-seg, .comment-tabs, .email-auth-tabs) > button { min-height: 38px; }
+}
+
+/* ───────────────────────── 13. Small shared pieces ───────────────────────── */
+/* a URL shown for checking before leaving the site */
+.leave-host { margin: 0 0 16px; padding: 10px 12px; border: 1px solid var(--ds-border); border-radius: var(--ds-radius-control); background: var(--ds-surface-sunken);
+  font: 500 13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--ds-text); word-break: break-all; }
+.leave-kicker { color: var(--ds-warning); }
+.leave-skip { display: flex; align-items: center; gap: 8px; }
+
+/* ───────────────────────── 14. Cover placeholder ─────────────────────────
+   A work without a cover image. Thumbnails never draw the title in a font — the title is printed under the card —
+   so a missing cover is a quiet gradient (data-tone 0–5, picked from the work id) with the category's icon.
+   <div class="cover-ph" data-type="game" data-tone="3" aria-hidden="true"></div>                                    */
+.cover-ph { position: relative; display: block; width: 100%; height: 100%; overflow: hidden; color: #ffffff6b;
+  --ph-a: #26301f; --ph-b: #3f4d2d; background: radial-gradient(120% 90% at 85% 10%, #ffffff14, transparent 60%), linear-gradient(140deg, var(--ph-a), var(--ph-b)); }
+.cover-ph[data-tone="1"] { --ph-a: #132b2a; --ph-b: #24524c; }
+.cover-ph[data-tone="2"] { --ph-a: #161f37; --ph-b: #2d4170; }
+.cover-ph[data-tone="3"] { --ph-a: #261a30; --ph-b: #4b325a; }
+.cover-ph[data-tone="4"] { --ph-a: #2e1c16; --ph-b: #5c3828; }
+.cover-ph[data-tone="5"] { --ph-a: #1c2027; --ph-b: #3b4350; }
+.cover-ph::after { content: ""; position: absolute; left: 50%; top: 50%; width: clamp(22px, 24%, 64px); aspect-ratio: 1; translate: -50% -50%;
+  background: currentColor; -webkit-mask: var(--ph-icon) center / contain no-repeat; mask: var(--ph-icon) center / contain no-repeat;
+  --ph-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.4 6.7 19.4l1.2-6L3.4 9.3l6-.7z'/%3E%3C/svg%3E"); }
+.cover-ph[data-type="website"]::after { --ph-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='16' rx='2'/%3E%3Cpath d='M3 9h18M6.5 6.5h.01M9 6.5h.01'/%3E%3C/svg%3E"); }
+.cover-ph[data-type="game"]::after { --ph-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='2' y='6' width='20' height='12' rx='6'/%3E%3Cpath d='M6.5 12h4M8.5 10v4M15 11h.01M17.5 13h.01'/%3E%3C/svg%3E"); }
+.cover-ph[data-type="app"]::after { --ph-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='7' y='2.5' width='10' height='19' rx='2.2'/%3E%3Cpath d='M11 18.5h2'/%3E%3C/svg%3E"); }
+.cover-ph[data-type="art"]::after { --ph-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='18' height='18' rx='2'/%3E%3Ccircle cx='9' cy='9' r='2'/%3E%3Cpath d='M21 15l-5-5L5 21'/%3E%3C/svg%3E"); }
+.cover-ph[data-type="video"]::after { --ph-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='2' y='5' width='20' height='14' rx='3'/%3E%3Cpath d='M10 9l5 3-5 3z'/%3E%3C/svg%3E"); }
+.cover-ph[data-type="novel"]::after { --ph-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2 5h6a4 4 0 0 1 4 4v11a3 3 0 0 0-3-3H2zM22 5h-6a4 4 0 0 0-4 4v11a3 3 0 0 1 3-3h7z'/%3E%3C/svg%3E"); }
+
+} /* @layer ds */
