@@ -10,7 +10,6 @@
   const COVER={width:1280,height:720,types:['image/png','image/jpeg','image/webp']};
   const field=name=>form.elements.namedItem(name);
   const baseDetails=work?.details&&typeof work.details==='object'&&!Array.isArray(work.details)?{...work.details}:{};
-  const MATURE_TYPES=['game','art','video','novel'];
   const INTRO_MAX=1000;
 
   /* ───── Links ───── */
@@ -35,7 +34,7 @@
   }
   $('#work-upcoming').addEventListener('change',syncLink);
 
-  /* ───── Genres (max 3, per kind) and the adult-content flag ───── */
+  /* ───── Genres (max 3, per kind) ───── */
   let genres=new Set(work?.genres||[]);
   function renderGenres(){
     const box=$('#work-genres');const list=cfg.genres[field('type').value]||[];
@@ -44,9 +43,7 @@
     box.closest('.genre-field').hidden=!list.length;
   }
   $('#work-genres').addEventListener('click',event=>{const chip=event.target.closest('[data-genre]');if(!chip)return;const g=chip.dataset.genre;if(genres.has(g))genres.delete(g);else if(genres.size>=3){toast('장르는 3개까지 고를 수 있어요.');return;}else genres.add(g);renderGenres();});
-  const mature=$('#work-mature');mature.checked=Array.isArray(baseDetails.warnings)&&baseDetails.warnings.includes('mature');
-  const syncMature=()=>{$('#mature-line').hidden=!MATURE_TYPES.includes(field('type').value);};
-  field('type').addEventListener('change',()=>{renderGenres();syncLink();syncMature();});
+  field('type').addEventListener('change',()=>{renderGenres();syncLink();});
 
   /* ───── The writing section: one text area, with photos and videos to add below ───── */
   const bodyEditor=window.BlockEditor.create($('#content-editor'),{kinds:['text','image','video'],lockFirst:true,firstPlaceholder:'어떤 작품인가요? 어떻게 만들었나요? 편하게 써주세요.\n\n예) 퇴근길에 쓰려고 Claude와 이틀 동안 만든 일정 앱이에요. 이런 분께 좋아요…'});
@@ -94,8 +91,8 @@
     const [first,...rest]=blocks;const intro=first&&first.type==='text'?String(first.text||'').trim():'';
     if(!intro){showError('작품 소개를 써주세요. 한두 줄이어도 괜찮아요.');return;}
     const [description,tail]=splitIntro(intro);
+    // saved details (including a content warning an operator or an older version set) go back exactly as they were
     const type=field('type').value,details={...baseDetails};
-    if(MATURE_TYPES.includes(type)){const warnings=new Set(Array.isArray(details.warnings)?details.warnings:[]);if(mature.checked)warnings.add('mature');else warnings.delete('mature');if(warnings.size)details.warnings=[...warnings];else delete details.warnings;}
     const payload={title,type,url,description,creator:cfg.creator,status:$('#work-upcoming').checked?'upcoming':'live',genres:[...genres],details,content:[...(tail?[{type:'text',text:tail}]:[]),...rest],draft};
     if(cover.mode==='new')payload.image=cover.data;else if(cover.mode==='remove')payload.image='';
     submitting=true;const button=$('#work-submit');button.disabled=true;button.textContent='저장하는 중…';
@@ -117,7 +114,7 @@
   });
 
   /* ───── Start ───── */
-  renderGenres();syncLink();syncMature();
+  renderGenres();syncLink();
   setCover('keep','',work?.image||'');
   bodyEditor.set(work?[{type:'text',text:work.description||''},...(work.content||[])]:[]);
 })();
