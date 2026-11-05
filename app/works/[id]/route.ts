@@ -7,7 +7,7 @@ import { DAY_NAMES, parseVideoUrl } from '../../../lib/project-input';
 import { resolveContent } from '../../../lib/projects';
 import { sampleBlocks, sampleContent, type Scene } from '../../../lib/sample-content';
 import { SCENE_CSS, playerScript, scenePlayer } from '../../../lib/scene-player';
-import { BASE_CSS, embed, esc, fmtDate, htmlResponse, pageHead, renderBlocks, topBar, typeNames, type ViewBlock } from '../../../lib/page-shell';
+import { BASE_CSS, coverPlaceholder, embed, esc, fmtDate, htmlResponse, pageHead, renderBlocks, topBar, typeNames, type ViewBlock } from '../../../lib/page-shell';
 import { asset } from '../../../lib/security';
 import { waitUntil } from 'cloudflare:workers';
 import { countWork, workStats, type WorkStats } from '../../../lib/stats';
@@ -108,7 +108,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   const mine = owner ? await workStats(id) : null;
 
   const scenes = sample ? (sampleContent[id] as { scenes?: Scene[] } | undefined)?.scenes : undefined;
-  const media = type === 'video' ? (scenes ? scenePlayer(scenes) : embed(String(row.url || ''), String(row.title)) || (image ? `<img class="cover" src="${esc(image)}" alt="">` : '')) : image ? `<img class="cover" src="${esc(image)}" alt="${esc(row.title)} 커버">` : `<div class="cover blank"><span>${esc(row.title)}</span></div>`;
+  const media = type === 'video' ? (scenes ? scenePlayer(scenes) : embed(String(row.url || ''), String(row.title)) || (image ? `<img class="cover" src="${esc(image)}" alt="">` : '')) : image ? `<img class="cover" src="${esc(image)}" alt="${esc(row.title)} 커버">` : coverPlaceholder(row.id, type, 'cover');
   const stacked = type === 'art' && (details.format === 'webtoon' || details.format === 'comic');
   const warnings = list(details.warnings).map(w => WARNING_NAMES[w]).filter(Boolean);
   const creator = row.creator_id ? `<a class="creator" href="/creators/${esc(row.creator_id)}">${esc(row.creator)}</a>` : esc(row.creator);

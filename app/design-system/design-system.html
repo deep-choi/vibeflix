@@ -123,6 +123,18 @@
     <div class="g-row"><button class="btn" id="demo-toast">토스트 띄우기</button><button class="btn" id="demo-toast-danger">오류 토스트</button></div>
   </section>
 
+  <section class="g" aria-labelledby="g-cover">
+    <h2 id="g-cover">썸네일 · 커버 없음</h2><p>썸네일은 그림만 보여줘요. 제목은 카드 아래에 글자로 나오고, 그림 안에 글꼴로 그려 넣지 않아요. 커버가 없는 작품은 <code>.cover-ph</code> — 작품 id로 고른 색(0–5)과 분류 아이콘이에요.</p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px">
+      <div style="aspect-ratio:16/9;border-radius:8px;overflow:hidden"><div class="cover-ph" data-type="website" data-tone="0" aria-hidden="true"></div></div>
+      <div style="aspect-ratio:16/9;border-radius:8px;overflow:hidden"><div class="cover-ph" data-type="game" data-tone="1" aria-hidden="true"></div></div>
+      <div style="aspect-ratio:16/9;border-radius:8px;overflow:hidden"><div class="cover-ph" data-type="app" data-tone="2" aria-hidden="true"></div></div>
+      <div style="aspect-ratio:16/9;border-radius:8px;overflow:hidden"><div class="cover-ph" data-type="art" data-tone="3" aria-hidden="true"></div></div>
+      <div style="aspect-ratio:16/9;border-radius:8px;overflow:hidden"><div class="cover-ph" data-type="video" data-tone="4" aria-hidden="true"></div></div>
+      <div style="aspect-ratio:16/9;border-radius:8px;overflow:hidden"><div class="cover-ph" data-type="novel" data-tone="5" aria-hidden="true"></div></div>
+    </div>
+  </section>
+
   <section class="g" aria-labelledby="g-modal">
     <h2 id="g-modal">모달</h2><p>데스크톱은 가운데 카드, 640px 이하에서는 아래에서 올라오는 시트(손잡이를 끌어내리면 닫힘). 폭: sm 440 · 기본 560 · lg 720 · xl 880. 긴 폼은 하단 버튼이 고정돼요.</p>
     <div class="g-row"><button class="btn" data-open="demo-sm">작은 모달 (sm)</button><button class="btn" data-open="demo-form">폼 모달 (lg · 고정 하단)</button><button class="btn" id="demo-confirm">확인 대화상자</button><button class="btn" id="demo-danger">위험한 확인</button></div>

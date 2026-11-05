@@ -506,11 +506,6 @@ body:not(.nf-home) .project-row{margin-right:0}
 
 
 /* First visit: what this place is, in one paragraph, with three ways in */
-.first-visit{margin:18px var(--nf-pad) 6px;padding:22px 24px;border-radius:14px;background:linear-gradient(120deg,#c3f56812,#ffffff06);border:1px solid #c3f56833;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px 28px}
-.first-visit>div:first-child{flex:1 1 420px;max-width:760px}
-.first-visit h2{margin:6px 0 8px;font-size:clamp(18px,1.6vw,22px);letter-spacing:-.4px;color:#fff}
-.first-visit p{margin:0;color:#c8cdbf;line-height:1.7;font-size:14px}
-.first-visit-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 /* Followed creators' news */
 .nf-feed-tile{position:relative;justify-content:flex-end;background:linear-gradient(180deg,#0000 0%,#000c 75%),var(--bg,none) center/cover,var(--nf-panel)}
 .nf-feed-tile strong{color:#fff}
@@ -536,4 +531,23 @@ body:not(.nf-home) .project-row{margin-right:0}
 .more-fields>summary small{font-weight:500;color:#8f9688;margin-left:6px}
 .more-fields[open]{padding-bottom:16px}
 .details-field .detail-input+.detail-input,.details-field .form-pair+.detail-input,.details-field .detail-input+.form-pair{margin-top:12px}
+}
+
+/* Thumbnails are pictures only — the title is printed under each card, never drawn into the art in a font.
+   Built-in works keep their picture, centred; works without a cover use ds.css .cover-ph. */
+@layer page {
+.art-koiworld{display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 42%,#3aa39b,#135560 74%)}
+.art-icon{position:relative;z-index:1;height:72%;aspect-ratio:1;object-fit:cover;border-radius:22%;box-shadow:0 14px 34px #0005}
+.art-main .screen-frame{left:50%;top:16%;width:30%;translate:-50% 0}
+.art-godoftop .tower-visual{left:40%}
+.sample-label{position:absolute;left:8px;top:8px;z-index:2;padding:2px 8px;border-radius:999px;background:#000a;color:#e6e6e6;font-size:11px;font-weight:700;letter-spacing:.2px}
+/* Desktop rows: the title sits under each poster at rest, exactly where the hover panel opens, so hovering covers it
+   without anything moving. Touch screens and list pages already show the title line (.card-info) instead. */
+.card-caption{display:none}
+@media(hover:hover){
+  .nf-home .card-open{position:relative}
+  .nf-home .card-caption{display:block;position:absolute;left:0;right:0;top:100%;padding:9px 2px 0;font-size:14px;font-weight:600;color:#e5e5e5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none}
+  .nf-home .project-card:hover .card-caption,.nf-home .project-card:focus-within .card-caption{visibility:hidden}
+  .nf-home .nf-row{margin-bottom:64px}
+}
 }

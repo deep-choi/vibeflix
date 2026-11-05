@@ -164,7 +164,7 @@ body:has(dialog.modal[open]) { overflow: hidden; }
     .rating-form-actions > .primary-button, .comment-submit-row > .primary-button, .comment-edit-form .primary-button,
     .moderation-actions > :is(.primary-button, .secondary-button), .load-more-wrap .secondary-button, .cover-actions .secondary-button,
     .gallery-field .secondary-button, .content-add .secondary-button, .nf-empty-tile .secondary-button,
-    .post-detail-actions .secondary-button, .project-social-actions > .secondary-button, .first-visit-actions > *, .ad-image-actions .ad-btn) {
+    .post-detail-actions .secondary-button, .project-social-actions > .secondary-button, .ad-image-actions .ad-btn) {
   --btn-h: var(--ds-control-sm); --btn-px: 14px; --btn-fs: 13px;
 }
 :is(.btn.large, .hero-buttons :is(.primary-button, .secondary-button), .creator-banner > .primary-button,
@@ -461,21 +461,22 @@ dialog.modal.auth-modal .email-auth { text-align: left; }
   .nf-cat-chips { margin-right: calc(-1 * var(--nf-pad)); padding-right: 40px;
     -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 44px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 44px), transparent); }
 
-  /* hero: 20px on both sides; the title and copy keep to the left 70% and the art takes the right column, so the
-     art never sits under the text. The card grows with its text instead of clipping it (phones with enlarged fonts),
-     and the actions stay on one row — they wrap rather than run past the card edge. */
-  .hero { aspect-ratio: auto; min-height: 240px; }
+  /* hero: a tall poster (about 4:5). The picture fills the upper part; the title, copy and actions sit at the bottom
+     over a dark fade, full width. The card grows with its text instead of clipping it (phones with enlarged fonts). */
+  .hero { aspect-ratio: auto; min-height: min(calc((100vw - 32px) * 1.22), 500px); }
   .hero-content { flex: 1 1 auto; min-width: 0; margin: 0 20px; max-width: none; }
   .hero h1 { font-size: 32px; }
   .hero :is(h1, .hero-description) { word-break: keep-all; overflow-wrap: anywhere; }
-  .hero .hero-description { font-size: 13px; line-height: 1.6; }
-  .hero:not([data-feature="custom"], [data-feature="fishing"]):has(#hero-art-image[src]) :is(h1, .hero-description) { max-width: 70%; }
-  /* the art box ends above the action row (card padding 44 + buttons 44 + 8), whatever the card's height */
-  .hero .hero-art { left: auto; right: 12px; top: 12px; bottom: 96px; width: 30%; height: auto; opacity: .95;
-    display: flex; align-items: center; justify-content: center; } /* flex (not grid) so the image's % height resolves */
-  /* size the picture itself (not a taller box around it) so its rounded corners and shadow sit on the image */
-  .hero .hero-art > img { width: 100%; height: auto; max-width: 100%; max-height: 100%; }
-  .hero[data-feature="dayflow"] .hero-art > img { width: auto; height: 88%; }
+  .hero .hero-description { font-size: 13.5px; line-height: 1.6; max-width: none; }
+  .hero .hero-shade { background: linear-gradient(0deg, #000 0%, #000000d9 34%, #0000 64%); }
+  /* the picture: centred in the upper part. Sized by the image itself (not a taller box around it) so its rounded
+     corners and shadow sit on the image; flex (not grid) so the image's % height resolves */
+  .hero .hero-art { left: 0; right: 0; top: 16px; bottom: auto; width: auto; height: 44%; opacity: 1;
+    display: flex; align-items: center; justify-content: center; }
+  .hero .hero-art > img { width: auto; height: 100%; max-width: 80%; max-height: 100%; }
+  .hero[data-feature="cover"] .hero-art > img { width: 84%; height: auto; }
+  /* slides whose photo is the whole backdrop (네모낚시, operator banners) have no separate picture */
+  .hero:is([data-feature="fishing"], [data-feature="custom"]) .hero-art { display: none; }
   /* actions: the main button takes the row, 자세히 보기 (ⓘ) and 찜 (＋) are matching circles — their names stay for
      screen readers. Long operator labels such as "서비스 바로가기 ↗" then fit without pushing ＋ to a second row. */
   .hero .hero-buttons { flex-wrap: wrap; gap: 8px; }
@@ -501,7 +502,7 @@ dialog.modal.auth-modal .email-auth { text-align: left; }
 /* ───────────────────────── 12. Touch screens ───────────────────────── */
 @media (pointer: coarse) {
   :is(.btn.small, .ad-btn, .upload-button, .rating-form-actions > .primary-button, .comment-submit-row > .primary-button,
-      .moderation-actions > *, .post-detail-actions .secondary-button, .project-social-actions > .secondary-button, .first-visit-actions > *) { --btn-h: 40px; }
+      .moderation-actions > *, .post-detail-actions .secondary-button, .project-social-actions > .secondary-button) { --btn-h: 40px; }
   :is(.chip-btn, .filter, .community-tabs > button, .genre-chip, .ad-chip, .nf-cat-chips button) { min-height: 40px; }
   :is(.btn.link, .text-button, .link) { min-height: 36px; }
   :is(.segmented, .ad-seg, .comment-tabs, .email-auth-tabs) > button { min-height: 38px; }
@@ -513,5 +514,26 @@ dialog.modal.auth-modal .email-auth { text-align: left; }
   font: 500 13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--ds-text); word-break: break-all; }
 .leave-kicker { color: var(--ds-warning); }
 .leave-skip { display: flex; align-items: center; gap: 8px; }
+
+/* ───────────────────────── 14. Cover placeholder ─────────────────────────
+   A work without a cover image. Thumbnails never draw the title in a font — the title is printed under the card —
+   so a missing cover is a quiet gradient (data-tone 0–5, picked from the work id) with the category's icon.
+   <div class="cover-ph" data-type="game" data-tone="3" aria-hidden="true"></div>                                    */
+.cover-ph { position: relative; display: block; width: 100%; height: 100%; overflow: hidden; color: #ffffff6b;
+  --ph-a: #26301f; --ph-b: #3f4d2d; background: radial-gradient(120% 90% at 85% 10%, #ffffff14, transparent 60%), linear-gradient(140deg, var(--ph-a), var(--ph-b)); }
+.cover-ph[data-tone="1"] { --ph-a: #132b2a; --ph-b: #24524c; }
+.cover-ph[data-tone="2"] { --ph-a: #161f37; --ph-b: #2d4170; }
+.cover-ph[data-tone="3"] { --ph-a: #261a30; --ph-b: #4b325a; }
+.cover-ph[data-tone="4"] { --ph-a: #2e1c16; --ph-b: #5c3828; }
+.cover-ph[data-tone="5"] { --ph-a: #1c2027; --ph-b: #3b4350; }
+.cover-ph::after { content: ""; position: absolute; left: 50%; top: 50%; width: clamp(22px, 24%, 64px); aspect-ratio: 1; translate: -50% -50%;
+  background: currentColor; -webkit-mask: var(--ph-icon) center / contain no-repeat; mask: var(--ph-icon) center / contain no-repeat;
+  --ph-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.4 6.7 19.4l1.2-6L3.4 9.3l6-.7z'/%3E%3C/svg%3E"); }
+.cover-ph[data-type="website"]::after { --ph-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='16' rx='2'/%3E%3Cpath d='M3 9h18M6.5 6.5h.01M9 6.5h.01'/%3E%3C/svg%3E"); }
+.cover-ph[data-type="game"]::after { --ph-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='2' y='6' width='20' height='12' rx='6'/%3E%3Cpath d='M6.5 12h4M8.5 10v4M15 11h.01M17.5 13h.01'/%3E%3C/svg%3E"); }
+.cover-ph[data-type="app"]::after { --ph-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='7' y='2.5' width='10' height='19' rx='2.2'/%3E%3Cpath d='M11 18.5h2'/%3E%3C/svg%3E"); }
+.cover-ph[data-type="art"]::after { --ph-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='18' height='18' rx='2'/%3E%3Ccircle cx='9' cy='9' r='2'/%3E%3Cpath d='M21 15l-5-5L5 21'/%3E%3C/svg%3E"); }
+.cover-ph[data-type="video"]::after { --ph-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='2' y='5' width='20' height='14' rx='3'/%3E%3Cpath d='M10 9l5 3-5 3z'/%3E%3C/svg%3E"); }
+.cover-ph[data-type="novel"]::after { --ph-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2 5h6a4 4 0 0 1 4 4v11a3 3 0 0 0-3-3H2zM22 5h-6a4 4 0 0 0-4 4v11a3 3 0 0 1 3-3h7z'/%3E%3C/svg%3E"); }
 
 } /* @layer ds */

@@ -4,6 +4,9 @@ import { SECURITY_HEADERS, asset } from './security';
 // Shared bits for the server-rendered pages (/works, /works/:id/e/:entry, /creators).
 export const esc = (v: unknown) => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 export const typeNames: Record<string, string> = { website: '웹사이트', game: '게임', app: '앱', art: '그림·만화', video: '영상', novel: '소설' };
+/** A work without a cover: gradient + category icon (ds.css .cover-ph), never the title in a big font. Same tone as public/app.js. */
+export const coverPlaceholder = (id: unknown, type: unknown, extraClass = '') =>
+  `<div class="cover-ph${extraClass ? ' ' + extraClass : ''}" data-type="${esc(type)}" data-tone="${[...String(id ?? '')].reduce((n, c) => n + c.charCodeAt(0), 0) % 6}" aria-hidden="true"></div>`;
 export const fmtDate = (t: unknown) => new Date(Number(t) + 9 * 3600000).toISOString().slice(0, 10).replace(/-/g, '.');
 
 export function embed(url: string, title: string) {

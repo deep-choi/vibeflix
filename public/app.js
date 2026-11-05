@@ -35,24 +35,29 @@ function toast(message) {window.DS?.toast(message);}
 let myDrafts = [];
 const findProject = id => projects.find(p=>p.id===id) || myDrafts.find(p=>p.id===id);
 
+// A missing cover: a quiet gradient (tone picked from the id) with the category's icon (ds.css .cover-ph)
+const coverTone=id=>[...String(id||'')].reduce((n,c)=>n+c.charCodeAt(0),0)%6;
+const coverPlaceholder=p=>`<div class="cover-ph" data-type="${escapeHtml(p.type)}" data-tone="${coverTone(p.id)}" aria-hidden="true"></div>`;
+// Thumbnails are pictures only: the title is printed under each card, so nothing is drawn into the art in a font.
 function artMarkup(p) {
   const art=['koiworld','dayflow','fishing','learnhub','deepchoi','godoftop','voyage'].includes(p.art)?p.art:'custom';
   let content;
-  if(art==='koiworld')content='<img class="cover-image" src="/assets/koiworld-cover.png" alt="코이월드 — 교배하고, 수집하고, 힐링하세요" loading="lazy">';
-  else if(art==='dayflow')content='<span class="service-art-title">Dayflow<span>MAKE ROOM FOR YOUR DAY.</span></span><div class="screen-frame"><img src="/assets/dayflow-screen.jpg" alt="Dayflow 일정 화면" loading="lazy"></div>';
-  else if(art==='fishing')content='<img class="cover-image" src="/assets/fishing-lake.jpg" alt="네모낚시 버들못 게임 화면" loading="lazy"><span class="service-art-title">네모낚시<span>A LITTLE ESCAPE BY THE WATER.</span></span>';
-  else if(art==='learnhub')content='<span class="service-art-title">LearnHub<span>FOLLOW YOUR CURIOSITY.</span></span><div class="screen-frame"><img src="/assets/learnhub-screen.jpg" alt="LearnHub 학습 화면" loading="lazy"></div>';
-  else if(art==='deepchoi')content='<img class="cover-image" src="/assets/deepchoi-cover.png" alt="Deepchoi 포트폴리오의 우주 배경" loading="lazy"><span class="service-art-title">deepchoi<span>DESIGN. BUILD. EXPLORE.</span></span>';
-  else if(art==='godoftop')content='<div class="tower-visual"><i></i><i></i><i></i><i></i></div><span class="service-art-title">GOD OF TOP<span>탑의 정점</span></span>';
-  else if(art==='voyage')content='<img class="cover-image" src="/assets/mountain.jpg" alt="VOYAGE 여행 콘셉트를 위한 산 풍경" loading="lazy"><span class="service-art-title">VOYAGE<span>A WORLD WORTH WANDERING.</span></span><span class="concept-label">콘셉트 이미지</span>';
-  else content=`<span class="custom-word">${escapeHtml(p.title)}</span>${imageUrl(p.image)?`<img class="cover-image" src="${escapeHtml(imageUrl(p.image))}" alt="${escapeHtml(p.title)} 커버" loading="lazy" referrerpolicy="no-referrer">`:''}`;
+  if(art==='koiworld')content='<img class="art-icon" src="/assets/koi-icon.png" alt="" loading="lazy">';
+  else if(art==='dayflow')content='<div class="screen-frame"><img src="/assets/dayflow-screen.jpg" alt="" loading="lazy"></div>';
+  else if(art==='fishing')content='<img class="cover-image" src="/assets/fishing-lake.jpg" alt="" loading="lazy">';
+  else if(art==='learnhub')content='<div class="screen-frame"><img src="/assets/learnhub-screen.jpg" alt="" loading="lazy"></div>';
+  else if(art==='deepchoi')content='<img class="cover-image" src="/assets/deepchoi-cover.png" alt="" loading="lazy">';
+  else if(art==='godoftop')content='<div class="tower-visual"><i></i><i></i><i></i><i></i></div>';
+  else if(art==='voyage')content='<img class="cover-image" src="/assets/mountain.jpg" alt="" loading="lazy"><span class="concept-label">콘셉트 이미지</span>';
+  else content=imageUrl(p.image)?`<img class="cover-image" src="${escapeHtml(imageUrl(p.image))}" alt="" loading="lazy" referrerpolicy="no-referrer">`:coverPlaceholder(p);
   // works marked 성인 소재 keep their cover blurred in lists; the work page asks before showing anything
   const mature=(p.details?.warnings||[]).includes('mature');
-  return `<div class="card-art${mature?' mature':''}"><div class="art-main art-${art}">${content}</div>${mature?'<span class="mature-label">성인 소재</span>':''}</div>`;
+  // operator samples say so on the picture itself (the covers carry no baked-in text)
+  return `<div class="card-art${mature?' mature':''}"><div class="art-main art-${art}">${content}</div>${mature?'<span class="mature-label">성인 소재</span>':p.sample?'<span class="sample-label">예시</span>':''}</div>`;
 }
 function cardMarkup(p) {
   const isSaved=saved.has(p.id);
-  return `<article class="project-card"><button class="card-open" data-detail="${escapeHtml(p.id)}" aria-label="${escapeHtml(p.title)} 자세히 보기">${artMarkup(p)}<div class="card-info"><div class="card-title-line"><span class="card-title">${escapeHtml(p.title)}</span><span class="card-category">${typeNames[p.type]}</span></div><div class="card-subtitle">${escapeHtml(p.subtitle)}</div><div class="card-metrics"><span class="card-rating">★ ${p.ratingCount?Number(p.rating).toFixed(1):'첫 평가를 기다려요'} <small>${p.ratingCount?'('+Number(p.ratingCount)+')':''}</small></span><span>♡ ${Number(p.recommendations||0)} <span class="metric-divider">·</span> 댓글 ${Number(p.commentCount||0)}</span></div><div class="card-bottom"><span class="creator-dot">${escapeHtml((p.creator||'V')[0].toUpperCase())}</span><span>${escapeHtml(p.creator)}</span><span class="card-availability ${p.status==='upcoming'||p.sample?'upcoming':''}">${p.sample?'예시 작품':p.status==='upcoming'?'공개 준비 중':'● 지금 이용 가능'}</span></div></div></button>${p.badge?`<span class="card-top-tag ${p.featured?'lime':''}">${escapeHtml(p.badge)}</span>`:''}<button class="card-save ${isSaved?'saved':''}" data-save="${escapeHtml(p.id)}" aria-label="${escapeHtml(p.title)} ${p.status==='upcoming'?(isSaved?'출시 알림 취소':'출시 알림 받기'):(isSaved?'찜 취소':'찜하기')}" title="${p.status==='upcoming'?(isSaved?'출시 알림 신청함':'출시 알림 받기'):''}" aria-pressed="${isSaved}">${isSaved?'✓':'+'}</button></article>`;
+  return `<article class="project-card"><button class="card-open" data-detail="${escapeHtml(p.id)}" aria-label="${escapeHtml(p.title)} 자세히 보기">${artMarkup(p)}<span class="card-caption" aria-hidden="true">${escapeHtml(p.title)}</span><div class="card-info"><div class="card-title-line"><span class="card-title">${escapeHtml(p.title)}</span><span class="card-category">${typeNames[p.type]}</span></div><div class="card-subtitle">${escapeHtml(p.subtitle)}</div><div class="card-metrics"><span class="card-rating">★ ${p.ratingCount?Number(p.rating).toFixed(1):'첫 평가를 기다려요'} <small>${p.ratingCount?'('+Number(p.ratingCount)+')':''}</small></span><span>♡ ${Number(p.recommendations||0)} <span class="metric-divider">·</span> 댓글 ${Number(p.commentCount||0)}</span></div><div class="card-bottom"><span class="creator-dot">${escapeHtml((p.creator||'V')[0].toUpperCase())}</span><span>${escapeHtml(p.creator)}</span><span class="card-availability ${p.status==='upcoming'||p.sample?'upcoming':''}">${p.sample?'예시 작품':p.status==='upcoming'?'공개 준비 중':'● 지금 이용 가능'}</span></div></div></button>${p.badge?`<span class="card-top-tag ${p.featured?'lime':''}">${escapeHtml(p.badge)}</span>`:''}<button class="card-save ${isSaved?'saved':''}" data-save="${escapeHtml(p.id)}" aria-label="${escapeHtml(p.title)} ${p.status==='upcoming'?(isSaved?'출시 알림 취소':'출시 알림 받기'):(isSaved?'찜 취소':'찜하기')}" title="${p.status==='upcoming'?(isSaved?'출시 알림 신청함':'출시 알림 받기'):''}" aria-pressed="${isSaved}">${isSaved?'✓':'+'}</button></article>`;
 }
 function render() {
   let list=projects.filter(p=>(filter==='saved'?saved.has(p.id):(p.status!=='upcoming'||!!query)&&(filter==='all'||filter===p.type))&&`${p.title} ${p.subtitle} ${p.creator} ${p.description} ${(p.tags||[]).join(' ')} ${(p.details?.stack||[]).join(' ')} ${(p.details?.making?.tools||[]).join(' ')}`.toLowerCase().includes(query));
@@ -150,13 +155,6 @@ async function loadFeed(){
   try{const r=await fetch('/api/community/feed');if(!r.ok)return;const d=await r.json();feedItems=Array.isArray(d.items)?d.items:[];if(rowsMode==='home')renderRows('home');}catch{}
 }
 document.addEventListener('vibe:auth',loadFeed);
-// ───── First visit: one paragraph on what this place is, and three ways in ─────
-try{if(!localStorage.getItem('vibeflix.intro-seen')&&!new URLSearchParams(location.search).size&&!location.hash)$('#first-visit').hidden=false;}catch{}
-document.addEventListener('click',event=>{
-  const b=event.target.closest('[data-first]');if(!b)return;
-  try{localStorage.setItem('vibeflix.intro-seen','1');}catch{}$('#first-visit').hidden=true;
-  if(b.dataset.first!=='close')setFilter(b.dataset.first,true);
-});
 // Searches that found nothing tell the operator what visitors want but can't find (query text only, no account).
 const reportedMisses=new Set();let missTimer;
 function reportSearchMiss(q){
