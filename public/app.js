@@ -14,8 +14,6 @@ let query = '';
 let sort = 'curated';
 let currentFeatured = 'koiworld';
 let detailId = null;
-let submitting = false;
-let editingProjectId = null;
 let homePosts = [];
 let pinnedIds = [];
 let genreMap = {}; // category → genre list, from /api/projects (public/genres.json)
@@ -27,10 +25,6 @@ let saved;
 try {const value=JSON.parse(localStorage.getItem('vibeflix.saved.v2') || '[]');saved=new Set(Array.isArray(value)?value.filter(id=>typeof id==='string'):[]);} catch {saved=new Set();}
 function validUrl(value) {try{const url=new URL(value);return ['http:','https:'].includes(url.protocol)&&!url.username&&!url.password?url.href:'';}catch{return '';}}
 function imageUrl(value) {return typeof value==='string'&&(value.startsWith('/assets/')||/^\/api\/projects\/[\w-]+\/cover(\?v=\d+)?$/.test(value)||/^\/api\/project-images\/[\w-]+$/.test(value))&&!value.includes('..')?value:validUrl(value);}
-function normalizeUrl(value) {const v=String(value||'').trim();return /^[a-z][a-z0-9+.-]*:/i.test(v)?v:v?`https://${v}`:'';}
-function publicUrlError(value) {const href=validUrl(value);if(!href)return '올바른 주소를 입력해주세요. (예: www.example.com)';const host=new URL(href).hostname.toLowerCase();return (host==='localhost'||host.endsWith('.localhost')||host.endsWith('.local')||!host.includes('.')||host.startsWith('[')||/^\d{1,3}(\.\d{1,3}){3}$/.test(host))?'누구나 접속할 수 있는 공개 주소만 등록할 수 있어요.':'';}
-const COVER={width:1280,height:720,maxBytes:800*1024,types:['image/png','image/jpeg','image/webp']};
-let cover={mode:'keep',data:''};
 function toast(message) {window.DS?.toast(message);}
 let myDrafts = [];
 const findProject = id => projects.find(p=>p.id===id) || myDrafts.find(p=>p.id===id);
@@ -131,7 +125,7 @@ function renderRows(mode){
 }
 
 const postLabels={general:'자유 이야기',showcase:'작품 소개',buildlog:'개발 일지',question:'질문',feedback:'피드백'};
-function postTile(p){return `<button class="nf-tile nf-post-tile" data-post="${escapeHtml(p.id)}"><span class="nf-tile-kicker">${escapeHtml(postLabels[p.category]||'이야기')}</span><strong>${escapeHtml(p.title)}</strong><p>${escapeHtml(p.body.slice(0,90))}</p><span class="nf-tile-meta">${escapeHtml(p.author_name)} · ♡ ${Number(p.recommendations)} · 댓글 ${Number(p.comments)}</span></button>`;}
+function postTile(p){return `<a class="nf-tile nf-post-tile" href="/posts/${encodeURIComponent(p.id)}"><span class="nf-tile-kicker">${escapeHtml(postLabels[p.category]||'이야기')}</span><strong>${escapeHtml(p.title)}</strong><p>${escapeHtml(p.body.slice(0,90))}</p><span class="nf-tile-meta">${escapeHtml(p.author_name)} · ♡ ${Number(p.recommendations)} · 댓글 ${Number(p.comments)}</span></a>`;}
 // ───── Continue watching: works opened on this device, newest first (localStorage, never sent anywhere) ─────
 const RECENT_KEY='vibeflix.recent';
 function readRecent(){try{const v=JSON.parse(localStorage.getItem(RECENT_KEY)||'[]');return Array.isArray(v)?v.filter(x=>x&&typeof x.id==='string'):[];}catch{return [];}}
@@ -164,7 +158,7 @@ function reportSearchMiss(q){
 function emptyTile(r){return r.community?'<div class="nf-tile nf-empty-tile"><strong>첫 번째 이야기를 들려주세요.</strong><p>만드는 과정도, 작은 질문도 좋은 이야기의 시작이에요.</p><button class="secondary-button" data-compose-post>＋ 이야기 쓰기</button></div>':`<div class="nf-tile nf-empty-tile"><strong>아직 올라온 ${typeNames[r.type]} 작품이 없어요.</strong><p>첫 번째 작품의 주인공이 되어보세요.</p><button class="secondary-button" data-upload-empty>＋ 작품 올리기</button></div>`;}
 // community.js shares the newest posts so the home row stays in sync with the board
 document.addEventListener('vibe:posts',event=>{homePosts=event.detail;if(rowsMode==='home')renderRows('home');if(document.body.classList.contains('community-view'))renderCommunityRows();});
-function setCommunityView(on){document.body.classList.toggle('community-view',on);$('#community-nav').classList.toggle('active',on);if(on){$$('[data-nav]').forEach(b=>b.classList.remove('active'));window.scrollTo({top:0});renderCommunityRows();}}
+function setCommunityView(on){document.body.classList.toggle('community-view',on);$('#community-nav').classList.toggle('active',on);if(!on&&location.hash==='#community')history.replaceState(null,'',location.pathname+location.search);if(on){history.replaceState(null,'','#community');$$('[data-nav]').forEach(b=>b.classList.remove('active'));window.scrollTo({top:0});renderCommunityRows();}}
 // Community page: one row per board category above the full board
 let communityRowsGeneration=0;
 async function renderCommunityRows(){
@@ -222,12 +216,9 @@ function openDetail(id){
   hit(id,'view');
   const p=findProject(id);if(!p)return;detailId=id;if(!p.draft)rememberWork(id);
   const url=validUrl(p.url);
-  $('#detail-content').innerHTML=`<div class="detail-cover">${artMarkup(p)}</div><div class="detail-body"><div class="detail-overline"><span class="type-label">${typeNames[p.type]}</span><span>${p.sample?'SAMPLE · 예시 작품':p.status==='upcoming'?'IN DEVELOPMENT':p.badge==='COMMUNITY'?'COMMUNITY PROJECT':'MADE BY DEEPCHOI'}</span>${p.badge==='COMMUNITY'&&p.verified&&url?'<span class="verified-chip" title="운영자가 링크를 확인했어요">✓ 운영자 확인</span>':''}</div><h2 id="detail-title">${escapeHtml(p.title)}</h2><p class="detail-subtitle">${escapeHtml(p.subtitle)}</p><p class="detail-description">${escapeHtml(p.description)}</p>${(p.gallery||[]).length?`<div class="detail-gallery">${p.gallery.filter(imageUrl).map((src,i)=>`<img src="${escapeHtml(imageUrl(src))}" alt="${escapeHtml(p.title)} 소개 이미지 ${i+1}" loading="lazy">`).join('')}</div>`:''}${detailFacts(p)}<div class="detail-creator"><span class="creator-dot">${escapeHtml((p.creator||'V')[0].toUpperCase())}</span>Created by ${p.creatorId?`<a class="detail-creator-link" href="/creators/${encodeURIComponent(p.creatorId)}">${escapeHtml(p.creator)}</a>`:escapeHtml(p.creator)}</div><div class="detail-tags">${(p.tags||[]).map(t=>`<span>#${escapeHtml(t)}</span>`).join('')}</div><div class="detail-actions">${p.sample?`<a class="primary-button" href="/works/${encodeURIComponent(p.id)}">${sampleCta[p.type]||'예시 보기'}</a>`:url?`<a class="primary-button" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer"${guardAttr(p)}>${ctaLabels[p.type]||'서비스 바로가기 ↗'}</a>`:storeLink(p)?`<a class="primary-button" href="${escapeHtml(storeLink(p)[0])}" target="_blank" rel="noopener noreferrer"${guardAttr(p)}>${storeLink(p)[1]}에서 받기 ↗</a>`:'<button class="primary-button" disabled>공개 준비 중</button>'}${p.sample?'':`<a class="secondary-button" href="/works/${encodeURIComponent(p.id)}">상세 페이지 →</a>`}<button class="secondary-button" id="detail-save" aria-pressed="${saved.has(id)}">${saveLabel(p,saved.has(id))}</button></div><p class="detail-notice">${p.sample?'화면 구성을 보여주기 위해 운영자가 만든 예시 작품이에요. 사이트 안의 예시 페이지에서 볼 수 있어요.':url||storeLink(p)?(p.verified?'작품 페이지가 새 탭에서 열립니다. 서비스별로 별도 로그인이 필요할 수 있어요.':'VIBEFLIX 밖의 사이트가 새 탭에서 열려요. 회원이 올린 링크로, 운영자가 아직 확인하지 않았어요.'):p.status==='upcoming'?'아직 공개 전이에요. 출시 알림을 받으면 공개되는 날 알려드릴게요.':'아직 공개 플레이 링크가 준비되지 않았습니다. 정식 공개를 기다려주세요.'}</p>${p.owned?'<button class="remove-project" id="remove-project">내 작품을 공개 목록에서 내리기</button>':''}</div>`;
+  $('#detail-content').innerHTML=`<div class="detail-cover">${artMarkup(p)}</div><div class="detail-body"><div class="detail-overline"><span class="type-label">${typeNames[p.type]}</span><span>${p.sample?'SAMPLE · 예시 작품':p.status==='upcoming'?'IN DEVELOPMENT':p.badge==='COMMUNITY'?'COMMUNITY PROJECT':'MADE BY DEEPCHOI'}</span>${p.badge==='COMMUNITY'&&p.verified&&url?'<span class="verified-chip" title="운영자가 링크를 확인했어요">✓ 운영자 확인</span>':''}</div><h2 id="detail-title">${escapeHtml(p.title)}</h2><p class="detail-subtitle">${escapeHtml(p.subtitle)}</p><p class="detail-description">${escapeHtml(p.description)}</p>${(p.gallery||[]).length?`<div class="detail-gallery">${p.gallery.filter(imageUrl).map((src,i)=>`<img src="${escapeHtml(imageUrl(src))}" alt="${escapeHtml(p.title)} 소개 이미지 ${i+1}" loading="lazy">`).join('')}</div>`:''}${detailFacts(p)}<div class="detail-creator"><span class="creator-dot">${escapeHtml((p.creator||'V')[0].toUpperCase())}</span>Created by ${p.creatorId?`<a class="detail-creator-link" href="/creators/${encodeURIComponent(p.creatorId)}">${escapeHtml(p.creator)}</a>`:escapeHtml(p.creator)}</div><div class="detail-tags">${(p.tags||[]).map(t=>`<span>#${escapeHtml(t)}</span>`).join('')}</div><div class="detail-actions">${p.sample?`<a class="primary-button" href="/works/${encodeURIComponent(p.id)}">${sampleCta[p.type]||'예시 보기'}</a>`:url?`<a class="primary-button" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer"${guardAttr(p)}>${ctaLabels[p.type]||'서비스 바로가기 ↗'}</a>`:storeLink(p)?`<a class="primary-button" href="${escapeHtml(storeLink(p)[0])}" target="_blank" rel="noopener noreferrer"${guardAttr(p)}>${storeLink(p)[1]}에서 받기 ↗</a>`:'<button class="primary-button" disabled>공개 준비 중</button>'}${p.sample?'':`<a class="secondary-button" href="/works/${encodeURIComponent(p.id)}">상세 페이지 →</a>`}<button class="secondary-button" id="detail-save" aria-pressed="${saved.has(id)}">${saveLabel(p,saved.has(id))}</button></div>${p.sample?'':`<a class="detail-reviews" id="detail-reviews" href="/works/${encodeURIComponent(p.id)}#discussion"><span>${p.ratingCount?`★ ${Number(p.rating).toFixed(1)} · ${p.ratingCount}명`:'아직 평가가 없어요'}${p.commentCount?` · 댓글 ${p.commentCount}`:''}</span><b>별점 · 리뷰 · 댓글 →</b></a>`}<p class="detail-notice">${p.sample?'화면 구성을 보여주기 위해 운영자가 만든 예시 작품이에요. 사이트 안의 예시 페이지에서 볼 수 있어요.':url||storeLink(p)?(p.verified?'작품 페이지가 새 탭에서 열립니다. 서비스별로 별도 로그인이 필요할 수 있어요.':'VIBEFLIX 밖의 사이트가 새 탭에서 열려요. 회원이 올린 링크로, 운영자가 아직 확인하지 않았어요.'):p.status==='upcoming'?'아직 공개 전이에요. 출시 알림을 받으면 공개되는 날 알려드릴게요.':'아직 공개 플레이 링크가 준비되지 않았습니다. 정식 공개를 기다려주세요.'}</p>${p.owned?`<a class="text-button detail-edit" href="/works/${encodeURIComponent(p.id)}/edit">작품 수정</a>`:''}</div>`;
   $('#detail-dialog').setAttribute('aria-labelledby','detail-title');$('#detail-save').addEventListener('click',()=>toggleSave(id));
-  $('#remove-project')?.addEventListener('click',async event=>{event.target.disabled=true;try{const response=await fetch(`/api/projects/${encodeURIComponent(id)}`,{method:'DELETE'});const result=await response.json();if(!response.ok)throw Error(result.error);projects=projects.filter(item=>item.id!==id);$('#detail-dialog').close();render();toast('공개 목록에서 작품을 내렸어요.');}catch(error){event.target.disabled=false;toast(error.message||'잠시 후 다시 시도해주세요.');}});
   $('#detail-dialog').showModal();
-  const community=document.createElement('section');community.id='project-community';community.className='project-community';community.innerHTML='<p class="loading-copy">평가와 이야기를 불러오는 중…</p>';$('#detail-content').append(community);
-  window.VibeCommunity?.attachProject(p);
 }
 function updateArrows(){const row=$('#project-row');$('#row-prev').disabled=row.scrollLeft<5;$('#row-next').disabled=row.scrollLeft+row.clientWidth>=row.scrollWidth-5;}
 $$('[data-filter]').forEach(b=>b.addEventListener('click',()=>setFilter(b.dataset.filter)));
@@ -307,166 +298,16 @@ $('.hero').addEventListener('touchcancel',()=>{heroTouch=null;},{passive:true});
 selectFeatured(0);
 // ChatGPT sign-in only exists on ChatGPT Sites; hide it where /signin-with-chatgpt is missing (fails open on network errors).
 fetch('/signin-with-chatgpt',{method:'HEAD',redirect:'manual'}).then(r=>r.status!==404,()=>true).then(available=>{if(!available)document.documentElement.classList.add('no-chatgpt');}).catch(()=>{});
-$('#upload-login').addEventListener('click',()=>{$('#upload-dialog').close();window.VibeCommunity?.login('upload');});
 async function loadSession(){
   try{const response=await fetch('/api/session');if(!response.ok)throw Error('로그인 확인 실패');const data=await response.json();user=data.user;}catch{user=null;}
-  $('#sign-in').hidden=!!user;$('#profile-button').hidden=!user;$('#sign-out').hidden=!user;$('#admin-link').hidden=!user?.isAdmin;
+  $('#sign-in').hidden=!!user;$('#profile-button').hidden=!user;$('#sign-out').hidden=!user;$('#admin-link').hidden=!user?.isAdmin;$('#studio-link').hidden=!user;
   if(user){$('#profile-button').textContent=user.name[0].toUpperCase();$('#profile-button').title=`${user.name} · 찜한 작품`;}
   document.dispatchEvent(new CustomEvent('vibe:auth',{detail:user}));
 }
 const sessionReady=loadSession();
-// Genre chips in the upload form follow the selected category (max 3)
-let uploadGenres=new Set();
-function renderUploadGenres(){
-  const box=$('#upload-genres');if(!box)return;const list=genreMap[$('#upload-form').elements.namedItem('type').value]||[];
-  for(const g of uploadGenres)if(!list.includes(g))uploadGenres.delete(g);
-  box.innerHTML=list.map(g=>`<button type="button" class="genre-chip${uploadGenres.has(g)?' selected':''}" data-genre="${escapeHtml(g)}" aria-pressed="${uploadGenres.has(g)}">${escapeHtml(g)}</button>`).join('');
-  box.closest('.genre-field').hidden=!list.length;
-}
-$('#upload-form').elements.namedItem('type').addEventListener('change',event=>{renderUploadGenres();renderUploadDetails(event.target.value);});
-$('#upload-genres').addEventListener('click',event=>{const chip=event.target.closest('[data-genre]');if(!chip)return;const g=chip.dataset.genre;if(uploadGenres.has(g))uploadGenres.delete(g);else if(uploadGenres.size>=3){toast('장르는 3개까지 고를 수 있어요.');return;}else uploadGenres.add(g);renderUploadGenres();});
-async function openUpload(editId){await sessionReady;editingProjectId=typeof editId==='string'?editId:null;const p=editingProjectId?findProject(editingProjectId):null;const form=$('#upload-form');if(p){for(const key of ['title','creator','type','url','description'])form.elements.namedItem(key).value=p[key]||'';form.elements.namedItem('status').value=p.status==='upcoming'?'upcoming':'live';$('#more-fields').open=true;}else if(form.dataset.editing){form.reset();$('#more-fields').open=false;}uploadGenres=new Set(p?.genres||(form.dataset.editing?[]:uploadGenres));renderUploadGenres();renderUploadDetails(form.elements.namedItem('type').value,p?.details||{});coverError('');setCover('keep','',p&&imageUrl(p.image));if(p){setBlocks([]);loadBodyForEdit(p.id);}else if(form.dataset.editing||!bodyEditor.length)setBlocks([]);updateDescriptionCount();form.dataset.editing=editingProjectId||'';if(user){form.elements.namedItem('creator').value=user.name;form.elements.namedItem('creator').readOnly=true;}$('#upload-dialog h2').textContent=p?'작품 소개를 다듬어주세요.':'당신의 작품을 소개해주세요.';$('#upload-form').hidden=!user;$('#upload-auth').hidden=!!user;$('#form-error').hidden=true;if(!$('#upload-dialog').open)$('#upload-dialog').showModal();}
-const GALLERY={max:8,maxBytes:700*1024,maxWidth:1600};
-// ───── Upload form: category fields + vertical body editor ─────
-// The link field changes meaning per category: sites/games need it, apps need it or a store link, videos need YouTube/Vimeo.
-const linkRules={
-  website:{label:'작품 링크',required:true,placeholder:'www.your-project.com 또는 https://your-project.com',hint:''},
-  game:{label:'플레이 링크',required:true,placeholder:'https://your-game.com',hint:'방문자가 바로 플레이할 수 있는 주소예요.'},
-  app:{label:'웹 링크',required:false,placeholder:'https://your-app.com',hint:'웹 링크나 아래 스토어 링크 중 하나는 꼭 필요해요.'},
-  video:{label:'영상 링크 (YouTube · Vimeo)',required:true,placeholder:'https://youtu.be/... 또는 https://vimeo.com/...',hint:'상세 페이지에서 바로 재생돼요.'},
-  art:{label:'외부 링크',required:false,placeholder:'https:// (선택)',hint:'다른 곳에도 올렸다면 넣어주세요. 그림은 아래 본문에 올리면 돼요.'},
-  novel:{label:'외부 링크',required:false,placeholder:'https:// (선택)',hint:'다른 곳에 연재 중이면 넣어주세요. 글은 아래 본문에 쓰면 돼요.'},
-};
-const bodyHints={website:'스크린샷과 설명을 번갈아 넣으면 상세 페이지가 읽기 좋아져요.',app:'앱 화면 스크린샷과 기능 설명을 넣어보세요.',game:'플레이 화면 스크린샷과 게임 이야기를 넣어보세요.',art:'그림을 순서대로 올리면 세로로 이어서 보여요. 웹툰·만화는 컷 순서대로 올려주세요.',video:'제작 과정, 크레딧, 비하인드를 적어보세요.',novel:'회차마다 ‘소제목’을 넣고 그 아래에 ‘글’을 이어서 쓰세요.'};
-const detailField=(label,control,hint='')=>`<label class="detail-input"><span>${label}${hint?` <small>${hint}</small>`:''}</span>${control}</label>`;
-const sel=(name,options,value)=>`<select name="${name}">${options.map(([v,l])=>`<option value="${v}" ${v===value?'selected':''}>${l}</option>`).join('')}</select>`;
-const checks=(name,options,selected=[])=>`<div class="detail-checks">${options.map(([k,l])=>`<label><input type="checkbox" name="${name}" value="${k}" ${selected.includes(k)?'checked':''}> ${l}</label>`).join('')}</div>`;
-const WARNING_OPTIONS=[['violence','폭력'],['horror','공포'],['language','거친 언어'],['mature','성인 소재'],['flashing','깜빡이는 화면']];
-// Creators can announce a work that is still being built: no link yet, launch alerts when it goes live
-function syncStatus(){
-  const form=$('#upload-form');const upcoming=form.elements.namedItem('status').value==='upcoming';const url=form.elements.namedItem('url');
-  const rule=linkRules[form.elements.namedItem('type').value]||linkRules.website;
-  url.required=rule.required&&!upcoming;$('#url-required').hidden=!url.required;$('#status-hint').hidden=!upcoming;
-}
-$('#upload-status').addEventListener('change',syncStatus);
-const introTemplates={
-  website:'무엇을 만들었나요: \n누구에게 좋은가요: \n어떻게 만들었나요 (AI 도구 · 걸린 시간): \n써보면 좋은 기능: ',
-  app:'무엇을 하는 앱인가요: \n누구에게 필요할까요: \n어떻게 만들었나요 (AI 도구 · 걸린 시간): \n설치 방법: ',
-  game:'어떤 게임인가요: \n이렇게 플레이해요: \n어떻게 만들었나요 (AI 도구 · 걸린 시간): \n받고 싶은 피드백: ',
-  art:'어떤 그림·만화인가요: \n이야기나 분위기: \n어떻게 만들었나요 (AI 도구 · 과정): ',
-  video:'어떤 영상인가요: \n보면 좋은 사람: \n어떻게 만들었나요 (AI 도구 · 과정): ',
-  novel:'어떤 이야기인가요: \n주인공과 배경: \n연재 계획: \n어떻게 만들었나요 (AI 도구 · 과정): ',
-};
-$('#intro-template').addEventListener('click',()=>{
-  const field=$('#upload-description');if(field.value.trim()){toast('이미 쓴 소개가 있어서 틀을 넣지 않았어요.');return;}
-  field.value=introTemplates[$('#upload-form').elements.namedItem('type').value]||introTemplates.website;updateDescriptionCount();field.focus();field.setSelectionRange(field.value.indexOf(': ')+2,field.value.indexOf(': ')+2);
-});
-function renderUploadDetails(type,d={}){
-  const v=k=>escapeHtml(Array.isArray(d[k])?d[k].join(k==='features'?'\n':', '):d[k]||'');
-  const m=d.making||{};const mv=k=>escapeHtml(Array.isArray(m[k])?m[k].join(', '):m[k]||'');
-  const form=label=>detailField(label,sel('d_form',[['','선택'],['single','단편'],['serial',type==='video'?'시리즈':'연재']],d.form||''),'연재·시리즈는 등록 후 작품 페이지에서 회차를 올려요');
-  // serials say which days new parts come out ("매주 수·토 연재")
-  const schedule=`<div class="detail-input"><span>연재 요일 <small>연재·시리즈일 때 · 작품 페이지와 회차 끝에 안내돼요</small></span>${checks('d_schedule',[['mon','월'],['tue','화'],['wed','수'],['thu','목'],['fri','금'],['sat','토'],['sun','일']],d.schedule||[])}</div>`;
-  const warnings=`<div class="detail-input"><span>소재 경고 <small>해당하면 선택 · 작품 페이지 위에 안내돼요</small></span>${checks('d_warnings',WARNING_OPTIONS,d.warnings||[])}</div>`;
-  const html={
-    website:detailField('주요 기능',`<textarea name="d_features" rows="3" maxlength="420" placeholder="한 줄에 하나씩, 최대 5개">${v('features')}</textarea>`)+detailField('사용 기술',`<input name="d_stack" maxlength="260" placeholder="예: React, Supabase, Tailwind" value="${v('stack')}">`,'쉼표로 구분 · 웹사이트 페이지에서 기술로 찾을 수 있어요'),
-    app:detailField('사용 기술',`<input name="d_stack" maxlength="260" placeholder="예: Flutter, Firebase" value="${v('stack')}">`,'쉼표로 구분 · 포트폴리오로 쓸 때 도움이 돼요')+`<div class="detail-input"><span>플랫폼</span>${checks('d_platforms',[['ios','iOS'],['android','Android'],['web','웹']],d.platforms||[])}</div>`+detailField('App Store 링크',`<input name="d_appStore" maxlength="2000" placeholder="https://apps.apple.com/..." value="${v('appStore')}">`)+detailField('Google Play 링크',`<input name="d_playStore" maxlength="2000" placeholder="https://play.google.com/..." value="${v('playStore')}">`)+`<div class="form-pair">${detailField('가격',sel('d_price',[['','선택'],['free','무료'],['paid','유료'],['iap','무료 · 앱 내 결제']],d.price||''))}<div class="detail-input"><span>베타 테스터</span>${checks('d_beta',[['on','모집 중']],d.beta?['on']:[])}</div></div>`+detailField('베타 참여 링크',`<input name="d_betaUrl" maxlength="2000" placeholder="TestFlight·Play 테스트 링크 (선택)" value="${v('betaUrl')}">`),
-    game:detailField('사용 기술',`<input name="d_stack" maxlength="260" placeholder="예: Phaser, Three.js, Godot" value="${v('stack')}">`,'쉼표로 구분')+`<div class="form-pair">${detailField('개발 단계',sel('d_stage',[['','선택'],['demo','데모'],['early','얼리 액세스'],['release','정식 출시']],d.stage||''))}${detailField('플레이 방식',sel('d_playMode',[['','선택'],['browser','브라우저에서 바로'],['download','다운로드 설치'],['mobile','모바일']],d.playMode||''))}</div><div class="detail-input"><span>조작 장치</span>${checks('d_inputs',[['keyboard','키보드'],['mouse','마우스'],['gamepad','게임패드'],['touch','터치']],d.inputs||[])}</div>`+detailField('플레이 시간',`<input name="d_playtime" maxlength="30" placeholder="예: 10~20분" value="${v('playtime')}">`)+detailField('조작법',`<textarea name="d_controls" rows="3" maxlength="500" placeholder="예: WASD 이동 · 마우스 조준 · 스페이스 점프">${v('controls')}</textarea>`)+detailField('트레일러 링크',`<input name="d_trailer" maxlength="2000" placeholder="YouTube 또는 Vimeo (선택)" value="${v('trailer')}">`)+detailField('itch.io 임베드 주소',`<input name="d_embed" maxlength="2000" placeholder="https://itch.io/embed-upload/... (선택)" value="${v('embed')}">`,'넣으면 작품 페이지에서 바로 플레이할 수 있어요')+warnings,
-    art:`<div class="form-pair">${detailField('형식',sel('d_format',[['','선택'],['illustration','일러스트'],['webtoon','웹툰 (세로 스크롤)'],['comic','만화']],d.format||''))}${form('연재 여부')}</div>`+schedule+detailField('라이선스',sel('d_license',[['','선택'],['all-rights','모든 권리 보유 · 무단 사용 금지'],['cc-by','CC BY · 출처 표시'],['cc-by-nc','CC BY-NC · 비상업적 이용'],['cc0','CC0 · 자유 이용']],d.license||''))+warnings,
-    video:`<div class="form-pair">${detailField('길이',`<input name="d_duration" maxlength="20" placeholder="예: 3분 20초" value="${v('duration')}">`)}${form('형식')}</div>`+schedule+detailField('챕터',`<textarea name="d_chapters" rows="3" maxlength="2000" placeholder="0:00 인트로&#10;1:20 본편">${v('chapters')}</textarea>`,'한 줄에 하나씩')+detailField('크레딧',`<textarea name="d_credits" rows="3" maxlength="1000" placeholder="출연, 음악, 사용한 AI 도구 등">${v('credits')}</textarea>`)+warnings,
-    novel:`<div class="form-pair">${form('형식')}${detailField('연재 상태',sel('d_status',[['','선택'],['ongoing','연재 중'],['complete','완결']],d.status||''))}</div>`+schedule+warnings,
-  }[type]||'';
-  // How it was made with AI — shared by every category
-  const dev=['website','app','game'].includes(type);
-  const toolExamples={art:'예: Midjourney, Stable Diffusion, ChatGPT',video:'예: Runway, Sora, Suno',novel:'예: ChatGPT, Claude, Novel AI'}[type]||'예: Claude, Cursor, Lovable';
-  const making=`<div class="making-fields"><span class="cover-label">AI로 만든 과정 <small>선택 · 작품 페이지에 따로 소개돼요</small></span><div class="form-pair">${detailField('사용한 AI 도구',`<input name="m_tools" maxlength="260" placeholder="${toolExamples}" value="${mv('tools')}">`,'쉼표로 구분')}${detailField('제작 기간',`<input name="m_days" maxlength="30" placeholder="예: 3일" value="${mv('days')}">`)}</div>${detailField('만든 과정',`<textarea name="m_process" rows="3" maxlength="2000" placeholder="어떤 아이디어로 시작해서, AI와 어떻게 만들었는지 들려주세요.">${mv('process')}</textarea>`)}${dev?`<div class="form-pair">${detailField('GitHub 링크',`<input name="m_github" maxlength="2000" placeholder="https://github.com/... (선택)" value="${mv('github')}">`)}<div class="detail-input"><span>소스 공개</span>${checks('m_openSource',[['on','오픈소스예요']],m.openSource?['on']:[])}</div></div>`:''}</div>`
-    +detailField('함께 만든 사람',`<textarea name="d_team" rows="2" maxlength="620" placeholder="한 줄에 한 명 · 예: 하늘 · 그림&#10;바다 · 음악">${escapeHtml((d.team||[]).join('\n'))}</textarea>`,'선택 · 팀이나 스튜디오라면 함께 적어주세요');
-  const box=$('#upload-details');box.innerHTML=html+making;box.hidden=false;
-  const rule=linkRules[type]||linkRules.website;const url=$('#upload-form').elements.namedItem('url');
-  $('#url-label').textContent=rule.label;url.placeholder=rule.placeholder;$('#url-hint').textContent=rule.hint;syncStatus();
-  // apps keep their store links in the optional section, so open it for them
-  if(type==='app')$('#more-fields').open=true;
-  bodyEditor.setHint(bodyHints[type]||'');
-}
-function gatherDetails(form){
-  const out={},making={};const many=['platforms','inputs','warnings','schedule'];
-  for(const [k,val] of new FormData(form).entries()){
-    if(k.startsWith('m_')){making[k.slice(2)]=String(val).trim();continue;}
-    if(!k.startsWith('d_'))continue;const key=k.slice(2);
-    if(many.includes(key)){(out[key]||=[]).push(val);continue;}out[key]=String(val).trim();
-  }
-  if(out.features)out.features=out.features.split('\n').map(x=>x.trim()).filter(Boolean);
-  if(out.stack)out.stack=out.stack.split(',').map(x=>x.trim()).filter(Boolean);
-  if(making.tools)making.tools=making.tools.split(',').map(x=>x.trim()).filter(Boolean);
-  if(out.team)out.team=out.team.split('\n').map(x=>x.trim()).filter(Boolean);
-  out.making=making;
-  return out;
-}
-// Body editor shared with work pages (public/block-editor.js)
-const bodyEditor=BlockEditor.create($('#content-editor'));
-function setBlocks(next){bodyEditor.set(next);}
-async function loadBodyForEdit(id){
-  try{const response=await fetch(`/api/projects/${encodeURIComponent(id)}`);if(!response.ok)return;const full=await response.json();if(editingProjectId!==id)return;
-    renderUploadDetails($('#upload-form').elements.namedItem('type').value,full.details||{});setBlocks(full.content||[]);
-  }catch{}
-}
-let draftSubmit=false;
-$('#save-draft').addEventListener('click',()=>{draftSubmit=true;$('#upload-form').requestSubmit();});
-// Downscale + re-encode in the browser so any normal photo or illustration fits the upload budget.
-async function shrinkImage(file){
-  const url=URL.createObjectURL(file);
-  try{
-    const img=await new Promise((resolve,reject)=>{const el=new Image();el.onload=()=>resolve(el);el.onerror=()=>reject(Error('open'));el.src=url;});
-    let scale=Math.min(1,GALLERY.maxWidth/img.naturalWidth,4096/img.naturalHeight);
-    for(let attempt=0;attempt<6;attempt++){
-      const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(img.naturalWidth*scale));canvas.height=Math.max(1,Math.round(img.naturalHeight*scale));
-      const ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(img,0,0,canvas.width,canvas.height);
-      for(const quality of [.88,.78,.66,.55]){
-        let blob=await new Promise(r=>canvas.toBlob(r,'image/webp',quality));
-        if(!blob||blob.type!=='image/webp')blob=await new Promise(r=>canvas.toBlob(r,'image/jpeg',quality));
-        if(blob&&blob.size<=GALLERY.maxBytes)return await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=reject;reader.readAsDataURL(blob);});
-      }
-      scale*=.8;
-    }
-    throw Error('too large');
-  }finally{URL.revokeObjectURL(url);}
-}
-function setCover(mode,data,existing){
-  cover={mode,data};const preview=$('#cover-preview');const img=$('img',preview);
-  const src=mode==='new'?data:mode==='keep'?(existing||''):'';
-  preview.hidden=!src;if(src)img.src=src;else img.removeAttribute('src');
-  $('#cover-info').textContent=mode==='new'?`${COVER.width} × ${COVER.height}px · ${Math.round(data.length*0.75/1024)}KB`:mode==='keep'&&src?'현재 등록된 커버 이미지':'';
-  $('#cover-clear').hidden=!src;$('#cover-pick').textContent=src?'다른 이미지 선택':'내 컴퓨터에서 이미지 선택';$('#cover-file').value='';
-}
-function coverError(message){const el=$('#cover-error');el.textContent=message||'';el.hidden=!message;}
-function updateDescriptionCount(){$('#description-count').textContent=$('#upload-description').value.length.toLocaleString('ko-KR');}
-$('#upload-description').addEventListener('input',updateDescriptionCount);
-$('#cover-pick').addEventListener('click',()=>$('#cover-file').click());
-$('#cover-clear').addEventListener('click',()=>{coverError('');setCover('remove','');});
-$('#cover-file').addEventListener('change',async event=>{
-  const file=event.target.files[0];event.target.value='';if(!file)return;coverError('');
-  if(!COVER.types.includes(file.type))return coverError('PNG, JPG, WebP 형식의 이미지만 올릴 수 있어요.');
-  try{setCover('new',await BlockEditor.prepareCover(file));}catch{coverError('이미지를 처리하지 못했어요. 다른 이미지를 골라주세요.');}
-});
+// Writing happens on its own pages: /works/new and /works/:id/edit (public/work-editor.js)
+async function openUpload(editId){await sessionReady;const edit=typeof editId==='string'?editId:'';if(!edit&&!user){window.VibeCommunity?.login('upload');return;}location.href=edit?`/works/${encodeURIComponent(edit)}/edit`:'/works/new';}
 $('#upload-open').addEventListener('click',openUpload);$('#banner-upload').addEventListener('click',openUpload);
-$('#upload-form').addEventListener('submit',async event=>{
-  event.preventDefault();if(submitting)return;const form=event.target;const data=new FormData(form);const payload=Object.fromEntries(data);$('#form-error').hidden=true;
-  for(const key of Object.keys(payload))if(key.startsWith('d_')||key.startsWith('m_'))delete payload[key];payload.details=gatherDetails(form);
-  const urlField=form.elements.namedItem('url');payload.url=payload.url.trim()?normalizeUrl(payload.url):'';const urlProblem=payload.url||urlField.required?publicUrlError(payload.url):'';if(urlProblem){urlField.setCustomValidity(urlProblem);urlField.reportValidity();urlField.addEventListener('input',()=>urlField.setCustomValidity(''),{once:true});return;}
-  const content=bodyEditor.get();if(!content){draftSubmit=false;return;}payload.content=content;payload.draft=draftSubmit;draftSubmit=false;
-  if(cover.mode==='new')payload.image=cover.data;else if(cover.mode==='remove')payload.image='';
-  payload.genres=[...uploadGenres];
-  for(const name of ['title','creator','description']){const field=form.elements.namedItem(name);if(!String(data.get(name)).trim()){field.setCustomValidity('공백 이외의 내용을 입력해주세요.');field.reportValidity();field.addEventListener('input',()=>field.setCustomValidity(''),{once:true});return;}}
-  submitting=true;const button=$('button[type="submit"]',form);button.disabled=true;button.textContent='작품을 등록하는 중…';
-  try{
-    const response=await fetch(editingProjectId?`/api/projects/${encodeURIComponent(editingProjectId)}`:'/api/projects',{method:editingProjectId?'PATCH':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const result=await response.json().catch(()=>({}));
-    if(!response.ok){if(response.status===401){user=null;$('#upload-form').hidden=true;$('#upload-auth').hidden=false;}throw Error(result.error||'등록에 실패했어요. 잠시 후 다시 시도해주세요.');}
-    const edited=!!editingProjectId;editingProjectId=null;form.reset();uploadGenres.clear();renderUploadGenres();setCover('keep','');setBlocks([]);renderUploadDetails(form.elements.namedItem('type').value);updateDescriptionCount();delete form.dataset.editing;$('#upload-dialog').close();query='';$('#search').value='';sort='newest';$('#sort').value='newest';await loadCatalog();setFilter('all',true);toast(payload.draft?'임시 저장했어요. 내 프로필 → 내 작품에서 이어서 쓸 수 있어요.':edited?'작품 소개를 수정했어요.':'작품이 공개되었어요. 이제 다른 방문자도 볼 수 있어요.');
-    // a first work is when feedback matters most: offer a ready-to-send 피드백 요청 post
-    if(!edited&&!payload.draft&&result.project&&projects.filter(x=>x.owned).length<=1)setTimeout(()=>window.VibeCommunity?.askFeedback(result.project),900);
-  }catch(error){$('#form-error').textContent=error.message||'네트워크 연결을 확인하고 다시 시도해주세요.';$('#form-error').hidden=false;}
-  finally{submitting=false;button.disabled=false;button.innerHTML='공개 등록하기 <span>↗</span>';}
-});
 // [data-close] buttons and backdrop clicks are handled by public/ds.js (with the unsaved-input guard)
 $('#about-button').addEventListener('click',()=>$('#about-dialog').showModal());
 document.addEventListener('keydown',event=>{if(event.key==='/'&&!$('dialog[open]')&&!['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName)){event.preventDefault();openSearch();}});
@@ -484,15 +325,16 @@ async function loadCatalog(){
   try{
     const response=await fetch('/api/projects');const result=await response.json();if(!Array.isArray(result.projects))throw Error('잘못된 응답');
     myDrafts=result.projects.filter(p=>p.draft);projects=result.projects.filter(p=>!p.draft);message=result.error||'';applySite(result.site);
-    if(result.genres){genreMap=result.genres;renderUploadGenres();}collections=Array.isArray(result.collections)?result.collections:[];
+    if(result.genres)genreMap=result.genres;collections=Array.isArray(result.collections)?result.collections:[];
     if(Array.isArray(result.banners)&&result.banners.length)homeBanners=result.banners;heroKey='';
     loadRemainingPages(result.next,generation);
   }
   catch{try{const response=await fetch('/catalog.json');if(!response.ok)throw Error();projects=await response.json();message='커뮤니티 작품을 불러오지 못했습니다. 기본 서비스는 계속 이용할 수 있어요.';}catch{message='작품을 불러올 수 없습니다. 연결을 확인한 뒤 새로고침해주세요.';}catalogComplete=true;}
   $('#catalog-status').hidden=!message;$('#catalog-status').textContent=message;render();
-  // /#work=ID (from a work page's 별점 · 댓글 button) opens that work's panel
+  // /#work=ID opens that work's panel; /#edit=ID is the old address of the edit page
   const [,hashKind,hashId]=location.hash.match(/^#(work|edit)=(.+)$/)||[];const linked=decodeURIComponent(hashId||'');
-  if(linked&&findProject(linked)){history.replaceState(null,'',location.pathname+location.search);if(hashKind==='edit')openUpload(linked);else openDetail(linked);}
+  if(hashKind==='edit'){location.replace(`/works/${encodeURIComponent(linked)}/edit`);return;}
+  if(linked&&findProject(linked)){history.replaceState(null,'',location.pathname+location.search);openDetail(linked);}
   if(location.hash==='#profile'){history.replaceState(null,'',location.pathname+location.search);sessionReady.then(()=>user?window.VibeCommunity?.openProfile():window.VibeCommunity?.login());}
   document.dispatchEvent(new CustomEvent('vibe:catalog'));
 }
@@ -509,13 +351,15 @@ async function loadRemainingPages(next,generation){
   if(generation===catalogGeneration){catalogComplete=true;if(query)render();document.dispatchEvent(new CustomEvent('vibe:catalog'));}
 }
 loadCatalog();
-if(new URL(location.href).searchParams.get('upload')==='1')openUpload();
+if(location.hash==='#community')setCommunityView(true);
+// a message from the page we just came from (public/social.js flash)
+try{const message=sessionStorage.getItem('vibeflix.flash');if(message){sessionStorage.removeItem('vibeflix.flash');toast(message);}}catch{}
 window.Vibe={sessionReady,getUser:()=>user,getProjects:()=>projects,getSaved:()=>[...saved],setSaved:ids=>{saved=new Set(ids);render();},refreshAuth:loadSession,reload:loadCatalog,openDetail,openUpload,render,artMarkup,toast,escapeHtml,setFilter,setCommunityView,patchProject:(id,patch)=>{const p=findProject(id);if(p)Object.assign(p,patch);render();}};
 
 // Signing in from a work or creator page: /?login=1&next=/works/… returns there once the session exists.
 {
   const params=new URLSearchParams(location.search);const next=params.get('next')||'';
-  const safeNext=/^\/(works|creators)\/[^/]/.test(next)?next:'';
+  const safeNext=/^\/(works|creators|posts|studio)\/[^/]|^\/(account|studio)(#|$)/.test(next)?next:'';
   if(params.get('login')==='1'){
     sessionReady.then(()=>{if(user){if(safeNext)location.href=safeNext;}else window.VibeCommunity?.login();});
     document.addEventListener('vibe:auth',event=>{if(event.detail&&safeNext)location.href=safeNext;});
@@ -537,7 +381,7 @@ document.addEventListener('visibilitychange',()=>{
   if(document.visibilityState!=='visible'||!leftAt||Date.now()-leftAt<20000)return;
   const id=leftFrom;leftAt=0;const p=findProject(id);
   if(!p||p.myRating||p.owned||!$('#detail-dialog').open||detailId!==id)return;
-  const section=$('#detail-content .rating-section');if(!section)return;
+  const section=$('#detail-reviews');if(!section)return;
   section.classList.add('rate-nudge');section.scrollIntoView({behavior:'smooth',block:'center'});
   toast(p.type==='game'?'플레이해보니 어땠나요? 별점과 한 줄 리뷰를 남겨주세요.':'써보니 어땠나요? 별점과 한 줄 리뷰를 남겨주세요.');
 });

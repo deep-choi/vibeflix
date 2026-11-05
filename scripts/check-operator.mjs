@@ -115,7 +115,7 @@ try{
   await expect(request(null,'/works/'+encodeURIComponent(work),'GET',undefined,{Referer:'https://news.ycombinator.com/item?id=1','User-Agent':'Mozilla/5.0 QA'}),200);
   const sources=sql(`SELECT source,views FROM work_referrers WHERE project_id=${q(work)};`,true)[0].results;
   assert.ok(sources.some(s=>s.source==='news.ycombinator.com'));
-  const ownerPage=await expect(request(W,'/works/'+encodeURIComponent(work)),200);assert.ok(ownerPage.includes('어디서 왔나요')&&ownerPage.includes('news.ycombinator.com'));
+  const ownerPage=await expect(request(W,'/studio/works/'+encodeURIComponent(work)),200);assert.ok(ownerPage.includes('어디서 왔나요')&&ownerPage.includes('news.ycombinator.com'));
   console.log('PASS: creator stats record where views came from.');
 
   // ── Collections, banner schedule, notice end, search misses, deletion queue, overview ──

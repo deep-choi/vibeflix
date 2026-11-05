@@ -12,7 +12,7 @@ body.account-page > .header, body.account-page > #home-main, body.account-page >
 .account-nav button, .account-nav a { display:block; width:100%; border:0; border-radius:9px; padding:12px 14px; text-align:left; background:transparent; color:#b3beaa; font:inherit; text-decoration:none; cursor:pointer; }
 .account-nav button:hover, .account-nav a:hover { background:#ffffff0c; color:white; }
 .account-nav button.active { background:#c3f5681c; color:#d3f59e; font-weight:700; }
-.account-panel { min-width:0; padding:28px; border:1px solid #30362b; border-radius:16px; background:#141714; }
+.account-panel { min-width:0; }
 .account-panel [hidden] { display:none !important; }
 .account-panel #profile-form { max-width:680px; }
 .account-panel #profile-form label { display:block; margin-bottom:20px; font-weight:600; }
@@ -24,6 +24,12 @@ body.account-page > .header, body.account-page > #home-main, body.account-page >
 .account-panel .activity-item { display:flex; flex-direction:column; align-items:flex-start; flex:1; padding:16px 0; border-bottom:1px solid #30362b; text-align:left; }
 .account-panel .activity-item span, .account-panel .activity-item small { color:#94a28d; margin-top:5px; }
 .account-panel .profile-footer { margin-top:28px; }
-.account-panel .safety-controls { display:flex; flex-wrap:wrap; gap:16px; margin-top:24px; }
+.account-panel .safety-controls { display:block; margin-top:24px; }
+.account-panel .safety-controls section { padding:20px 0; border-top:1px solid #30362b; }
+.account-panel .safety-controls h3 { margin:0 0 6px; font-size:15px; }
+.account-panel .safety-controls p { margin:0 0 12px; color:#9aa598; font-size:14px; }
+.account-panel .safety-controls a { color:#b9cd98; }
+.account-panel .safety-list { list-style:none; margin:0; padding:0; }
+.account-panel .safety-list li { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:8px 0; }
 .account-login { padding:48px 0; }
 @media(max-width:700px) { .account-shell { padding:24px 18px 70px; } .account-layout { display:block; } .account-nav { flex-direction:row; overflow-x:auto; padding-bottom:12px; margin-bottom:16px; } .account-nav p { display:none; } .account-nav button, .account-nav a { flex:0 0 auto; width:auto; white-space:nowrap; } .account-panel { padding:20px; } }

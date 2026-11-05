@@ -43,6 +43,26 @@
   Cache-Control: public, max-age=31536000, immutable
 /entry.js
   Cache-Control: public, max-age=31536000, immutable
+/social.js
+  Cache-Control: public, max-age=31536000, immutable
+/post.js
+  Cache-Control: public, max-age=31536000, immutable
+/post.css
+  Cache-Control: public, max-age=31536000, immutable
+/post-editor.js
+  Cache-Control: public, max-age=31536000, immutable
+/work-editor.js
+  Cache-Control: public, max-age=31536000, immutable
+/entry-editor.js
+  Cache-Control: public, max-age=31536000, immutable
+/form-page.css
+  Cache-Control: public, max-age=31536000, immutable
+/studio.css
+  Cache-Control: public, max-age=31536000, immutable
+/studio.js
+  Cache-Control: public, max-age=31536000, immutable
+/account.css
+  Cache-Control: public, max-age=31536000, immutable
 
 # Sign-in config: a changed Firebase project has to reach browsers right away
 /firebase-config.json

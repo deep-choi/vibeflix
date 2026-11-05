@@ -35,7 +35,7 @@
       if (button.dataset.safetyEnhanced) return;
       button.dataset.safetyEnhanced = '1';
       if (button.dataset.reportReviewUser) button.onclick = () => open('리뷰 작성자 신고', REPORT_FORM, {label:'신고 접수',action:async data=>{await api({action:'report-user',publicId:button.dataset.reportReviewUser,category:data.get('category'),reason:data.get('reason')});toast('이용자 신고가 접수되었습니다. 운영자가 확인할게요.');}});
-      else button.onclick = () => open('작성자를 차단할까요?', '<p class="modal-desc">이 이용자의 콘텐츠와 알림을 숨깁니다. 내 프로필에서 해제할 수 있습니다.</p>', {label:'차단하기',danger:true,action:async()=>{await api({action:'block',publicId:button.dataset.blockReviewUser});reload();}});
+      else button.onclick = () => open('작성자를 차단할까요?', '<p class="modal-desc">이 이용자의 콘텐츠와 알림을 숨깁니다. 내 계정에서 해제할 수 있습니다.</p>', {label:'차단하기',danger:true,action:async()=>{await api({action:'block',publicId:button.dataset.blockReviewUser});reload();}});
     });
     document.querySelectorAll('[data-report-kind]').forEach(button => {
       if (button.dataset.safetyEnhanced) return;
@@ -52,19 +52,21 @@
     const controls = document.createElement('div');
     controls.dataset.safetyControls = '1';
     controls.className = 'safety-controls';
-    controls.innerHTML = '<button class="text-button" data-consent>이용약관 동의</button><button class="text-button" data-blocks>차단 관리</button><button class="text-button danger" data-delete>계정 삭제 요청</button>';
+    controls.innerHTML = '<section><h3>이용약관</h3><p>불법·음란·혐오·도배 및 타인의 권리를 침해하는 콘텐츠는 등록할 수 없습니다.</p><button class="btn small" data-consent>이용약관 동의</button></section><section><h3>차단한 이용자</h3><div data-block-list><p class="safety-note">불러오는 중…</p></div></section><section><h3>계정 삭제</h3><p>회원 프로필과 작성한 작품·게시글·댓글·리뷰, 찜·팔로우·로그인 정보를 운영자가 확인 후 삭제합니다. 삭제 후 복구할 수 없습니다.</p><p><a href="/account-deletion" target="_blank" rel="noopener">삭제 범위 및 문의 방법</a></p><button class="btn small danger" data-delete>계정 삭제 요청</button></section>';
     footer.before(controls);
     controls.querySelector('[data-consent]').onclick = () => open('이용약관 동의', '<p class="modal-desc">불법·음란·혐오·도배 및 타인의 권리를 침해하는 콘텐츠는 등록할 수 없습니다.</p><p><a href="/terms" target="_blank" rel="noopener">이용약관</a> · <a href="/privacy" target="_blank" rel="noopener">개인정보처리방침</a></p><label><input type="checkbox" name="accepted" required> 내용을 확인했고 동의합니다.</label>', {label:'동의하기',action:async data=>{await api({action:'accept',accepted:data.get('accepted')==='on'});}});
-    controls.querySelector('[data-blocks]').onclick = async () => {
-      try {
-        const result=await api();
-        open('차단 관리', result.blocks.length ? `<ul class="safety-list">${result.blocks.map(u=>`<li><span>${esc(u.name)}</span><button type="button" class="btn small" data-unblock="${esc(u.id)}">차단 해제</button></li>`).join('')}</ul>` : '<p class="modal-desc">차단한 이용자가 없습니다.</p>');
-        dialog.querySelectorAll('[data-unblock]').forEach(b=>b.onclick=async()=>{try{await api({action:'unblock',publicId:b.dataset.unblock});b.closest('li').remove();}catch(e){toast(e.message);}});
-      } catch(error) {toast(error.message);}
+    const list = controls.querySelector('[data-block-list]'), deletion = controls.querySelector('[data-delete]');
+    const drawBlocks = blocks => { list.innerHTML = blocks.length ? `<ul class="safety-list">${blocks.map(u=>`<li><span>${esc(u.name)}</span><button type="button" class="btn small" data-unblock="${esc(u.id)}">차단 해제</button></li>`).join('')}</ul>` : '<p class="safety-note">차단한 이용자가 없습니다.</p>'; };
+    list.onclick = async event => {
+      const button = event.target.closest('[data-unblock]'); if (!button) return;
+      button.disabled = true;
+      try { await api({action:'unblock',publicId:button.dataset.unblock}); drawBlocks((await api()).blocks); toast('차단을 해제했어요.'); }
+      catch (error) { toast(error.message); button.disabled = false; }
     };
-    controls.querySelector('[data-delete]').onclick = () => open('계정 삭제 요청', '<p class="modal-desc">회원 프로필과 작성한 작품·게시글·댓글·리뷰, 찜·팔로우·로그인 정보를 운영자가 확인 후 삭제합니다. 삭제 후 복구할 수 없습니다.</p><p><a href="/account-deletion" target="_blank" rel="noopener">삭제 범위 및 문의 방법</a></p><label>확인을 위해 ‘삭제 요청’을 입력해주세요.<input name="confirm" required pattern="삭제 요청" autocomplete="off"></label>', {label:'삭제 요청 접수',danger:true,action:async data=>{const result=await api({action:'deletion',confirm:data.get('confirm')});toast(result.message);}});
+    const requested = () => { deletion.disabled = true; deletion.textContent = '삭제 요청 접수됨'; };
+    api().then(result => { drawBlocks(result.blocks); if (result.deletionRequested) requested(); }).catch(error => { list.innerHTML = `<p class="safety-note">${esc(error.message)}</p>`; });
+    deletion.onclick = () => open('계정 삭제 요청', '<p class="modal-desc">삭제 후에는 복구할 수 없습니다.</p><label>확인을 위해 ‘삭제 요청’을 입력해주세요.<input name="confirm" required pattern="삭제 요청" autocomplete="off"></label>', {label:'삭제 요청 접수',danger:true,action:async data=>{const result=await api({action:'deletion',confirm:data.get('confirm')});toast(result.message);requested();}});
   }
   new MutationObserver(enhance).observe(document.body,{childList:true,subtree:true});
   enhance();
-  if (new URLSearchParams(location.search).has('account-deletion')) $('#profile-button')?.click();
 })();

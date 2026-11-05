@@ -63,7 +63,7 @@
 
 ### 입력칸
 
-모달, `.field`, `.ad-field`, 댓글·별점 폼 안의 `input` · `select` · `textarea`에 적용돼요.
+모달, 쓰는 페이지(`.form-page`), `.field`, `.ad-field`, 댓글·별점 폼 안의 `input` · `select` · `textarea`에 적용돼요.
 
 ```html
 <label>작품 이름 <small>필수</small><input placeholder="…"></label>
@@ -106,8 +106,8 @@
 | `modal-sm` | 440 | 확인, 신고, 이의 제기, 로그인, 외부 링크 이동, 회원 도구, 운영자 확인 |
 | 기본 | 560 | 안내 |
 | 알림 | 600 | 알림 목록 |
-| `modal-lg` | 720 | 작품 올리기, 이야기 쓰기, 내 프로필, 회차 쓰기, 운영자 편집 |
-| `modal-xl` | 880 | 작품 미리보기, 게시글(안쪽 여백은 내용이 직접 가짐) |
+| `modal-lg` | 720 | 운영자 편집 |
+| `modal-xl` | 880 | 작품 미리보기(안쪽 여백은 내용이 직접 가짐) |
 
 - **데스크톱**: 가운데 카드, 반투명 흐린 배경, 위로 살짝 떠오르는 등장.
 - **휴대폰(≤640px)**: 아래에서 올라오는 시트. 폭 100%, 위 모서리만 둥글게, 안전 영역 여백, 맨 위 손잡이를 끌어내리면 닫혀요.
@@ -123,6 +123,20 @@
 - **썸네일은 그림만.** 제목은 카드 아래(데스크톱은 포스터 아래 캡션, 마우스를 올리면 정보 패널)에 글자로 나와요. 그림 안에 제목을 글꼴로 그려 넣지 않아요 — 아래 제목과 겹치고, 좁은 폭에서 깨져요("Blockabl/e").
 - **커버가 없는 작품**은 `<div class="cover-ph" data-type="game" data-tone="0–5" aria-hidden="true">` — 작품 id로 고른 어두운 그라디언트와 분류 아이콘. 홈 카드(`public/app.js`), 작가 페이지·작품 페이지(`coverPlaceholder()` in `lib/page-shell.ts`)가 같은 규칙을 써요.
 - 그림 위에 얹는 것은 상태 배지뿐이에요: `성인 소재`, `예시`(운영자 예시 작품), `콘셉트 이미지`.
+
+## 박스를 겹치지 않아요
+
+구조는 여백, 제목 크기, 얇은 구분선으로 만들어요. 섹션에 배경이나 테두리를 주지 않고, 숫자도 박스 없이 나란히 놓아요. 박스는 입력칸과 팝업처럼 필요한 곳에 한 겹만 써요.
+
+## 모달과 페이지
+
+모달은 잠깐 끝나는 일(로그인, 신고, 확인, 알림 목록, 작품 미리보기)에만 써요. 오래 머무는 일은 페이지로 만들어요.
+
+- **긴 글을 쓰거나 항목이 많으면 페이지.** 고유 주소가 있어서 새로고침·뒤로가기·공유가 자연스러워요.
+- **쓰는 페이지**는 `formPageResponse()`(`lib/page-shell.ts`)로 만들어요: 왼쪽 항목 메뉴(휴대폰은 위쪽 가로 메뉴), `.fp-section` 카드, 하단에 고정되는 `.fp-bar`. 스타일은 `public/form-page.css`.
+- **작성 보호**: `Social.guard(form)`(`public/social.js`)가 저장하지 않은 입력이 있으면 페이지를 떠나기 전에 브라우저가 물어보게 해요.
+- **내 스튜디오**(`/studio`, `lib/studio.ts`, `public/studio.css`)는 로그인한 고객 모두의 작품 관리 공간이에요. 작품이 없어도 열리고, 그때는 올리기부터 안내해요.
+- **세션이 끝나도 입력을 지켜요.** 저장이 401이면 로그인 화면으로 보내지 않고 오류를 보여줘요. 다른 탭에서 로그인한 뒤 같은 화면에서 저장하면 돼요.
 
 ## 접근성
 
@@ -149,8 +163,8 @@
 | `.tabs` | `.profile-tabs` |
 | `.alert` | `.catalog-status`, `.inline-error`, `.mature-gate` |
 | `.ds-toast` | `.toast`, `.work-toast`, `.ad-toast`(모두 `DS.toast`로 대체) |
-| `dialog.modal` 크기 | `.confirm-modal` · `.report-modal` · `.auth-modal` → sm, `.compose-modal` · `.profile-modal` · `.upload-modal` · `.entry-dialog` · `.ad-edit` → lg, `.detail-modal` · `.post-modal` → xl |
-| `.modal-actions` | `.confirm-actions`, `.ad-dialog-actions`, `.entry-actions`, `.form-submit-row`(고정 하단) |
+| `dialog.modal` 크기 | `.auth-modal` → sm, `.profile-modal` · `.ad-edit` → lg, `.detail-modal` → xl |
+| `.modal-actions` | `.ad-dialog-actions` |
 
 ## 새 화면을 만들 때
 

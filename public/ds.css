@@ -187,26 +187,26 @@ body:has(dialog.modal[open]) { overflow: hidden; }
  * Text inputs, selects and textareas inside modals, admin fields, comment/rating forms and .field wrappers.
  * Phones use 16px text so iOS does not zoom into the field.
  */
-:is(.modal, .ad-field, .field, .comment-form, .reply-form, .comment-edit-form, .rating-form, .triage, .ad-toolbar)
+:is(.modal, .ad-field, .field, .form-page, .comment-form, .reply-form, .comment-edit-form, .rating-form, .triage, .ad-toolbar)
   :is(input:not([type=checkbox], [type=radio], [type=file], [type=range], [type=hidden], [type=submit], [type=button], [type=image], [type=color]), select, textarea) {
   display: block; width: 100%; min-height: var(--ds-control-md); padding: 10px 14px;
   font: 400 var(--ds-text-md)/1.5 var(--ds-font); color: var(--ds-text);
   background-color: var(--ds-surface-sunken); border: 1px solid var(--ds-border-strong); border-radius: var(--ds-radius-control);
   outline: none; box-shadow: none; transition: border-color var(--ds-dur-1), box-shadow var(--ds-dur-1);
 }
-:is(.modal, .ad-field, .field, .comment-form, .reply-form, .comment-edit-form, .rating-form, .triage, .ad-toolbar)
+:is(.modal, .ad-field, .field, .form-page, .comment-form, .reply-form, .comment-edit-form, .rating-form, .triage, .ad-toolbar)
   :is(input:not([type=checkbox], [type=radio], [type=file], [type=range], [type=hidden]), select, textarea):hover { border-color: var(--ds-border-hover); }
-:is(.modal, .ad-field, .field, .comment-form, .reply-form, .comment-edit-form, .rating-form, .triage, .ad-toolbar)
+:is(.modal, .ad-field, .field, .form-page, .comment-form, .reply-form, .comment-edit-form, .rating-form, .triage, .ad-toolbar)
   :is(input:not([type=checkbox], [type=radio], [type=file], [type=range], [type=hidden]), select, textarea):focus {
   border-color: var(--ds-accent); box-shadow: 0 0 0 3px var(--ds-accent-soft); outline: none;
 }
-:is(.modal, .ad-field, .field, .comment-form, .reply-form, .comment-edit-form, .rating-form, .triage, .ad-toolbar)
+:is(.modal, .ad-field, .field, .form-page, .comment-form, .reply-form, .comment-edit-form, .rating-form, .triage, .ad-toolbar)
   :is(input, select, textarea):is([aria-invalid="true"], :user-invalid) { border-color: var(--ds-danger); }
-:is(.modal, .ad-field, .field, .comment-form, .reply-form, .comment-edit-form, .rating-form, .triage, .ad-toolbar)
+:is(.modal, .ad-field, .field, .form-page, .comment-form, .reply-form, .comment-edit-form, .rating-form, .triage, .ad-toolbar)
   :is(input, select, textarea):disabled { opacity: .5; cursor: not-allowed; }
-:is(.modal, .ad-field, .field, .comment-form, .reply-form, .comment-edit-form, .rating-form, .triage, .ad-toolbar) :is(input, textarea)::placeholder { color: var(--ds-text-3); opacity: 1; }
-:is(.modal, .ad-field, .field, .comment-form, .reply-form, .comment-edit-form, .rating-form, .ad-toolbar) textarea:not([hidden]) { min-height: 96px; line-height: 1.7; resize: vertical; }
-:is(.modal, .ad-field, .field, .comment-form, .reply-form, .comment-edit-form, .rating-form, .triage, .ad-toolbar) select:not([multiple]) {
+:is(.modal, .ad-field, .field, .form-page, .comment-form, .reply-form, .comment-edit-form, .rating-form, .triage, .ad-toolbar) :is(input, textarea)::placeholder { color: var(--ds-text-3); opacity: 1; }
+:is(.modal, .ad-field, .field, .form-page, .comment-form, .reply-form, .comment-edit-form, .rating-form, .ad-toolbar) textarea:not([hidden]) { min-height: 96px; line-height: 1.7; resize: vertical; }
+:is(.modal, .ad-field, .field, .form-page, .comment-form, .reply-form, .comment-edit-form, .rating-form, .triage, .ad-toolbar) select:not([multiple]) {
   appearance: none; padding-right: 40px; cursor: pointer;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5 6 6.5l5-5' fill='none' stroke='%23babfb2' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat; background-position: right 16px center;
@@ -216,21 +216,21 @@ body:has(dialog.modal[open]) { overflow: hidden; }
 .triage :is(select, input):not([type=checkbox]) { min-height: var(--ds-control-sm); padding-block: 4px; font-size: var(--ds-text-sm); width: auto; display: inline-block; }
 :is(.reply-form, .comment-edit-form) textarea:not([hidden]) { min-height: 72px; }
 /* a control wrapped by its label sits 8px under the label text */
-:is(.modal, .field) label > :is(input:not([type=checkbox], [type=radio]), select, textarea) { margin-top: 8px; }
+:is(.modal, .field, .form-page) label > :is(input:not([type=checkbox], [type=radio]), select, textarea) { margin-top: 8px; }
 
 /* labels, hints, errors */
-:is(.modal, .ad-dialog) form label:not(.star-option, .consent-line, .leave-skip, .unsolved-toggle, .detail-checks label, .rating-form label),
-:is(.modal, .ad-dialog) :is(.detail-input > span:first-child, .cover-label),
+:is(.modal, .ad-dialog, .form-page) form label:not(.star-option, .consent-line, .leave-skip, .unsolved-toggle, .detail-checks label, .rating-form label),
+:is(.modal, .ad-dialog, .form-page) :is(.detail-input > span:first-child, .cover-label),
 .ad-field, .field > label {
   font: 600 var(--ds-text-sm)/1.45 var(--ds-font); color: var(--ds-text); letter-spacing: 0;
 }
-:is(.modal, .ad-dialog, .ad-field, .field) :is(label small, .cover-label small, .detail-input small, .ad-field small) {
+:is(.modal, .ad-dialog, .ad-field, .field, .form-page) :is(label small, .cover-label small, .detail-input small, .ad-field small) {
   margin-left: 4px; font: 400 var(--ds-text-xs)/1.45 var(--ds-font); color: var(--ds-text-3);
 }
 :is(.field-hint, .char-count, .draft-status, .form-footnote, .gallery-hint, .ds-hint) { font: 400 var(--ds-text-xs)/1.55 var(--ds-font); color: var(--ds-text-3); }
 :is(.form-error, .ad-form-error, .comment-error, .ds-error) { font: 500 var(--ds-text-sm)/1.55 var(--ds-font); color: var(--ds-danger); margin: 8px 0 0; }
 /* checkboxes & radios */
-:is(.modal, .ad-dialog, .field, .ad-field) input:is([type=checkbox], [type=radio]) {
+:is(.modal, .ad-dialog, .field, .form-page, .ad-field) input:is([type=checkbox], [type=radio]) {
   width: 18px; height: 18px; min-height: 0; padding: 0; flex: none; accent-color: var(--ds-accent); cursor: pointer; vertical-align: -3px;
 }
 :is(.consent-line, .leave-skip, .unsolved-toggle, .detail-checks label) { font: 500 var(--ds-text-sm)/1.5 var(--ds-font); color: var(--ds-text-2); }
@@ -336,10 +336,10 @@ dialog.modal {
 }
 dialog.modal::-webkit-scrollbar { display: none; }
 dialog.modal::backdrop { background: var(--ds-backdrop); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
-dialog.modal:is(.modal-sm, .confirm-modal, .report-modal, .auth-modal, .leave-guard, .entry-report, .community-dialog, #ad-confirm, .upload-modal:has(#upload-auth:not([hidden]))) { --modal-w: 440px; }
+dialog.modal:is(.modal-sm, .auth-modal, .leave-guard, .entry-report, .community-dialog, #ad-confirm) { --modal-w: 440px; }
 dialog.modal.notification-modal { --modal-w: 600px; }
-dialog.modal:is(.modal-lg, .compose-modal, .profile-modal, .upload-modal:has(#upload-form:not([hidden])), .entry-dialog, .ad-edit) { --modal-w: 720px; }
-dialog.modal:is(.modal-xl, .detail-modal, .post-modal) { --modal-w: 880px; --modal-pt: 0px; --modal-px: 0px; --modal-pb: 0px; }
+dialog.modal:is(.modal-lg, .profile-modal, .ad-edit) { --modal-w: 720px; }
+dialog.modal:is(.modal-xl, .detail-modal) { --modal-w: 880px; --modal-pt: 0px; --modal-px: 0px; --modal-pb: 0px; }
 
 /* header */
 dialog.modal > :is(.section-kicker, .ds-kicker), dialog.modal > form > :is(.section-kicker, .ds-kicker) { margin: 0 0 8px; }
@@ -366,21 +366,21 @@ dialog.modal:has(> .modal-close) > :is(h2, form > h2) { padding-right: 44px; }
 .modal-close:hover { background: var(--ds-fill-hover); color: var(--ds-text); filter: none; }
 .modal-close::before, .modal-close::after { content: ''; position: absolute; inset: 0; margin: auto; width: 14px; height: 1.6px; border-radius: 1px; background: currentColor; transform: rotate(45deg); }
 .modal-close::after { transform: rotate(-45deg); }
-dialog.modal:is(.detail-modal, .post-modal) .modal-close { background: #000000a6; color: #fff; }
+dialog.modal:is(.detail-modal) .modal-close { background: #000000a6; color: #fff; }
 .modal-close { z-index: 7; }
 .sheet-handle { display: none; }
 dialog.modal.about-modal > p { margin-bottom: 12px; }
 dialog.modal.about-modal > .primary-button { margin-top: 12px; }
 
 /* footer */
-:is(.modal-actions, .confirm-actions, .ad-dialog-actions, .entry-actions, .form-submit-row) {
+:is(.modal-actions, .ad-dialog-actions) {
   display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; margin: 24px 0 0;
 }
-:is(.modal-actions, .confirm-actions, .ad-dialog-actions, .entry-actions, .form-submit-row) > :is(.form-footnote, .draft-status, .modal-actions-note) { flex: 1 1 200px; margin: 0; text-align: left; }
+:is(.modal-actions, .ad-dialog-actions) > :is(.form-footnote, .draft-status, .modal-actions-note) { flex: 1 1 200px; margin: 0; text-align: left; }
 /* footer buttons size to their label (older .form-submit buttons were full width) */
-:is(.modal-actions, .confirm-actions, .ad-dialog-actions, .entry-actions, .form-submit-row) > :is(.btn, .primary-button, .secondary-button, .ad-btn) { width: auto; margin: 0; }
+:is(.modal-actions, .ad-dialog-actions) > :is(.btn, .primary-button, .secondary-button, .ad-btn) { width: auto; margin: 0; }
 /* sticky footer for long forms: the main action is always one tap away */
-:is(.modal-actions.sticky, .form-submit-row, .entry-actions, .ad-edit .ad-dialog-actions) {
+:is(.modal-actions.sticky, .ad-edit .ad-dialog-actions) {
   position: sticky; bottom: calc(-1 * var(--modal-pb)); z-index: 5;
   margin: 24px calc(-1 * var(--modal-px)) calc(-1 * var(--modal-pb)); padding: 16px var(--modal-px) var(--modal-pb);
   background: var(--ds-surface-raised); border-top: 1px solid var(--ds-border);
@@ -388,15 +388,11 @@ dialog.modal.about-modal > .primary-button { margin-top: 12px; }
 
 /* modals that lay out their own content (cover image, article, discussion) */
 .detail-body { padding: 28px 32px 32px; }
-.project-community { padding: 0 32px 32px; }
-.post-detail { padding: 36px 32px 24px; }
-.post-detail-eyebrow { padding-right: 48px; }
-dialog.modal.post-modal .discussion { padding: 24px 32px 32px; margin: 0; }
 
 /* sign-in keeps its centered layout */
-dialog.modal.auth-modal, dialog.modal.upload-modal:has(#upload-auth:not([hidden])) { text-align: center; --modal-pt: 48px; }
-dialog.modal.auth-modal > h2, dialog.modal.upload-modal:has(#upload-auth:not([hidden])) h2 { padding-inline: 32px; }
-dialog.modal.auth-modal .modal-badge, dialog.modal.upload-modal:has(#upload-auth:not([hidden])) .modal-badge {
+dialog.modal.auth-modal { text-align: center; --modal-pt: 48px; }
+dialog.modal.auth-modal > h2 h2 { padding-inline: 32px; }
+dialog.modal.auth-modal .modal-badge .modal-badge {
   display: grid; place-items: center; width: 52px; height: 52px; margin: 0 auto 20px; border-radius: 14px; background: var(--ds-accent-soft); color: var(--ds-accent);
 }
 dialog.modal.auth-modal .email-auth { text-align: left; }
@@ -417,24 +413,24 @@ dialog.modal.auth-modal .email-auth { text-align: left; }
     width: 100%; max-width: 100%; max-height: calc(100dvh - 24px); margin: auto 0 0;
     border-width: 1px 0 0; border-radius: var(--ds-radius-lg) var(--ds-radius-lg) 0 0;
   }
-  dialog.modal:is(.modal-lg, .modal-xl, .detail-modal, .post-modal, .compose-modal, .profile-modal, .upload-modal, .entry-dialog, .ad-edit) { max-height: calc(100dvh - 12px); }
-  dialog.modal:is(.modal-xl, .detail-modal, .post-modal) { --modal-pt: 0px; --modal-px: 0px; --modal-pb: 0px; }
+  dialog.modal:is(.modal-lg, .modal-xl, .detail-modal, .profile-modal, .ad-edit) { max-height: calc(100dvh - 12px); }
+  dialog.modal:is(.modal-xl, .detail-modal) { --modal-pt: 0px; --modal-px: 0px; --modal-pb: 0px; }
   /* drag handle: a 28px strip at the top; dragging it down closes the sheet (public/ds.js) */
   .sheet-handle { display: block; position: absolute; top: 0; left: 0; right: 0; z-index: 6; height: 28px; touch-action: none; cursor: grab; }
   .sheet-handle::before { content: ''; position: absolute; top: 9px; left: 50%; width: 40px; height: 4px; margin-left: -20px; border-radius: 2px; background: #ffffff47; }
-  dialog.modal.auth-modal, dialog.modal.upload-modal:has(#upload-auth:not([hidden])) { --modal-pt: 44px; }
+  dialog.modal.auth-modal { --modal-pt: 44px; }
   :is(dialog.modal > h2, dialog.modal > form > h2, .modal-title) { font-size: 21px; }
   .modal-close { top: calc(10px - var(--modal-pt)); }
   /* dialog buttons share the width */
-  :is(.modal-actions, .confirm-actions, .ad-dialog-actions) > :is(.btn, .primary-button, .secondary-button, .ad-btn) { flex: 1 1 0; }
+  :is(.modal-actions, .ad-dialog-actions) > :is(.btn, .primary-button, .secondary-button, .ad-btn) { flex: 1 1 0; }
   .form-submit-row > :is(.btn, .primary-button, .secondary-button) { flex: 1 1 0; }
-  :is(.modal-actions, .form-submit-row) > :is(.form-footnote, .draft-status, .modal-actions-note) { flex-basis: 100%; }
+  :is(.modal-actions) > :is(.form-footnote, .draft-status, .modal-actions-note) { flex-basis: 100%; }
   .detail-body { padding: 24px 20px 24px; }
   .project-community { padding: 0 20px 28px; }
   .post-detail { padding: 32px 20px 20px; }
   dialog.modal.post-modal .discussion { padding: 20px 20px 28px; }
   /* 16px text so iOS does not zoom into fields */
-  :is(.modal, .ad-field, .field, .comment-form, .reply-form, .comment-edit-form, .rating-form, .ad-toolbar)
+  :is(.modal, .ad-field, .field, .form-page, .comment-form, .reply-form, .comment-edit-form, .rating-form, .ad-toolbar)
     :is(input:not([type=checkbox], [type=radio], [type=file], [type=range], [type=hidden]), select, textarea) { font-size: 16px; }
   :is(.ds-toast, .toast, .work-toast, .ad-toast) { bottom: calc(16px + env(safe-area-inset-bottom)); }
 }

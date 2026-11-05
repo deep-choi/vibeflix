@@ -58,7 +58,7 @@ body:not(.nf-home) .nf-rows{display:none}
 .nf-row{position:relative;margin-bottom:34px;z-index:1}
 .nf-row:hover,.nf-row:focus-within{z-index:6}
 .nf-row-title{margin:0 var(--nf-pad);padding-bottom:10px;position:relative;z-index:7;font-size:clamp(17px,1.5vw,22px);font-weight:700;letter-spacing:-.3px;color:#e5e5e5}
-.nf-row-wrap{position:relative;--nf-hover-top:44px;--nf-hover-bottom:150px}
+.nf-row-wrap{position:relative;--nf-hover-top:8px;--nf-hover-bottom:44px}
 .nf-scroller{display:flex;gap:6px;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x proximity;scrollbar-width:none;padding:var(--nf-hover-top) var(--nf-pad) var(--nf-hover-bottom);margin:calc(-1 * var(--nf-hover-top)) 0 calc(-1 * var(--nf-hover-bottom));scroll-padding-left:var(--nf-pad)}
 .nf-scroller::-webkit-scrollbar{display:none}
 .nf-arrow{position:absolute;top:var(--nf-hover-top);bottom:var(--nf-hover-bottom);width:max(var(--nf-pad),46px);z-index:8;border:0;color:#fff;font-size:44px;line-height:1;display:grid;place-items:center;opacity:0;transition:opacity .2s;cursor:pointer}
@@ -67,10 +67,8 @@ body:not(.nf-home) .nf-rows{display:none}
 .nf-row:hover .nf-arrow{opacity:1}
 .nf-arrow:hover{color:var(--lime)}
 
-/* ───── Cards (poster 16:9, info panel on hover) ───── */
-.project-card{flex:0 0 var(--nf-card);min-width:0;scroll-snap-align:start;transition:transform .28s cubic-bezier(.2,.8,.2,1) .1s;transform-origin:center center}
-.project-card:first-child{transform-origin:left center}
-.project-card:last-child{transform-origin:right center}
+/* ───── Cards (poster 16:9). A card stays where it is on hover: rows never cover the heading or the row below ───── */
+.project-card{flex:0 0 var(--nf-card);min-width:0;scroll-snap-align:start}
 .card-open{overflow:visible;border-radius:6px}
 .card-art{aspect-ratio:16/9;border-radius:6px;border:0}
 .card-info{position:absolute;top:calc(100% - 1px);left:0;right:0;z-index:3;background:var(--nf-panel);border-radius:0 0 6px 6px;padding:12px 14px 14px;box-shadow:0 18px 30px #000a;opacity:0;visibility:hidden;transition:opacity .2s ease .1s}
@@ -81,10 +79,8 @@ body:not(.nf-home) .nf-rows{display:none}
 .card-bottom{font-size:11px;color:#8d9385;margin-top:10px}
 .card-availability{font-size:11px}
 @media(hover:hover){
-  .project-card:hover,.project-card:focus-within{transform:scale(1.22);z-index:20}
-  .project-card:hover .card-art,.project-card:focus-within .card-art{border-radius:6px 6px 0 0}
-  .project-card:hover .card-info,.project-card:focus-within .card-info{opacity:1;visibility:visible}
-  .project-card:hover .card-top-tag{opacity:0}
+  .card-art{transition:box-shadow .15s ease,filter .15s ease}
+  .project-card:hover .card-art,.project-card:focus-within .card-art{box-shadow:0 0 0 2px #ffffffb8;filter:brightness(1.08)}
 }
 .card-open:hover .art-main{transform:none}
 
@@ -100,7 +96,6 @@ body:not(.nf-home) .project-card{flex:none}
 body:not(.nf-home) .row-controls .arrow-button{display:none}
 body:not(.nf-home) .card-info{position:static;opacity:1;visibility:visible;background:none;box-shadow:none;padding:10px 2px 0}
 body:not(.nf-home) .card-bottom{display:none}
-body:not(.nf-home) .project-card:hover{transform:scale(1.04);z-index:2}
 .filter-bar{border-bottom:0}
 .row-heading h3{font-size:clamp(17px,1.5vw,22px);font-weight:700}
 
@@ -283,13 +278,13 @@ body.community-view .community-section{margin-top:76px;border-top:0}
 
 /* Compact gate modals: sign-in, and the upload dialog while logged out */
 .modal-badge{display:none}
-.auth-modal,.upload-modal:has(#upload-auth:not([hidden])){width:440px;padding:48px 36px 32px;text-align:center}
-.auth-modal .modal-close,.upload-modal:has(#upload-auth:not([hidden])) .modal-close{position:absolute;top:16px;right:16px;float:none;margin:0;transform:none}
-.auth-modal .modal-badge,.upload-modal:has(#upload-auth:not([hidden])) .modal-badge{display:grid;place-items:center;width:52px;height:52px;margin:0 auto 22px;border-radius:14px;background:#c3f5681a;color:var(--lime);box-shadow:inset 0 0 0 1px #c3f56833}
+.auth-modal{width:440px;padding:48px 36px 32px;text-align:center}
+.auth-modal .modal-close .modal-close{position:absolute;top:16px;right:16px;float:none;margin:0;transform:none}
+.auth-modal .modal-badge .modal-badge{display:grid;place-items:center;width:52px;height:52px;margin:0 auto 22px;border-radius:14px;background:#c3f5681a;color:var(--lime);box-shadow:inset 0 0 0 1px #c3f56833}
 .modal-badge svg{width:26px;height:26px}
-.auth-modal .section-kicker,.upload-modal:has(#upload-auth:not([hidden])) .section-kicker{display:none}
-.auth-modal h2,.upload-modal:has(#upload-auth:not([hidden])) h2{font-size:24px;line-height:1.35;letter-spacing:-.6px;margin:0 0 10px}
-.auth-modal>p,.upload-modal:has(#upload-auth:not([hidden])) .form-intro{font-size:14px;line-height:1.7;color:#a1a1a1;margin:0 0 28px}
+.auth-modal .section-kicker .section-kicker{display:none}
+.auth-modal h2 h2{font-size:24px;line-height:1.35;letter-spacing:-.6px;margin:0 0 10px}
+.auth-modal>p .form-intro{font-size:14px;line-height:1.7;color:#a1a1a1;margin:0 0 28px}
 .upload-auth{padding:0;margin:0;background:none;border:0}
 .upload-auth p{display:none}
 .upload-auth .primary-button{width:100%;min-height:50px;border-radius:10px;font-size:15px}
@@ -303,8 +298,8 @@ body.community-view .community-section{margin-top:76px;border-top:0}
 .chatgpt-sign-in{margin-top:0;min-height:50px;border-radius:10px;background:#1f1f1f;border:1px solid #ffffff1a;color:#f1f1f1;font-size:15px;font-weight:600}
 .chatgpt-sign-in:hover{background:#2a2a2a}
 @media(max-width:600px){
-  .auth-modal,.upload-modal:has(#upload-auth:not([hidden])){padding:44px 22px 26px}
-  .auth-modal h2,.upload-modal:has(#upload-auth:not([hidden])) h2{font-size:21px}
+  .auth-modal{padding:44px 22px 26px}
+  .auth-modal h2 h2{font-size:21px}
 }
 
 /* Operator notice strip (set in /admin); pushes the fixed header and page down */
@@ -317,6 +312,8 @@ body.has-notice main{padding-top:36px}
 /* Header link to /admin, shown only to operators */
 .admin-link{display:inline-flex;align-items:center;height:30px;padding:0 11px;border-radius:999px;border:1px solid #c3f56855;color:var(--lime);font-size:12.5px;font-weight:600;white-space:nowrap}
 .admin-link:hover{background:#c3f56814}
+/* no room beside the menu on narrower screens: there the studio is one step away through 내 계정 */
+@media(max-width:1240px){.studio-link{display:none}}
 
 /* Footer legal links */
 .footer-legal{font-size:12px;color:#8b8b8b;white-space:nowrap}
@@ -345,16 +342,10 @@ body.has-notice .nf-row{scroll-margin-top:132px}
 body:not(.community-view) #community-discovery{display:none}
 body.community-view #community-rows{display:block}
 body.community-view .community-discovery{margin-top:0;padding-top:92px}
-/* The old board section stays in the DOM for community.js (compose, post dialogs, feeds) but is never shown */
+/* The old board section stays in the DOM for community.js (the home feeds read its list) but is never shown */
 #community-section{display:none!important}
 .nf-cat-action{position:absolute;right:0;top:34px;min-height:44px;padding:0 20px;border-radius:999px;font-size:14px}
 
-/* Genre picker in the upload form */
-.genre-field{display:flex;flex-direction:column;gap:9px;margin:4px 0 18px}
-.genre-chips{display:flex;flex-wrap:wrap;gap:7px}
-.genre-chip{height:32px;padding:0 13px;border-radius:999px;background:#ffffff0d;border:1px solid #ffffff24;color:#d6d6d6;font-size:12.5px;font-weight:600;line-height:1}
-.genre-chip:hover{border-color:#ffffff4d;filter:none}
-.genre-chip.selected{background:#c3f5681f;border-color:var(--lime);color:var(--lime)}
 
 @media(max-width:850px){
   body.community-view .community-discovery{padding-top:118px}
@@ -378,15 +369,7 @@ body.community-view .community-discovery{margin-top:0;padding-top:92px}
 .modal{scrollbar-width:none;-ms-overflow-style:none}
 .modal::-webkit-scrollbar{display:none}
 
-/* ───── Upload form: category fields + body block editor ───── */
-#url-label,.detail-input>span{color:inherit}
-.field-hint{display:block;margin-top:6px;color:#8b8b8b;font-size:12px}
-.details-field{margin:0 0 6px;padding:16px 16px 2px;border-radius:12px;background:#ffffff06;border:1px solid #ffffff12}
-.detail-input{display:block}
-.detail-checks{display:flex;gap:16px;margin-top:8px}
-.detail-checks label{display:inline-flex;align-items:center;gap:6px;margin:0;font-size:13.5px;color:#e6e6e6}
-.detail-checks input{display:inline-block;width:16px;height:16px;margin:0;padding:0;accent-color:var(--lime)}
-.content-field{margin:4px 0 20px}
+/* ───── Body block editor ───── */
 .content-blocks{display:flex;flex-direction:column;gap:10px;margin:10px 0}
 .cblock{border-radius:10px;border:1px solid #ffffff1a;background:#0e0e0e;padding:8px 10px 10px}
 .cblock-bar{display:flex;align-items:center;gap:4px;margin-bottom:6px}
@@ -399,11 +382,7 @@ body.community-view .community-discovery{margin-top:0;padding-top:92px}
 .content-add{display:flex;flex-wrap:wrap;gap:8px}
 .content-add .secondary-button{min-height:38px;padding:0 14px;font-size:13px}
 
-/* Upload form: AI making section, draft + publish buttons; website tech chips; creator link in the panel */
-.making-fields{margin-top:14px;padding-top:14px;border-top:1px dashed #ffffff1f}
-.making-fields>.cover-label{display:block;margin-bottom:10px}
-.form-submit-row{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:stretch}
-.form-submit-row .secondary-button{min-height:52px;padding:0 20px}
+/* Website tech chips; creator link in the panel */
 .nf-stack-chips{margin:0 var(--nf-pad) 26px;align-items:center}
 .nf-stack-chips>span{flex:0 0 auto;font-size:12.5px;font-weight:600;color:#8d8d8d;margin-right:4px}
 .detail-creator-link{color:inherit;text-decoration:underline;text-underline-offset:3px}
@@ -488,7 +467,7 @@ body.community-view .community-discovery{margin-top:0;padding-top:92px}
 
   /* Dialog titles never run under the close button */
   .modal h2{padding-right:40px}
-  .upload-modal:has(#upload-auth:not([hidden])) h2,.auth-modal h2{padding-right:0}
+  .auth-modal h2{padding-right:0}
 }
 @media(max-width:600px){.detail-modal .modal-close{background:#000000b3;color:#fff}}
 body:not(.nf-home) .project-row{margin-right:0}
@@ -522,15 +501,11 @@ body:not(.nf-home) .project-row{margin-right:0}
 .store-link{padding:3px 12px;border-radius:999px;background:#c3f5681a;border:1px solid #c3f56844;color:var(--lime);font-weight:700}
 .fact-warning{margin:0;color:#ffc46b;font-size:13px}
 .rate-nudge{outline:2px solid var(--lime);outline-offset:6px;border-radius:12px;transition:outline-color 1.5s}
-/* Upload form: status, intro helper, folded optional sections */
-.status-field select{width:100%}
-.intro-help{display:block;margin-top:6px;font-size:12.5px;color:#9aa192}
-.intro-help .text-button{color:var(--lime);font-weight:700;padding:0;min-height:0}
-.more-fields{margin:6px 0 4px;border:1px solid #ffffff14;border-radius:12px;padding:0 16px}
-.more-fields>summary{cursor:pointer;padding:14px 0;font-weight:700;color:#e9ece4;list-style:revert}
-.more-fields>summary small{font-weight:500;color:#8f9688;margin-left:6px}
-.more-fields[open]{padding-bottom:16px}
-.details-field .detail-input+.detail-input,.details-field .form-pair+.detail-input,.details-field .detail-input+.form-pair{margin-top:12px}
+/* Detail panel: what people said lives on the work page */
+.detail-reviews{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 16px;margin:18px 0 0;padding:14px 0 0;border-top:1px solid #ffffff14;color:inherit;text-decoration:none;font-size:14px}
+.detail-reviews:hover b{color:#fff}.detail-reviews span{color:#b9bdb2}.detail-reviews b{color:var(--lime);font-weight:700}
+.detail-edit{display:inline-block;margin-top:12px}
+a.post-open,a.nf-post-tile{color:inherit;text-decoration:none}
 }
 
 /* Thumbnails are pictures only — the title is printed under each card, never drawn into the art in a font.
@@ -541,13 +516,12 @@ body:not(.nf-home) .project-row{margin-right:0}
 .art-main .screen-frame{left:50%;top:16%;width:30%;translate:-50% 0}
 .art-godoftop .tower-visual{left:40%}
 .sample-label{position:absolute;left:8px;top:8px;z-index:2;padding:2px 8px;border-radius:999px;background:#000a;color:#e6e6e6;font-size:11px;font-weight:700;letter-spacing:.2px}
-/* Desktop rows: the title sits under each poster at rest, exactly where the hover panel opens, so hovering covers it
-   without anything moving. Touch screens and list pages already show the title line (.card-info) instead. */
+/* Desktop rows: the title sits under each poster. Touch screens and list pages show the title line (.card-info) instead. */
 .card-caption{display:none}
 @media(hover:hover){
   .nf-home .card-open{position:relative}
   .nf-home .card-caption{display:block;position:absolute;left:0;right:0;top:100%;padding:9px 2px 0;font-size:14px;font-weight:600;color:#e5e5e5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none}
-  .nf-home .project-card:hover .card-caption,.nf-home .project-card:focus-within .card-caption{visibility:hidden}
+  .nf-home .project-card:hover .card-caption,.nf-home .project-card:focus-within .card-caption{color:#fff}
   .nf-home .nf-row{margin-bottom:64px}
 }
 }

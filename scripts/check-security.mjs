@@ -66,7 +66,7 @@ try{
 
   // 3. Versioned static assets + a long-cache rule for each of them
   const rules=readFileSync('public/_headers','utf8');
-  const cached=new Set([...rules.matchAll(/^(\/[\w.-]+\.(?:css|js))\n\s+Cache-Control: public, max-age=31536000, immutable/gm)].map(m=>m[1]));
+  const cached=new Set([...rules.matchAll(/^(\/[\w.-]+\.(?:css|js))\r?\n\s+Cache-Control: public, max-age=31536000, immutable/gm)].map(m=>m[1]));
   for(const file of readdirSync('public').filter(f=>/\.(css|js)$/.test(f)))assert.ok(cached.has('/'+file),`public/_headers has no long-cache rule for /${file} — add it (pages link it with ?v=)`);
   let version;
   for(const [page,body] of Object.entries(html)){

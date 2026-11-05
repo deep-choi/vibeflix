@@ -86,7 +86,9 @@ export async function POST(request: Request) {
     if (ops.length) await env.DB!.batch(ops);
     invalidateCatalog();
     const gallery = JSON.parse(content).filter((x:{type:string})=>x.type==='image').map((x:{id:string})=>`/api/project-images/${x.id}`);
-    return json({ project:{...project,image:image?`/api/projects/${id}/cover?v=${image.length}`:'',creator:user.name,id,created,subtitle:project.description,owned:true,art:'custom',tags:['커뮤니티'],badge:'COMMUNITY',status:project.status,draft:b.draft===true,rating:0,ratingCount:0,recommendations:0,commentCount:0,gallery} },201);
+    // a first public work is when feedback matters most: the work page offers a ready-made 피드백 요청 post
+    const firstWork = b.draft!==true && Number((await env.DB!.prepare("SELECT COUNT(*) n FROM projects WHERE owner_id=? AND visibility='public' AND deleted_at IS NULL").bind(user.id).first())?.n||0)===1;
+    return json({ firstWork, project:{...project,image:image?`/api/projects/${id}/cover?v=${image.length}`:'',creator:user.name,id,created,subtitle:project.description,owned:true,art:'custom',tags:['커뮤니티'],badge:'COMMUNITY',status:project.status,draft:b.draft===true,rating:0,ratingCount:0,recommendations:0,commentCount:0,gallery} },201);
   } catch (error) {
     if (error instanceof Error && error.message.includes('UNIQUE')) return json({error:'같은 링크의 작품이 이미 등록되어 있습니다.'},409);
     if (error instanceof Error && 'status' in error) return json({error:error.message},Number((error as {status:number}).status));

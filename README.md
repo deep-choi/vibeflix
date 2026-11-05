@@ -10,7 +10,9 @@
 
 Node.js 22.13 이상. `npm run install:ci`로 의존성을 설치하고 `npm run dev`로 실행합니다. Windows npm shim 문제가 발생하면 `node scripts/run-framework.mjs dev`를 사용할 수 있습니다.
 
-프런트엔드: `app/site.html`, `public/style.css`, `public/app.js`.
+프런트엔드: 홈은 `app/site.html`, `public/style.css`, `public/app.js`. 서버가 그리는 페이지는 `lib/page-shell.ts`를 쓰고, 댓글·신고·작성 보호는 `public/social.js` 한 곳에서 맡습니다.
+
+쓰는 화면은 모달이 아니라 페이지입니다: 작품 `/works/new`·`/works/:id/edit`, 회차·소식 `/works/:id/e/new`·`/works/:id/e/:entry/edit`, 이야기 `/posts/new`·`/posts/:id/edit`, 글 읽기 `/posts/:id`, 내 계정 `/account`, 내 스튜디오 `/studio`. 홈의 작품 패널은 미리보기만 보여주고 별점·리뷰·댓글·신고는 작품 페이지에 있습니다. 예전 주소(`/?post=`, `/?project=`, `/?write=1`, `/?upload=1`)는 `app/route.ts`가 새 주소로 보냅니다.
 서버: Vinext API routes, Cloudflare D1 (`DB`). Sites starter의 호스팅 통합을 유지합니다.
 
 ## 디자인 시스템
@@ -28,7 +30,8 @@ Node.js 22.13 이상. `npm run install:ci`로 의존성을 설치하고 `npm run
 - 작품별 1~5점 별점과 한 줄 리뷰. 계정당 한 개 평가를 저장하고 재평가하면 수정합니다. 평균·평가 수를 보여줍니다.
 - 작품·글·댓글의 추천은 계정당 한 번 집계하고 취소할 수 있습니다. 별점 높은 순과 이용자 추천순 정렬을 제공합니다.
 - 로그인한 계정의 찜 목록 동기화. 비로그인 찜은 로컬 저장입니다.
-- 프로필 닉네임·소개 수정, 내 작품·글·댓글 목록, 공개 작품 수정·내리기·다시 공개.
+- 내 스튜디오(`/studio`): 로그인한 고객이면 작품이 없어도 들어와서 AI 작품을 올리고 관리합니다. 개요(30일 숫자, 확인할 일), 내 작품(`/studio/works`), 작품 관리(`/studio/works/:id`: 통계, 회차·소식, 피드백, 공개 설정). 임시 저장·숨겨짐·내린 작품도 여기서 찾습니다.
+- 내 계정(`/account`): 프로필 수정, 내 글·댓글 목록에서 바로 수정, 찜, 차단 관리와 계정 삭제 요청. 신고 처리는 운영자 대시보드(`/admin`)에서 합니다.
 - 신고 접수·중복 방지·원문 검토와 운영자 숨김 처리. 운영자가 숨긴 작품은 작성자가 임의로 복구할 수 없습니다.
 - 서비스·게시글 공유 링크와 댓글/목록 페이지 단위 불러오기.
 
@@ -64,6 +67,7 @@ node scripts/check-operator.mjs http://127.0.0.1:5297   # 운영·작가 도구 
 node scripts/check-personas.mjs http://127.0.0.1:5297   # 페르소나 개선 (0016)
 node scripts/check-community.mjs http://127.0.0.1:5297
 node scripts/check-security.mjs http://127.0.0.1:5297    # 보안 헤더·로그인 위조·캐시·조회수 (0017)
+node scripts/check-pages.mjs http://127.0.0.1:5297       # 쓰는 페이지·글 페이지·스튜디오·권한·예전 주소
 ```
 
 네 스크립트 모두 로컬 주소에서만 돌고, 만든 임시 회원·작품·글을 끝에 지웁니다. 로컬 wrangler가 가끔 앱까지 가지 않은 503을 즉시 돌려주는데(앱의 503은 항상 JSON 오류와 함께 `daily_errors`에 기록됨), 이런 응답만 두 번까지 다시 시도합니다.
