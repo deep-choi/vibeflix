@@ -452,6 +452,48 @@ dialog.modal.auth-modal .email-auth { text-align: left; }
 @media (max-width: 600px) {
   .header-actions .upload-button { --btn-h: 40px; --btn-px: 0px; --btn-fs: 0px; width: 40px; min-width: 40px; gap: 0; }
 }
+/* phone home (checked at 360/384/412px — 360 is the Galaxy default width) */
+@media (max-width: 600px) {
+  /* category tabs run to the screen edge and fade out there, so a cut-off last tab reads as "scroll for more" */
+  .header nav { flex: 0 0 auto; width: calc(100% + var(--nf-pad)); margin-right: calc(-1 * var(--nf-pad)); padding-right: 40px;
+    -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 44px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 44px), transparent); }
+  .header .nav-link { flex-shrink: 0; white-space: nowrap; }
+  .nf-cat-chips { margin-right: calc(-1 * var(--nf-pad)); padding-right: 40px;
+    -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 44px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 44px), transparent); }
+
+  /* hero: 20px on both sides; the title and copy keep to the left 70% and the art takes the right column, so the
+     art never sits under the text. The card grows with its text instead of clipping it (phones with enlarged fonts),
+     and the actions stay on one row — they wrap rather than run past the card edge. */
+  .hero { aspect-ratio: auto; min-height: 240px; }
+  .hero-content { flex: 1 1 auto; min-width: 0; margin: 0 20px; max-width: none; }
+  .hero h1 { font-size: 32px; }
+  .hero :is(h1, .hero-description) { word-break: keep-all; overflow-wrap: anywhere; }
+  .hero .hero-description { font-size: 13px; line-height: 1.6; }
+  .hero:not([data-feature="custom"], [data-feature="fishing"]):has(#hero-art-image[src]) :is(h1, .hero-description) { max-width: 70%; }
+  /* the art box ends above the action row (card padding 44 + buttons 44 + 8), whatever the card's height */
+  .hero .hero-art { left: auto; right: 12px; top: 12px; bottom: 96px; width: 30%; height: auto; opacity: .95;
+    display: flex; align-items: center; justify-content: center; } /* flex (not grid) so the image's % height resolves */
+  /* size the picture itself (not a taller box around it) so its rounded corners and shadow sit on the image */
+  .hero .hero-art > img { width: 100%; height: auto; max-width: 100%; max-height: 100%; }
+  .hero[data-feature="dayflow"] .hero-art > img { width: auto; height: 88%; }
+  /* actions: the main button takes the row, 자세히 보기 (ⓘ) and 찜 (＋) are matching circles — their names stay for
+     screen readers. Long operator labels such as "서비스 바로가기 ↗" then fit without pushing ＋ to a second row. */
+  .hero .hero-buttons { flex-wrap: wrap; gap: 8px; }
+  .hero .hero-buttons .primary-button { flex: 1 1 0; min-width: 0; --btn-px: 14px; }
+  .hero .hero-buttons #hero-info { flex: 0 0 auto; width: var(--ds-control-md); --btn-px: 0px; --btn-fs: 0px; gap: 0;
+    border-radius: 50%; background: transparent; border: 1px solid #ffffff80; backdrop-filter: none; }
+  .hero .hero-buttons #hero-info:hover { border-color: #fff; background: transparent; }
+  /* the ＋ character stays for screen readers; the drawn cross is the visible icon (the glyph used to show through) */
+  .hero .hero-save { flex: 0 0 auto; width: var(--ds-control-md); height: var(--ds-control-md); font-size: 0; }
+  /* category header action (커뮤니티 "＋ 이야기 쓰기"): beside the title like on desktop, not stacked on the kicker */
+  .nf-cat-head > .nf-cat-action { position: absolute; right: 0; top: 40px; margin: 0; }
+}
+/* touch screens: the title under each poster lines up with the poster, and rows sit closer together */
+@media (hover: none) {
+  .nf-home .card-info { padding: 8px 2px 0; }
+  .nf-home .nf-scroller { padding-bottom: 8px; }
+  .nf-row { margin-bottom: 28px; }
+}
 .detail-actions { gap: 8px; }
 .post-detail-actions, .project-social-actions { gap: 8px; }
 .comment-actions { gap: 2px; }
