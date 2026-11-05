@@ -29,6 +29,11 @@
   const flash=message=>{try{sessionStorage.setItem(FLASH,message);}catch{}};
   try{const message=sessionStorage.getItem(FLASH);if(message){sessionStorage.removeItem(FLASH);setTimeout(()=>toast(message),60);}}catch{}
 
+  /* ───── The back link returns to the very place the visitor came from (scroll position included) ───── */
+  $('header.top .back')?.addEventListener('click',event=>{
+    try{const from=new URL(document.referrer),to=new URL(event.currentTarget.href);if(from.origin===location.origin&&from.pathname===to.pathname&&history.length>1){event.preventDefault();history.back();}}catch{}
+  });
+
   /* ───── Writing pages: unsaved input and the section menu ───── */
   function guard(form){
     let dirty=false;const mark=event=>{if(event.isTrusted)dirty=true;};
@@ -78,8 +83,10 @@
     if(!root)return null;
     const {kind,id,placeholder='',empty='첫 댓글을 남겨보세요.',labels=false,owner=false,updates=[],workId='',question=null}=options;
     let comments=[],next=null,filter='';
-    root.innerHTML=`${labels?'<div class="comment-tabs" role="group" aria-label="댓글 분류"><button type="button" data-comment-filter="" class="on">전체</button><button type="button" data-comment-filter="feedback">피드백</button><button type="button" data-comment-filter="bug">버그 제보</button></div>':''}<form class="comment-form" data-new-comment>${labels?'<select name="label" aria-label="댓글 분류"><option value="">댓글</option><option value="feedback">피드백</option><option value="bug">버그 제보</option></select>':''}<textarea name="body" maxlength="2000" rows="3" aria-label="댓글 내용" placeholder="${esc(placeholder)}"></textarea><button class="btn small primary">남기기</button></form><ul class="comments" data-comment-list></ul><button type="button" class="link comments-more" data-comments-more hidden>댓글 더 보기 ↓</button>`;
-    const list=$('[data-comment-list]',root),more=$('[data-comments-more]',root);
+    root.innerHTML=`${member?'':`<a class="btn small login-prompt" href="${esc(loginUrl())}">로그인하고 댓글 남기기</a>`}<form class="comment-form" data-new-comment${member?'':' hidden'}>${labels?'<select name="label" aria-label="댓글 분류"><option value="">댓글</option><option value="feedback">피드백</option><option value="bug">버그 제보</option></select>':''}<textarea name="body" maxlength="2000" rows="1" aria-label="댓글 내용" placeholder="${esc(placeholder)}"></textarea><button class="btn small primary">남기기</button></form>${labels?'<div class="comment-tabs" role="group" aria-label="댓글 분류" hidden><button type="button" data-comment-filter="" class="on">전체</button><button type="button" data-comment-filter="feedback">피드백</button><button type="button" data-comment-filter="bug">버그 제보</button></div>':''}<ul class="comments" data-comment-list></ul><button type="button" class="link comments-more" data-comments-more hidden>댓글 더 보기 ↓</button>`;
+    const list=$('[data-comment-list]',root),more=$('[data-comments-more]',root),compose=$('[data-new-comment]',root),tabs=$('.comment-tabs',root);
+    compose.addEventListener('focusin',()=>compose.classList.add('open'));
+    compose.addEventListener('focusout',event=>{if(!compose.contains(event.relatedTarget)&&!compose.body.value.trim())compose.classList.remove('open');});
     const statusChip=c=>{
       if(!c.label||c.removed)return '';
       if(c.status==='fixed'){const label=c.status_entry_label?` · ${esc(c.status_entry_label)}`:'';return c.status_entry&&c.status_entry_label?`<a class="chip status-fixed" href="/works/${encodeURIComponent(workId)}/e/${encodeURIComponent(c.status_entry)}">✓ 반영됨${label}</a>`:'<em class="chip status-fixed">✓ 반영됨</em>';}
@@ -106,7 +113,7 @@
       const top=comments.filter(c=>!c.parent_id&&(!filter||c.label===filter));const replies=parent=>comments.filter(c=>c.parent_id===parent);
       const known=new Set(comments.map(c=>c.id));const orphans=filter?[]:comments.filter(c=>c.parent_id&&!known.has(c.parent_id)); // a reply whose parent is on a later page
       list.innerHTML=top.length||orphans.length?[...top.map(c=>item(c,false)+replies(c.id).map(r=>item(r,true)).join('')),...orphans.map(c=>item(c,true))].join(''):`<li class="muted">${filter?'이 분류의 댓글이 아직 없어요.':esc(empty)}</li>`;
-      more.hidden=next===null;
+      more.hidden=next===null;if(tabs)tabs.hidden=!comments.some(c=>c.label);
       const count=$('[data-comment-count]');const n=comments.filter(c=>!c.removed).length;if(count)count.textContent=n?`${n}${next===null?'':'+'}개`:'';
     }
     async function load(append=false){
@@ -121,7 +128,7 @@
       const send=async action=>{if(button?.disabled)return;if(button)button.disabled=true;try{await action();}catch(error){failed(error);}finally{if(button)button.disabled=false;}};
       if(form.matches('[data-new-comment]')){
         if(needLogin())return;const text=form.body.value.trim();if(!text)return;
-        return send(async()=>{await api('/api/community/comments','POST',{kind,targetId:id,body:text,label:form.label?.value||''});form.body.value='';await load();toast('댓글을 남겼어요.');});
+        return send(async()=>{await api('/api/community/comments','POST',{kind,targetId:id,body:text,label:form.label?.value||''});form.body.value='';form.classList.remove('open');await load();toast('댓글을 남겼어요.');});
       }
       if(form.matches('[data-reply-form]')){const text=$('textarea',form).value.trim();if(!text)return;return send(async()=>{await api('/api/community/comments','POST',{kind,targetId:id,parentId:form.closest('[data-comment]').dataset.comment,body:text});await load();});}
       if(form.matches('[data-edit-form]')){const text=$('textarea',form).value.trim();if(!text)return;return send(async()=>{await api(`/api/community/comments/${encodeURIComponent(form.closest('[data-comment]').dataset.comment)}`,'PATCH',{body:text});await load();});}

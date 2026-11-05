@@ -12,8 +12,8 @@ import { asset } from '../../../lib/security';
 import { waitUntil } from 'cloudflare:workers';
 import { countWork } from '../../../lib/stats';
 
-// One detail page for every work: media → title and actions → category facts and how it was made with AI →
-// description → episodes or update notes → body → ratings and comments. Owners get a line that leads to the studio, where the numbers and tools live.
+// One detail page for every work: media beside title and actions, then the description, episodes or update notes, body,
+// ratings and comments, with category facts, how it was made with AI and the report links in a column beside them. Owners get a line that leads to the studio, where the numbers and tools live.
 export const dynamic = 'force-dynamic';
 type Details = Record<string, unknown>;
 const list = (v: unknown) => (Array.isArray(v) ? v : []).map(String);
@@ -69,13 +69,13 @@ function actions(row: Record<string, unknown>, d: Details, hasBody: boolean, fir
 
 export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
-  const row = await db().prepare("SELECT p.id,p.owner_id,p.title,p.creator,p.type,p.description,p.subtitle,p.url,CASE WHEN p.image LIKE 'data:%' THEN '/api/projects/' || p.id || '/cover?v=' || length(p.image) ELSE p.image END AS image,p.genres,p.details,p.content,p.status,p.source,p.visibility,p.hidden_at,p.verified_at,u.public_id AS creator_id,u.name AS owner_name FROM projects p LEFT JOIN profiles u ON u.id=p.owner_id WHERE p.id=? AND p.deleted_at IS NULL").bind(id).first().catch(() => null);
+  const row = await db().prepare("SELECT p.id,p.owner_id,p.title,p.creator,p.type,p.description,p.subtitle,p.url,CASE WHEN p.image LIKE 'data:%' THEN '/api/projects/' || p.id || '/cover?v=' || length(p.image) ELSE p.image END AS image,p.genres,p.details,p.content,p.status,p.source,p.visibility,p.hidden_at,p.verified_at,p.tags,u.public_id AS creator_id,u.name AS owner_name FROM projects p LEFT JOIN profiles u ON u.id=p.owner_id WHERE p.id=? AND p.deleted_at IS NULL").bind(id).first().catch(() => null);
   const user = await currentUser().catch(() => null);
   if(row && (await blockedOwners(user?.id)).has(String(row.owner_id)))return new Response('차단한 이용자의 콘텐츠입니다.',{status:404});
   const owner = !!row && !!user && user.id === row.owner_id && row.source === 'community';
   if (!row || ((row.hidden_at || row.visibility !== 'public') && !owner)) return new Response('작품을 찾을 수 없어요.', { status: 404, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
   const parse = <T>(v: unknown, fallback: T): T => { try { return JSON.parse(String(v)) ?? fallback; } catch { return fallback; } };
-  const genres = parse<string[]>(row.genres, []), details = parse<Details>(row.details, {});
+  const genres = parse<string[]>(row.genres, []), tags = parse<string[]>(row.tags, []), details = parse<Details>(row.details, {});
   const type = String(row.type), image = String(row.image || ''), sample = row.source === 'sample', kind = entryKind(type);
   if (!owner) waitUntil(countWork(request, id, 'view'));
   await announceDueEntries(id);
@@ -114,18 +114,20 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
 <link rel="stylesheet" href="${asset('/work.css')}"><style>@layer page{${BASE_CSS}${SCENE_CSS}}</style></head><body>
 ${topBar()}
 ${sample ? '<div class="notice">화면 구성을 보여주기 위해 운영자가 만든 예시 작품이에요. 실제 작품이 아니에요.</div>' : ''}${row.visibility === 'draft' ? '<div class="notice">임시 저장된 작품이에요. 공개하기 전까지 나만 볼 수 있어요.</div>' : ''}
-<main${mature ? ' class="is-gated"' : ''}>${mature ? '<div class="mature-gate" role="region" aria-label="성인 소재 안내"><b>성인 소재가 포함된 작품이에요</b><p>작가가 성인 소재 경고를 표시했어요. 만 19세 이상이고 내용을 보고 싶을 때만 열어주세요.</p><button class="btn primary" data-mature-ok>확인하고 보기</button></div>' : ''}${media}${details.embed ? `<div class="play-embed" id="play-embed" hidden data-src="${esc(details.embed)}"></div>` : ''}
-<div class="head"><span class="kicker">${esc(typeNames[type] || '')}${sample ? ' · SAMPLE' : ''}${genres.length ? ` <b>· ${genres.map(esc).join(' · ')}</b>` : ''}</span><h1>${esc(row.title)}</h1>${row.subtitle && row.subtitle !== row.description ? `<p class="sub">${esc(row.subtitle)}</p>` : ''}<div class="meta">${meta.map(m => `<span>${m}</span>`).join('')}${row.source === 'community' && row.verified_at && row.url ? '<span class="chip ok" title="운영자가 링크를 확인했어요">✓ 운영자 확인</span>' : ''}${row.creator_id && !owner ? `<button class="follow${follow?.mine ? ' on' : ''}" data-follow>${follow?.mine ? '팔로잉' : '＋ 팔로우'}</button>` : ''}</div>
-<div class="actions">${actions(row, details, blocks.length > 0, firstEntry)}<button class="btn${saved ? ' on' : ''}" data-save>${row.status === 'upcoming' ? (saved ? '✓ 출시 알림 신청함' : '＋ 출시 알림 받기') : (saved ? '✓ 찜했어요' : '＋ 찜하기')}</button><button class="btn${r.recommended ? ' on' : ''}" data-recommend>♡ 추천 <span data-recommend-count>${r.recommendations || ''}</span></button><button class="btn" data-share>링크 공유</button></div>${owner || sample ? '' : `<p class="report-line"><button class="link" data-report-kind="project" data-report-id="${esc(id)}">신고</button></p>`}</div>
+<main class="work-page${mature ? ' is-gated' : ''}">${mature ? '<div class="mature-gate" role="region" aria-label="성인 소재 안내"><b>성인 소재가 포함된 작품이에요</b><p>작가가 성인 소재 경고를 표시했어요. 만 19세 이상이고 내용을 보고 싶을 때만 열어주세요.</p><button class="btn primary" data-mature-ok>확인하고 보기</button></div>' : ''}<section class="work-hero"${image && !mature ? ` style="--cover:url(&quot;${esc(image)}&quot;)"` : ''}><div class="work-hero-in"><div class="work-media">${media}${details.embed ? `<div class="play-embed" id="play-embed" hidden data-src="${esc(details.embed)}"></div>` : ''}</div>
+<div class="head work-summary"><span class="kicker">${esc(typeNames[type] || '')}${sample ? ' · SAMPLE' : ''}${genres.length ? ` <b>· ${genres.map(esc).join(' · ')}</b>` : ''}</span><h1>${esc(row.title)}</h1>${row.subtitle && row.subtitle !== row.description ? `<p class="sub">${esc(row.subtitle)}</p>` : ''}<div class="meta">${meta.map(m => `<span>${m}</span>`).join('')}${row.source === 'community' && row.verified_at && row.url ? '<span class="chip ok" title="운영자가 링크를 확인했어요">✓ 운영자 확인</span>' : ''}${row.creator_id && !owner ? `<button class="follow${follow?.mine ? ' on' : ''}" data-follow>${follow?.mine ? '팔로잉' : '＋ 팔로우'}</button>` : ''}</div>
+<div class="actions">${actions(row, details, blocks.length > 0, firstEntry)}<button class="btn${saved ? ' on' : ''}" data-save>${row.status === 'upcoming' ? (saved ? '✓ 출시 알림 신청함' : '＋ 출시 알림 받기') : (saved ? '✓ 찜했어요' : '＋ 찜하기')}</button><button class="btn${r.recommended ? ' on' : ''}" data-recommend>♡ 추천 <span data-recommend-count>${r.recommendations || ''}</span></button><button class="btn" data-share>링크 공유</button></div></div></div></section><div class="work-wrap">
 ${warnings.length ? `<p class="warning">이 작품에는 ${warnings.join(', ')} 요소가 있어요.</p>` : ''}${ownerPanel}
-${cards ? `<div class="infos">${cards}</div>` : ''}${makingCard(details)}
-<p class="desc">${esc(row.description)}</p>
+<div class="work-layout"><p class="desc work-desc">${esc(row.description)}</p>
+<aside class="work-aside">${tags.length ? `<p class="work-tags">${tags.map(t => `<span>#${esc(t)}</span>`).join('')}</p>` : ''}${cards ? `<div class="infos">${cards}</div>` : ''}${makingCard(details)}</aside>
+<div class="work-main">
 ${type === 'game' && details.trailer ? `<div class="section-title"><h2>트레일러</h2></div>${embed(String(details.trailer), String(row.title))}` : ''}
 ${entriesHtml}
 ${blocks.length ? `<article class="body${type === 'novel' ? ' novel' : ''}${stacked ? ' stacked' : ''}${type === 'app' ? ' phones' : ''}" id="content">${renderBlocks(blocks, String(row.title))}${type === 'novel' && sample ? '<p class="end">— 다음 화는 준비 중이에요 —</p>' : ''}</article>` : ''}
 ${type === 'art' && details.license ? `<p class="license">© ${esc(row.creator)} · ${esc(LICENSE_NAMES[String(details.license)])}</p>` : ''}
 <section class="discussion" id="discussion"><div class="section-title"><h2>별점 · 리뷰</h2><span data-rating-summary>${r.ratingCount ? `★ ${Number(r.rating).toFixed(1)} · ${r.ratingCount}명` : '첫 평가를 기다려요'}</span></div><div id="rating-box"></div><div id="reviews"></div>
 <div class="section-title"><h2>${config.labels ? '댓글 · 피드백' : '댓글'}</h2><span data-comment-count>${r.comments ? `${r.comments}개` : ''}</span></div><div id="comments"></div></section>
+</div></div>${owner || sample ? '' : `<p class="report-line"><button class="link" data-report-kind="project" data-report-id="${esc(id)}">신고</button></p>`}</div>
 </main>
 <script type="application/json" id="work-config">${JSON.stringify(config).replace(/</g, '\\u003c')}</script>
 <script src="${asset('/social.js')}" defer></script><script src="${asset('/mobile-safety.js')}" defer></script><script src="${asset('/work.js')}" defer></script><script src="${asset('/leave-guard.js')}" defer></script>${scenes ? `<script>${playerScript}</script>` : ''}</body></html>`;

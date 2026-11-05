@@ -12,7 +12,7 @@ Node.js 22.13 이상. `npm run install:ci`로 의존성을 설치하고 `npm run
 
 프런트엔드: 홈은 `app/site.html`, `public/style.css`, `public/app.js`. 서버가 그리는 페이지는 `lib/page-shell.ts`를 쓰고, 댓글·신고·작성 보호는 `public/social.js` 한 곳에서 맡습니다.
 
-쓰는 화면은 모달이 아니라 페이지입니다: 작품 `/works/new`·`/works/:id/edit`, 회차·소식 `/works/:id/e/new`·`/works/:id/e/:entry/edit`, 이야기 `/posts/new`·`/posts/:id/edit`, 글 읽기 `/posts/:id`, 내 계정 `/account`, 내 스튜디오 `/studio`. 홈의 작품 패널은 미리보기만 보여주고 별점·리뷰·댓글·신고는 작품 페이지에 있습니다. 예전 주소(`/?post=`, `/?project=`, `/?write=1`, `/?upload=1`)는 `app/route.ts`가 새 주소로 보냅니다.
+쓰는 화면은 모달이 아니라 페이지입니다: 작품 `/works/new`·`/works/:id/edit`, 회차·소식 `/works/:id/e/new`·`/works/:id/e/:entry/edit`, 이야기 `/posts/new`·`/posts/:id/edit`, 글 읽기 `/posts/:id`, 내 계정 `/account`, 내 스튜디오 `/studio`. 작품 카드는 모달 없이 작품 페이지로 바로 가고, 뒤로 돌아오면 보던 분류와 위치로 복원됩니다. 예전 주소(`/?post=`, `/?project=`, `/?write=1`, `/?upload=1`)는 `app/route.ts`가 새 주소로 보냅니다.
 서버: Vinext API routes, Cloudflare D1 (`DB`). Sites starter의 호스팅 통합을 유지합니다.
 
 ## 디자인 시스템

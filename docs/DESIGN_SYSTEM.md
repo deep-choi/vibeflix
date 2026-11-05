@@ -107,7 +107,6 @@
 | 기본 | 560 | 안내 |
 | 알림 | 600 | 알림 목록 |
 | `modal-lg` | 720 | 운영자 편집 |
-| `modal-xl` | 880 | 작품 미리보기(안쪽 여백은 내용이 직접 가짐) |
 
 - **데스크톱**: 가운데 카드, 반투명 흐린 배경, 위로 살짝 떠오르는 등장.
 - **휴대폰(≤640px)**: 아래에서 올라오는 시트. 폭 100%, 위 모서리만 둥글게, 안전 영역 여백, 맨 위 손잡이를 끌어내리면 닫혀요.
@@ -130,7 +129,7 @@
 
 ## 모달과 페이지
 
-모달은 잠깐 끝나는 일(로그인, 신고, 확인, 알림 목록, 작품 미리보기)에만 써요. 오래 머무는 일은 페이지로 만들어요.
+모달은 잠깐 끝나는 일(로그인, 신고, 확인, 알림 목록)에만 써요. 작품 카드는 모달 없이 작품 페이지로 바로 가요. 오래 머무는 일은 페이지로 만들어요.
 
 - **긴 글을 쓰거나 항목이 많으면 페이지.** 고유 주소가 있어서 새로고침·뒤로가기·공유가 자연스러워요.
 - **쓰는 페이지**는 `formPageResponse()`(`lib/page-shell.ts`)로 만들어요: 왼쪽 항목 메뉴(휴대폰은 위쪽 가로 메뉴), `.fp-section` 카드, 하단에 고정되는 `.fp-bar`. 스타일은 `public/form-page.css`.
@@ -163,7 +162,7 @@
 | `.tabs` | `.profile-tabs` |
 | `.alert` | `.catalog-status`, `.inline-error`, `.mature-gate` |
 | `.ds-toast` | `.toast`, `.work-toast`, `.ad-toast`(모두 `DS.toast`로 대체) |
-| `dialog.modal` 크기 | `.auth-modal` → sm, `.profile-modal` · `.ad-edit` → lg, `.detail-modal` → xl |
+| `dialog.modal` 크기 | `.auth-modal` → sm, `.profile-modal` · `.ad-edit` → lg |
 | `.modal-actions` | `.ad-dialog-actions` |
 
 ## 새 화면을 만들 때

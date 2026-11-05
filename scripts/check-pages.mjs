@@ -108,7 +108,7 @@ try{
   // 6. Old addresses, and the home page without the old dialogs
   assert.equal(await location('/?post=abc'),'/posts/abc');assert.equal(await location('/?project=koiworld'),'/works/koiworld');
   assert.equal(await location('/?write=1'),'/posts/new');assert.equal(await location('/?upload=1'),'/works/new');assert.equal(await location('/?account-deletion=1'),'/account#settings');
-  const home=await expect(request(null,'/'),200);for(const gone of ['upload-dialog','compose-dialog','post-dialog','report-dialog'])assert.ok(!home.includes(gone),`${gone} should be gone`);
+  const home=await expect(request(null,'/'),200);for(const gone of ['upload-dialog','compose-dialog','post-dialog','report-dialog','detail-dialog'])assert.ok(!home.includes(gone),`${gone} should be gone`);
   assert.ok((await expect(request(C,'/account'),200)).includes('account-page'));
   console.log('PASS: old addresses redirect and the home page no longer carries the old dialogs.');
 }finally{

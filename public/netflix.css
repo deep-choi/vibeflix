@@ -108,15 +108,6 @@ body:not(.nf-home) .card-bottom{display:none}
 }
 
 /* ───── Detail modal ───── */
-.detail-modal{width:min(880px,calc(100vw - 24px));background:#181a17;border:0;border-radius:10px;overflow-y:auto}
-.detail-cover{position:relative}
-.detail-cover .card-art{aspect-ratio:16/9;border-radius:0}
-.detail-body{position:relative;padding:28px clamp(20px,4vw,48px) 36px}
-.detail-body h2{font-size:clamp(28px,4vw,46px);letter-spacing:-1.2px}
-.detail-subtitle{font-size:16px;color:#e5e5e5}
-.detail-description{font-size:14px;line-height:1.85;color:#c4c8bd;white-space:pre-line}
-.detail-actions .primary-button{flex:0 0 auto;min-height:46px;padding:0 30px;font-size:16px}
-.detail-actions .secondary-button{min-height:46px;font-size:14px}
 .modal-close{background:#181a17;border-color:#ffffff30}
 
 /* ───── Footer & misc ───── */
@@ -167,7 +158,6 @@ body:not(.nf-home) .discovery{margin-top:28px;padding-top:0}
 .card-top-tag,.card-category,.card-metrics,.card-bottom,
 .banner-orbit,.creator-banner p,
 .community-heading p,.community-guidelines,
-.detail-tags,.detail-notice,.detail-overline,
 footer p,.filter-symbol,.filter>span:not(.filter-symbol),.discovery-top,.catalog-status:empty{display:none!important}
 
 /* Nav & header */
@@ -181,7 +171,7 @@ footer p,.filter-symbol,.filter>span:not(.filter-symbol),.discovery-top,.catalog
 .hero-description{font-size:clamp(14px,1.2vw,17px);color:#e6e8e0;margin:14px 0 0;max-width:30em}
 .hero-buttons{margin-top:22px}
 .hero-save{border-width:1px;background:transparent}
-.hero{box-shadow:none;border:0}
+.hero{box-shadow:none;border:1px solid var(--ds-border-strong,#ffffff29)}
 @media(max-width:600px){.hero h1{font-size:34px;letter-spacing:-1px}}
 
 /* Rows: fewer chrome, more air */
@@ -202,10 +192,6 @@ body:not(.nf-home) .card-info{padding:10px 2px 0}
 .sort-label span{display:none}
 
 /* Detail: cover, title, description, creator, actions */
-.detail-subtitle{display:none}
-.detail-description{font-size:15px;line-height:1.8;color:#d6d9cf}
-.detail-creator{margin:18px 0 22px}
-.detail-body h2{font-size:clamp(26px,3.4vw,38px)}
 
 /* Creator banner / community / footer */
 .creator-banner{background:#171916;border:1px solid #ffffff10;padding:26px 30px}
@@ -238,7 +224,7 @@ footer>span{margin-left:auto}
 .hero-peek-prev span{right:max(4px,calc(var(--nf-pad) / 2 - 20px))}
 .hero-peek-next span{left:max(4px,calc(var(--nf-pad) / 2 - 20px))}
 /* Dim the peek image without dimming the arrow, so it's as bright as the row arrows */
-.hero-peek{filter:none;box-shadow:inset 0 0 0 100vmax #00000059;transition:box-shadow .2s}
+.hero-peek{box-sizing:border-box;border:1px solid var(--ds-border,#ffffff1a);filter:none;box-shadow:inset 0 0 0 100vmax #00000059;transition:box-shadow .2s}
 .hero-peek:hover,.hero-peek:focus-visible{filter:none;box-shadow:inset 0 0 0 100vmax #0000}
 .hero-peek:hover span{color:var(--lime)}
 
@@ -360,10 +346,6 @@ body.community-view .community-discovery{margin-top:0;padding-top:92px}
 .hero[data-feature="cover"] .hero-art>img{width:100%;height:auto;max-width:640px;max-height:100%;aspect-ratio:16/9;object-fit:cover;border-radius:18px;transform:rotate(-4deg);box-shadow:0 30px 80px #000b}
 @media(max-width:600px){.nf-cat-action{position:static;margin:0 0 16px;min-height:38px;font-size:13px}}
 
-/* Detail modal: the close button floats over the cover without taking width
-   (a floated button used to narrow the cover and leave an empty strip on the right) */
-.detail-modal .modal-close{display:block;float:none;position:sticky;top:16px;z-index:5;margin:16px 16px -50px auto;transform:none}
-.detail-cover{overflow:hidden}
 
 /* Modals still scroll (wheel, touch, keyboard) but don't show a scrollbar */
 .modal{scrollbar-width:none;-ms-overflow-style:none}
@@ -385,8 +367,6 @@ body.community-view .community-discovery{margin-top:0;padding-top:92px}
 /* Website tech chips; creator link in the panel */
 .nf-stack-chips{margin:0 var(--nf-pad) 26px;align-items:center}
 .nf-stack-chips>span{flex:0 0 auto;font-size:12.5px;font-weight:600;color:#8d8d8d;margin-right:4px}
-.detail-creator-link{color:inherit;text-decoration:underline;text-underline-offset:3px}
-.detail-creator-link:hover{color:var(--lime)}
 
 /* VIBEFLIX email accounts in the sign-in dialog: login / signup / password reset */
 .email-auth{display:flex;flex-direction:column;gap:10px;text-align:left}
@@ -459,17 +439,11 @@ body.community-view .community-discovery{margin-top:0;padding-top:92px}
   footer>span{margin-left:0;order:9;width:100%}
 
   /* Preview modal: close button above the cover; actions in a tidy grid */
-  .detail-cover{z-index:0}
-  .detail-modal .modal-close{z-index:10}
-  .detail-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-  .detail-actions>.primary-button{grid-column:1/-1}
-  .detail-actions>*{justify-content:center;min-height:44px}
 
   /* Dialog titles never run under the close button */
   .modal h2{padding-right:40px}
   .auth-modal h2{padding-right:0}
 }
-@media(max-width:600px){.detail-modal .modal-close{background:#000000b3;color:#fff}}
 body:not(.nf-home) .project-row{margin-right:0}
 
 /* Continue watching: a card with a resume link under it, same footprint as other cards */
@@ -478,7 +452,6 @@ body:not(.nf-home) .project-row{margin-right:0}
 @media(min-width:851px){.nf-scroller>.nf-recent{flex-basis:calc((100% - (var(--nf-cols) - 1) * var(--nf-gap)) / var(--nf-cols))}}
 .nf-continue{display:flex;align-items:center;gap:6px;min-height:36px;padding:0 12px;border-radius:6px;background:#c3f5681a;border:1px solid #c3f56833;color:var(--lime);font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .nf-continue:hover{background:#c3f5682b}
-.nf-continue.quiet{background:none;border-color:#ffffff14;color:#aab1a2;font-weight:600}
 .nf-row-sub{margin:-6px var(--nf-pad) 10px;color:#9aa192;font-size:13.5px;line-height:1.5}
 /* Operator-checked community links */
 .verified-chip{display:inline-flex;align-items:center;gap:4px;margin-left:8px;padding:2px 8px;border-radius:999px;background:#c3f5681f;color:var(--lime);font-size:11px;font-weight:700}
@@ -492,20 +465,8 @@ body:not(.nf-home) .project-row{margin-right:0}
 .card-art.mature .art-main{filter:blur(18px) saturate(.6)}
 .card-art{position:relative}
 .mature-label{position:absolute;left:10px;top:10px;padding:3px 9px;border-radius:999px;background:#000b;border:1px solid #ffb44766;color:#ffc46b;font-size:11.5px;font-weight:700}
-/* Preview facts: install info, stack, AI tools, team */
-.detail-facts{display:grid;gap:8px;margin:16px 0 4px}
-.fact{display:grid;grid-template-columns:96px 1fr;gap:10px;align-items:start;font-size:13px}
-.fact b{color:#9aa192;font-weight:600;padding-top:3px}
-.fact-chips{display:flex;flex-wrap:wrap;gap:6px}
-.fact-chips span{padding:3px 10px;border-radius:999px;background:#ffffff0f;border:1px solid #ffffff14;color:#e3e7dc}
-.store-link{padding:3px 12px;border-radius:999px;background:#c3f5681a;border:1px solid #c3f56844;color:var(--lime);font-weight:700}
-.fact-warning{margin:0;color:#ffc46b;font-size:13px}
-.rate-nudge{outline:2px solid var(--lime);outline-offset:6px;border-radius:12px;transition:outline-color 1.5s}
-/* Detail panel: what people said lives on the work page */
-.detail-reviews{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 16px;margin:18px 0 0;padding:14px 0 0;border-top:1px solid #ffffff14;color:inherit;text-decoration:none;font-size:14px}
-.detail-reviews:hover b{color:#fff}.detail-reviews span{color:#b9bdb2}.detail-reviews b{color:var(--lime);font-weight:700}
-.detail-edit{display:inline-block;margin-top:12px}
 a.post-open,a.nf-post-tile{color:inherit;text-decoration:none}
+a.card-open,a.fresh-card{color:inherit;text-decoration:none}
 }
 
 /* Thumbnails are pictures only — the title is printed under each card, never drawn into the art in a font.
@@ -527,4 +488,4 @@ a.post-open,a.nf-post-tile{color:inherit;text-decoration:none}
 }
 
 /* Reserve space for the title caption before the separate continue link. */
-@media (min-width:851px) and (hover:hover) and (pointer:fine){.nf-home .nf-recent .project-card{margin-bottom:32px}}
+@media (min-width:851px) and (hover:hover) and (pointer:fine){.nf-home .nf-recent:has(.nf-continue) .project-card{margin-bottom:32px}}

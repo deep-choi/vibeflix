@@ -215,6 +215,10 @@ body:has(dialog.modal[open]) { overflow: hidden; }
 /* compact controls inside comment rows */
 .triage :is(select, input):not([type=checkbox]) { min-height: var(--ds-control-sm); padding-block: 4px; font-size: var(--ds-text-sm); width: auto; display: inline-block; }
 :is(.reply-form, .comment-edit-form) textarea:not([hidden]) { min-height: 72px; }
+/* a closed comment box is one line; it opens when someone starts writing */
+.comment-form:not(.open) textarea:not([hidden]) { min-height: var(--ds-control-md); resize: none; overflow: hidden; }
+/* report links stay out of the way: present, but never competing with the page */
+.report-line :is(.link, .text-button) { min-height: 0; padding: 4px 10px 4px 0; font-size: var(--ds-text-xs); font-weight: 400; color: var(--ds-text-3); }
 /* a control wrapped by its label sits 8px under the label text */
 :is(.modal, .field, .form-page) label > :is(input:not([type=checkbox], [type=radio]), select, textarea) { margin-top: 8px; }
 
@@ -339,7 +343,7 @@ dialog.modal::backdrop { background: var(--ds-backdrop); backdrop-filter: blur(6
 dialog.modal:is(.modal-sm, .auth-modal, .leave-guard, .entry-report, .community-dialog, #ad-confirm) { --modal-w: 440px; }
 dialog.modal.notification-modal { --modal-w: 600px; }
 dialog.modal:is(.modal-lg, .profile-modal, .ad-edit) { --modal-w: 720px; }
-dialog.modal:is(.modal-xl, .detail-modal) { --modal-w: 880px; --modal-pt: 0px; --modal-px: 0px; --modal-pb: 0px; }
+dialog.modal.modal-xl { --modal-w: 880px; --modal-pt: 0px; --modal-px: 0px; --modal-pb: 0px; }
 
 /* header */
 dialog.modal > :is(.section-kicker, .ds-kicker), dialog.modal > form > :is(.section-kicker, .ds-kicker) { margin: 0 0 8px; }
@@ -366,7 +370,6 @@ dialog.modal:has(> .modal-close) > :is(h2, form > h2) { padding-right: 44px; }
 .modal-close:hover { background: var(--ds-fill-hover); color: var(--ds-text); filter: none; }
 .modal-close::before, .modal-close::after { content: ''; position: absolute; inset: 0; margin: auto; width: 14px; height: 1.6px; border-radius: 1px; background: currentColor; transform: rotate(45deg); }
 .modal-close::after { transform: rotate(-45deg); }
-dialog.modal:is(.detail-modal) .modal-close { background: #000000a6; color: #fff; }
 .modal-close { z-index: 7; }
 .sheet-handle { display: none; }
 dialog.modal.about-modal > p { margin-bottom: 12px; }
@@ -387,7 +390,6 @@ dialog.modal.about-modal > .primary-button { margin-top: 12px; }
 }
 
 /* modals that lay out their own content (cover image, article, discussion) */
-.detail-body { padding: 28px 32px 32px; }
 
 /* sign-in keeps its centered layout */
 dialog.modal.auth-modal { text-align: center; --modal-pt: 48px; }
@@ -413,8 +415,8 @@ dialog.modal.auth-modal .email-auth { text-align: left; }
     width: 100%; max-width: 100%; max-height: calc(100dvh - 24px); margin: auto 0 0;
     border-width: 1px 0 0; border-radius: var(--ds-radius-lg) var(--ds-radius-lg) 0 0;
   }
-  dialog.modal:is(.modal-lg, .modal-xl, .detail-modal, .profile-modal, .ad-edit) { max-height: calc(100dvh - 12px); }
-  dialog.modal:is(.modal-xl, .detail-modal) { --modal-pt: 0px; --modal-px: 0px; --modal-pb: 0px; }
+  dialog.modal:is(.modal-lg, .modal-xl, .profile-modal, .ad-edit) { max-height: calc(100dvh - 12px); }
+  dialog.modal.modal-xl { --modal-pt: 0px; --modal-px: 0px; --modal-pb: 0px; }
   /* drag handle: a 28px strip at the top; dragging it down closes the sheet (public/ds.js) */
   .sheet-handle { display: block; position: absolute; top: 0; left: 0; right: 0; z-index: 6; height: 28px; touch-action: none; cursor: grab; }
   .sheet-handle::before { content: ''; position: absolute; top: 9px; left: 50%; width: 40px; height: 4px; margin-left: -20px; border-radius: 2px; background: #ffffff47; }
@@ -425,7 +427,6 @@ dialog.modal.auth-modal .email-auth { text-align: left; }
   :is(.modal-actions, .ad-dialog-actions) > :is(.btn, .primary-button, .secondary-button, .ad-btn) { flex: 1 1 0; }
   .form-submit-row > :is(.btn, .primary-button, .secondary-button) { flex: 1 1 0; }
   :is(.modal-actions) > :is(.form-footnote, .draft-status, .modal-actions-note) { flex-basis: 100%; }
-  .detail-body { padding: 24px 20px 24px; }
   .project-community { padding: 0 20px 28px; }
   .post-detail { padding: 32px 20px 20px; }
   dialog.modal.post-modal .discussion { padding: 20px 20px 28px; }
@@ -491,7 +492,6 @@ dialog.modal.auth-modal .email-auth { text-align: left; }
   .nf-home .nf-scroller { padding-bottom: 8px; }
   .nf-row { margin-bottom: 28px; }
 }
-.detail-actions { gap: 8px; }
 .post-detail-actions, .project-social-actions { gap: 8px; }
 .comment-actions { gap: 2px; }
 
